@@ -1,0 +1,10 @@
+{
+  "files.associations": {
+    "algorithm": "cpp",
+    "*.ipp": "cpp",
+    "string": "cpp",
+    "memory": "cpp",
+    "deque": "cpp"
+  },
+  "C_Cpp.configurationWarnings": "Disabled"
+}
