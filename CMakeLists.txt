@@ -65,13 +65,13 @@ add_library(
   STATIC
 
   src/base/BiDirectionalRpc.cpp
+  src/base/LogHandler.cpp
   src/external/easylogging++.cc
   )
 
 add_executable (
   peer
 
-  src/peer/LogHandler.cpp
   src/peer/Main.cpp
   )
 
@@ -81,10 +81,47 @@ target_link_libraries (
   wga-lib
   ${CMAKE_THREAD_LIBS_INIT}
   ${GFLAGS_LIBRARIES}
-)
+  ${CORE_LIBRARIES}
+  )
 
 if(BUILD_TEST) # Build unit tests.
   message(STATUS "Enabling test for ${PROJECT_NAME}")
   enable_testing()
-  add_subdirectory(test)
+
+  set(GTEST_PATH ${PROJECT_SOURCE_DIR}/test)
+
+  file(GLOB TEST_SRCS test/*Test.cpp )
+  add_executable(
+    wga-test
+  
+    ${TEST_SRCS}
+    test/Main.cpp
+    )
+  
+  add_dependencies(
+    wga-test
+    wga-lib
+    gtest
+    gtest_main
+    gmock
+    gmock_main)
+  
+  target_link_libraries(
+    wga-test
+    wga-lib
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${GFLAGS_LIBRARIES}
+    ${CORE_LIBRARIES}
+    gtest
+    gtest_main
+    gmock
+    gmock_main
+    resolv
+    util
+    )
+  add_test(
+    wga-test
+    wga-test
+    )
+  
 endif()
