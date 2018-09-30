@@ -54,6 +54,7 @@ include_directories(
   src/base
   src/external
   src/external/asio/asio/include
+  src/external/msgpack-c/include
   ${GFLAGS_INCLUDE_DIRS}
   )
 

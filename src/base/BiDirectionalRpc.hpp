@@ -2,6 +2,8 @@
 #define __BIDIRECTIONAL_RPC_H__
 
 #include "Headers.hpp"
+#include "MessageReader.hpp"
+#include "MessageWriter.hpp"
 
 namespace wga {
 class RpcId {
@@ -110,6 +112,9 @@ class BiDirectionalRpc {
 
   std::random_device rd;
   std::uniform_int_distribution<uint64_t> dist;
+
+  MessageReader reader;
+  MessageWriter writer;
 
   uint64_t onBarrier;
   uint64_t onId;

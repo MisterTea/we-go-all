@@ -70,7 +70,8 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
                                      std::size_t bytesTransferredUnsigned) {
   LOG(INFO) << "GOT PACKET FROM " << remoteSource;
   int bytesTransferred = (int)bytesTransferredUnsigned;
-  RpcHeader header = (RpcHeader)(receiveBuffer[0]);
+  reader.load(receiveBuffer, bytesTransferred);
+  RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
   if (flaky && rand() % 2 == 0) {
     // Pretend we never got the message
   } else {
@@ -82,8 +83,7 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
         // TODO: Update keepalive time
       } break;
       case REQUEST: {
-        RpcId uid;
-        memcpy(&uid, &receiveBuffer[1], sizeof(RpcId));
+        RpcId uid = reader.readClass<RpcId>();
         LOG(INFO) << "GOT REQUEST: " << uid.str();
 
         bool skip = false;
@@ -105,15 +105,12 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
           }
         }
         if (!skip) {
-          string payload(bytesTransferred - 1 - sizeof(RpcId), '\0');
-          memcpy(&(payload[0]), &receiveBuffer[1 + sizeof(RpcId)],
-                 payload.length());
+          string payload = reader.readPrimitive<string>();
           incomingRequests.push_back(IdPayload(uid, payload));
         }
       } break;
       case REPLY: {
-        RpcId uid;
-        memcpy(&uid, &receiveBuffer[1], sizeof(RpcId));
+        RpcId uid = reader.readClass<RpcId>();
 
         bool skip = false;
         if (incomingReplies.find(uid) != incomingReplies.end()) {
@@ -134,9 +131,7 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
             }
           }
           if (deletedRequest) {
-            string payload(bytesTransferred - 1 - sizeof(RpcId), '\0');
-            memcpy(&(payload[0]), &receiveBuffer[1 + sizeof(RpcId)],
-                   payload.length());
+            string payload = reader.readPrimitive<string>();
             incomingReplies.emplace(uid, payload);
             sendAcknowledge(uid);
           } else {
@@ -150,8 +145,7 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
         }
       } break;
       case ACKNOWLEDGE: {
-        RpcId uid;
-        memcpy(&uid, &receiveBuffer[1], sizeof(RpcId));
+        RpcId uid = reader.readClass<RpcId>();
         LOG(INFO) << "ACK UID " << uid.str();
         for (auto it = outgoingReplies.begin(); it != outgoingReplies.end();
              it++) {
@@ -220,30 +214,28 @@ void BiDirectionalRpc::tryToSendBarrier() {
 void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
   LOG(INFO) << "SENDING REQUEST: " << idPayload.id.str() << " TO "
             << remoteEndpoint;
-  string buf(1 + sizeof(RpcId) + idPayload.payload.length(), '\0');
-  buf[0] = REQUEST;
-  memcpy(&buf[1], &(idPayload.id), sizeof(RpcId));
-  memcpy(&buf[1 + sizeof(RpcId)], idPayload.payload.c_str(),
-         idPayload.payload.length());
-  post(buf);
+  writer.start();
+  writer.writePrimitive<unsigned char>(REQUEST);
+  writer.writeClass<RpcId>(idPayload.id);
+  writer.writePrimitive<string>(idPayload.payload);
+  post(writer.finish());
 }
 
 void BiDirectionalRpc::sendReply(const IdPayload& idPayload) {
   LOG(INFO) << "SENDING REPLY: " << idPayload.id.str() << " TO "
             << remoteEndpoint;
-  string buf(1 + sizeof(RpcId) + idPayload.payload.length(), '\0');
-  buf[0] = REPLY;
-  memcpy(&buf[1], &(idPayload.id), sizeof(RpcId));
-  memcpy(&buf[1 + sizeof(RpcId)], idPayload.payload.c_str(),
-         idPayload.payload.length());
-  post(buf);
+  writer.start();
+  writer.writePrimitive<unsigned char>(REPLY);
+  writer.writeClass<RpcId>(idPayload.id);
+  writer.writePrimitive<string>(idPayload.payload);
+  post(writer.finish());
 }
 
 void BiDirectionalRpc::sendAcknowledge(const RpcId& uid) {
-  string buf(1 + sizeof(RpcId), '\0');
-  buf[0] = ACKNOWLEDGE;
-  memcpy(&buf[1], &(uid), sizeof(RpcId));
-  post(buf);
+  writer.start();
+  writer.writePrimitive<unsigned char>(ACKNOWLEDGE);
+  writer.writeClass<RpcId>(uid);
+  post(writer.finish());
 }
 
 void BiDirectionalRpc::post(const string& s) {

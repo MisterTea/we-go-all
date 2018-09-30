@@ -63,6 +63,7 @@
 #include "base64.hpp"
 #include "json.hpp"
 #include "sole.hpp"
+#include "msgpack.hpp"
 
 using namespace std;
 
@@ -91,6 +92,10 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 
 #define FATAL_FAIL_UNLESS_EINVAL(X)   \
   if (((X) == -1) && errno != EINVAL) \
+    LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
+
+#define FATAL_IF_FALSE(X) \
+  if (((X) == false))     \
     LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
 
 namespace wga {
