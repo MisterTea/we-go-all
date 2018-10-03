@@ -172,6 +172,11 @@ RpcId BiDirectionalRpc::request(const string& payload) {
   auto fullUuid = sole::uuid4();
   auto uuid = RpcId(onBarrier, fullUuid.cd);
   auto idPayload = IdPayload(uuid, payload);
+  requestWithId(idPayload);
+  return uuid;
+}
+
+void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
   if (outgoingRequests.empty() ||
       outgoingRequests.front().id.barrier == onBarrier) {
     // We can send the request immediately
@@ -181,7 +186,6 @@ RpcId BiDirectionalRpc::request(const string& payload) {
     // We have to wait for existing requests from an older barrier
     delayedRequests.push_back(idPayload);
   }
-  return uuid;
 }
 
 void BiDirectionalRpc::reply(const RpcId& rpcId, const string& payload) {

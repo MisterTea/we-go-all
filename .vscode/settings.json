@@ -18,7 +18,8 @@
     "variant": "cpp",
     "functional": "cpp",
     "tuple": "cpp",
-    "utility": "cpp"
+    "utility": "cpp",
+    "vector": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled"
 }

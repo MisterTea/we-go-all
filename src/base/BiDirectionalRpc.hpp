@@ -61,6 +61,7 @@ class BiDirectionalRpc {
   void barrier() { onBarrier++; }
 
   RpcId request(const string& payload);
+  void requestWithId(const IdPayload& idPayload);
   void reply(const RpcId& rpcId, const string& payload);
 
   bool hasIncomingRequest() { return !incomingRequests.empty(); }
