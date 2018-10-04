@@ -53,7 +53,6 @@ class BiDirectionalRpc {
  public:
   BiDirectionalRpc(shared_ptr<asio::io_service> _ioService,
                    shared_ptr<udp::socket> _localSocket,
-                   shared_ptr<udp::socket> _remoteSocket,
                    const udp::endpoint& _remoteEndpoint);
   ~BiDirectionalRpc();
   void shutdown();
@@ -107,7 +106,6 @@ class BiDirectionalRpc {
 
   shared_ptr<asio::io_service> ioService;
   shared_ptr<udp::socket> localSocket;
-  shared_ptr<udp::socket> remoteSocket;
   udp::endpoint remoteSource;
   udp::endpoint remoteEndpoint;
 

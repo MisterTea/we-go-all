@@ -19,7 +19,10 @@
     "functional": "cpp",
     "tuple": "cpp",
     "utility": "cpp",
-    "vector": "cpp"
+    "vector": "cpp",
+    "fstream": "cpp",
+    "locale": "cpp",
+    "iosfwd": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled"
 }

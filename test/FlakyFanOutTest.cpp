@@ -39,11 +39,8 @@ class FlakyFanOutTest : public testing::Test {
     auto remoteEndpoint = it->endpoint();
     LOG(INFO) << "GOT ENTRY: " << remoteEndpoint.size();
 
-    shared_ptr<udp::socket> remoteSocket(new udp::socket(*ioService));
-    remoteSocket->open(udp::v4());
-
     shared_ptr<BiDirectionalRpc> rpc(new BiDirectionalRpc(
-        ioService, localSocket, remoteSocket, remoteEndpoint));
+        ioService, localSocket, remoteEndpoint));
     rpc->setFlaky(true);
     return rpc;
   }
@@ -61,11 +58,8 @@ class FlakyFanOutTest : public testing::Test {
       auto remoteEndpoint = it->endpoint();
       LOG(INFO) << "GOT ENTRY: " << remoteEndpoint.size();
 
-      shared_ptr<udp::socket> remoteSocket(new udp::socket(*ioService));
-      remoteSocket->open(udp::v4());
-
       shared_ptr<BiDirectionalRpc> rpc(new BiDirectionalRpc(
-          ioService, localSocket, remoteSocket, remoteEndpoint));
+          ioService, localSocket, remoteEndpoint));
       rpc->setFlaky(true);
       rpcs.push_back(rpc);
     }

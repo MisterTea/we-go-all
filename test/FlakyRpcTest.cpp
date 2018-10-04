@@ -34,13 +34,11 @@ class FlakyRpcTest : public testing::Test {
     udp::resolver::query query(udp::v4(), "127.0.0.1", std::to_string(remotePort));
     auto it = resolver.resolve(query);
     auto remoteEndpoint = it->endpoint();
-    LOG(INFO) << "GOT ENTRY: " << remoteEndpoint.size();
-
-    shared_ptr<udp::socket> remoteSocket(new udp::socket(*ioService));
-    remoteSocket->open(udp::v4());
+    LOG(INFO) << "GOT ENTRY: " << remoteEndpoint;
+    LOG(INFO) << "GOT ENTRY2: " << ((++it) == asio::ip::basic_resolver_results<asio::ip::udp>());
 
     shared_ptr<BiDirectionalRpc> rpc(new BiDirectionalRpc(
-        ioService, localSocket, remoteSocket, remoteEndpoint));
+        ioService, localSocket, remoteEndpoint));
     rpc->setFlaky(true);
     return rpc;
   }

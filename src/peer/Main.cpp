@@ -24,10 +24,7 @@ int main(int argc, char** argv) {
   auto remoteEndpoint = it->endpoint();
   LOG(INFO) << "GOT ENTRY: " << remoteEndpoint.size();
 
-  shared_ptr<udp::socket> remoteSocket(new udp::socket(*ioService));
-  remoteSocket->open(udp::v4());
-
-  shared_ptr<BiDirectionalRpc> rpc(new BiDirectionalRpc(ioService, localSocket, remoteSocket, remoteEndpoint));
+  shared_ptr<BiDirectionalRpc> rpc(new BiDirectionalRpc(ioService, localSocket, remoteEndpoint));
   rpc->setFlaky(true);
 
   std::thread t([ioService](){ ioService->run(); });

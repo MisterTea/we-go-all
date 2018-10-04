@@ -3,11 +3,9 @@
 namespace wga {
 BiDirectionalRpc::BiDirectionalRpc(shared_ptr<asio::io_service> _ioService,
                                    shared_ptr<udp::socket> _localSocket,
-                                   shared_ptr<udp::socket> _remoteSocket,
                                    const udp::endpoint& _remoteEndpoint)
     : ioService(_ioService),
       localSocket(_localSocket),
-      remoteSocket(_remoteSocket),
       remoteEndpoint(_remoteEndpoint),
       onBarrier(0),
       onId(0),
@@ -24,18 +22,13 @@ BiDirectionalRpc::~BiDirectionalRpc() {
   if (localSocket.get()) {
     LOG(FATAL) << "Tried to destroy an RPC instance without calling shutdown";
   }
-  if (remoteSocket.get()) {
-    LOG(FATAL) << "Tried to destroy an RPC instance without calling shutdown";
-  }
 }
 
 void BiDirectionalRpc::shutdown() {
   LOG(INFO) << "CLOSING SOCKET";
   localSocket->close();
-  remoteSocket->close();
   LOG(INFO) << "KILLING SOCKET";
   localSocket.reset();
-  remoteSocket.reset();
 }
 
 void BiDirectionalRpc::heartbeat() {
@@ -244,7 +237,10 @@ void BiDirectionalRpc::sendAcknowledge(const RpcId& uid) {
 
 void BiDirectionalRpc::post(const string& s) {
   ioService->post([this, s]() {
-    int bytesSent = remoteSocket->send_to(asio::buffer(s), remoteEndpoint);
+    // TODO: We have remoteEndpoint (the public IP:PORT) of the remote host
+    // and we also have remoteSource which is where the previous packet
+    // came from.  We should be smart about which one to use.
+    int bytesSent = localSocket->send_to(asio::buffer(s), remoteEndpoint);
     LOG(INFO) << bytesSent << " bytes sent";
   });
 }
