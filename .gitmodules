@@ -2,8 +2,8 @@
 	path = external/googletest
 	url = https://github.com/google/googletest.git
 [submodule "src/external/asio"]
-	path = src/external/asio
+	path = external/asio
 	url = https://github.com/chriskohlhoff/asio.git
 [submodule "src/external/msgpack-c"]
-	path = src/external/msgpack-c
+	path = external/msgpack-c
 	url = https://github.com/msgpack/msgpack-c.git

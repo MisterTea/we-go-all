@@ -52,9 +52,9 @@ ENDIF()
 
 include_directories(
   src/base
-  src/external
-  src/external/asio/asio/include
-  src/external/msgpack-c/include
+  external
+  external/asio/asio/include
+  external/msgpack-c/include
   ${GFLAGS_INCLUDE_DIRS}
   )
 
@@ -64,7 +64,7 @@ add_library(
 
   src/base/BiDirectionalRpc.cpp
   src/base/LogHandler.cpp
-  src/external/easylogging++.cc
+  external/easylogging++.cc
   )
 
 add_executable (
