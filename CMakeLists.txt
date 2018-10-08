@@ -1,8 +1,10 @@
 cmake_minimum_required (VERSION 3.0.2)
 project (WeGoAll VERSION 0.0.1)
 
-option(BUILD_TEST "Build all unit test" OFF)
+option(BUILD_TEST "Build all unit test" ON)
 option(CODE_COVERAGE "Enable code coverage" OFF)
+
+SET(BUILD_CPR_TESTS OFF)
 
 IF(APPLE)
 SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
@@ -17,8 +19,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DASIO_STANDALONE")
 add_subdirectory(${CMAKE_SOURCE_DIR}/external/cpr)
 
 IF(BUILD_TEST)
-  # Tests are included in curl
-  #add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
 ENDIF(BUILD_TEST)
 IF(CODE_COVERAGE)
   if(UNIX)
