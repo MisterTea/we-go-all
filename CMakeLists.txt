@@ -4,6 +4,9 @@ project (WeGoAll VERSION 0.0.1)
 option(BUILD_TEST "Build all unit test" OFF)
 option(CODE_COVERAGE "Enable code coverage" OFF)
 
+IF(APPLE)
+SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+ENDIF()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWGA_VERSION='\"${CMAKE_PROJECT_VERSION}\"'")
 # For easylogging, disable default log file, enable crash log, ensure thread safe, and catch c++ exceptions
@@ -11,8 +14,11 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_NO_DEFAULT_LOG_FILE -DELPP_FEATUR
 # Enable standalone asio
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DASIO_STANDALONE")
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/external/cpr)
+
 IF(BUILD_TEST)
-  add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
+  # Tests are included in curl
+  #add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
 ENDIF(BUILD_TEST)
 IF(CODE_COVERAGE)
   if(UNIX)
@@ -58,6 +64,7 @@ include_directories(
   external/msgpack-c/include
   ${GFLAGS_INCLUDE_DIRS}
   ${sodium_INCLUDE_DIR}
+  ${CPR_INCLUDE_DIRS}
   )
 
 add_library(
@@ -82,6 +89,7 @@ target_link_libraries (
   peer
   LINK_PUBLIC
   wga-lib
+  ${CPR_LIBRARIES}
   ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
   ${GFLAGS_LIBRARIES}
@@ -108,11 +116,13 @@ if(BUILD_TEST) # Build unit tests.
     gtest
     gtest_main
     gmock
-    gmock_main)
+    gmock_main
+    )
   
   target_link_libraries(
     wga-test
     wga-lib
+    ${CPR_LIBRARIES}
     ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
     ${GFLAGS_LIBRARIES}

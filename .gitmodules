@@ -7,3 +7,6 @@
 [submodule "src/external/msgpack-c"]
 	path = external/msgpack-c
 	url = https://github.com/msgpack/msgpack-c.git
+[submodule "external/cpr"]
+	path = external/cpr
+	url = https://github.com/whoshuu/cpr.git

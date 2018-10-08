@@ -104,13 +104,13 @@ class FlakyRpcTest : public testing::Test {
     ioServiceThread = std::thread([this]() { this->ioService->run(); });
   }
 
-  void runTest(int NUM_NODES, int NUM_TRIALS) {
+  void runTest(int numNodes, int numTrials) {
     map<RpcId, RpcDetails> allRpcDetails;
-    for (int trials = 0; trials < NUM_TRIALS; trials++) {
+    for (int trials = 0; trials < numTrials; trials++) {
       RpcDetails rpcDetails;
-      rpcDetails.from = rand() % NUM_NODES;
+      rpcDetails.from = rand() % numNodes;
       do {
-        rpcDetails.to = rand() % NUM_NODES;
+        rpcDetails.to = rand() % numNodes;
       } while (rpcDetails.to == rpcDetails.from);
       rpcDetails.request = string("AAAAAAAA");
       for (int a = 0; a < rpcDetails.request.length(); a++) {
@@ -161,7 +161,7 @@ class FlakyRpcTest : public testing::Test {
         }
       }
 
-      if (numAcks == NUM_TRIALS) {
+      if (numAcks == numTrials) {
         // Test complete
         break;
       }
@@ -183,25 +183,25 @@ class FlakyRpcTest : public testing::Test {
 };
 
 TEST_F(FlakyRpcTest, TwoNodes) {
-  const int NUM_NODES = 2;
-  const int NUM_TRIALS = 1000;
-  initFullyConnectedMesh(NUM_NODES);
+  const int numNodes = 2;
+  const int numTrials = 1000;
+  initFullyConnectedMesh(numNodes);
 
-  runTest(NUM_NODES, NUM_TRIALS);
+  runTest(numNodes, numTrials);
 }
 
 TEST_F(FlakyRpcTest, ThreeNodes) {
-  const int NUM_NODES = 3;
-  const int NUM_TRIALS = 1000;
-  initFullyConnectedMesh(NUM_NODES);
+  const int numNodes = 3;
+  const int numTrials = 1000;
+  initFullyConnectedMesh(numNodes);
 
-  runTest(NUM_NODES, NUM_TRIALS);
+  runTest(numNodes, numTrials);
 }
 
 TEST_F(FlakyRpcTest, TenNodes) {
-  const int NUM_NODES = 10;
-  const int NUM_TRIALS = 1000;
-  initFullyConnectedMesh(NUM_NODES);
+  const int numNodes = 10;
+  const int numTrials = 1000;
+  initFullyConnectedMesh(numNodes);
 
-  runTest(NUM_NODES, NUM_TRIALS);
+  runTest(numNodes, numTrials);
 }

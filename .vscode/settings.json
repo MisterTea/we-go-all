@@ -28,7 +28,8 @@
     "array": "cpp",
     "thread": "cpp",
     "chrono": "cpp",
-    "map": "cpp"
+    "map": "cpp",
+    "iostream": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled"
 }
