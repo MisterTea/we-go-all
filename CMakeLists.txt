@@ -41,6 +41,7 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Required packages
 find_package(Threads REQUIRED)
 find_package(GFlags REQUIRED)
+find_package(Sodium REQUIRED)
 
 IF(FREEBSD)
   set(CORE_LIBRARIES util execinfo)
@@ -56,6 +57,7 @@ include_directories(
   external/asio/asio/include
   external/msgpack-c/include
   ${GFLAGS_INCLUDE_DIRS}
+  ${sodium_INCLUDE_DIR}
   )
 
 add_library(
@@ -63,7 +65,10 @@ add_library(
   STATIC
 
   src/base/BiDirectionalRpc.cpp
+  src/base/CryptoHandler.cpp
   src/base/LogHandler.cpp
+  src/base/MultiEndpointHandler.cpp
+  src/base/PortMultiplexer.cpp
   external/easylogging++.cc
   )
 
@@ -77,6 +82,7 @@ target_link_libraries (
   peer
   LINK_PUBLIC
   wga-lib
+  ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
   ${GFLAGS_LIBRARIES}
   ${CORE_LIBRARIES}
@@ -107,6 +113,7 @@ if(BUILD_TEST) # Build unit tests.
   target_link_libraries(
     wga-test
     wga-lib
+    ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
     ${GFLAGS_LIBRARIES}
     ${CORE_LIBRARIES}

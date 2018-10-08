@@ -22,7 +22,11 @@
     "vector": "cpp",
     "fstream": "cpp",
     "locale": "cpp",
-    "iosfwd": "cpp"
+    "iosfwd": "cpp",
+    "__mutex_base": "cpp",
+    "unordered_set": "cpp",
+    "array": "cpp",
+    "thread": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled"
 }

@@ -4,21 +4,9 @@
 #include "Headers.hpp"
 #include "MessageReader.hpp"
 #include "MessageWriter.hpp"
+#include "RpcId.hpp"
 
 namespace wga {
-class RpcId {
- public:
-  RpcId() : barrier(0), id(0) {}
-  RpcId(uint64_t _barrier, uint64_t _id) : barrier(_barrier), id(_id) {}
-  bool operator==(const RpcId& other) const {
-    return barrier == other.barrier && id == other.id;
-  }
-  string str() const { return to_string(barrier) + "/" + to_string(id); }
-
-  uint64_t barrier;
-  uint64_t id;
-};
-
 class IdPayload {
  public:
   IdPayload() {}
@@ -51,17 +39,15 @@ enum RpcHeader { HEARTBEAT = 1, REQUEST = 2, REPLY = 3, ACKNOWLEDGE = 4 };
 
 class BiDirectionalRpc {
  public:
-  BiDirectionalRpc(shared_ptr<asio::io_service> _ioService,
-                   shared_ptr<udp::socket> _localSocket,
-                   const udp::endpoint& _remoteEndpoint);
-  ~BiDirectionalRpc();
+  BiDirectionalRpc();
+  virtual ~BiDirectionalRpc();
   void shutdown();
   void heartbeat();
   void barrier() { onBarrier++; }
 
   RpcId request(const string& payload);
-  void requestWithId(const IdPayload& idPayload);
-  void reply(const RpcId& rpcId, const string& payload);
+  virtual void requestWithId(const IdPayload& idPayload);
+  virtual void reply(const RpcId& rpcId, const string& payload);
 
   bool hasIncomingRequest() { return !incomingRequests.empty(); }
   IdPayload consumeIncomingRequest() {
@@ -96,6 +82,8 @@ class BiDirectionalRpc {
 
   void setFlaky(bool _flaky) { flaky = _flaky; }
 
+  virtual void receive(const string& message);
+
  protected:
   deque<IdPayload> delayedRequests;
   deque<IdPayload> outgoingRequests;
@@ -104,30 +92,26 @@ class BiDirectionalRpc {
   deque<IdPayload> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
 
-  shared_ptr<asio::io_service> ioService;
-  shared_ptr<udp::socket> localSocket;
-  udp::endpoint remoteSource;
-  udp::endpoint remoteEndpoint;
-
-  std::random_device rd;
-  std::uniform_int_distribution<uint64_t> dist;
-
   MessageReader reader;
   MessageWriter writer;
 
   uint64_t onBarrier;
   uint64_t onId;
   bool flaky;
-  std::array<char, 1024 * 1024> receiveBuffer;
 
-  void handleRecieve(const asio::error_code& error,
-                     std::size_t bytesTransferred);
   void resendRandomOutgoingMessage();
   void tryToSendBarrier();
   void sendRequest(const IdPayload& idPayload);
   void sendReply(const IdPayload& idPayload);
   void sendAcknowledge(const RpcId& uid);
-  void post(const string& s);
+  virtual void addIncomingRequest(const IdPayload& idPayload) {
+    incomingRequests.push_back(idPayload);
+  }
+  virtual void addIncomingReply(const RpcId& uid, const string& payload) {
+    incomingReplies.emplace(uid, payload);
+  }
+
+  virtual void send(const string& message) = 0;
 };
 }  // namespace wga
 

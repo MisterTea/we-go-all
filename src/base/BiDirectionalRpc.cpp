@@ -1,35 +1,11 @@
 #include "BiDirectionalRpc.hpp"
 
 namespace wga {
-BiDirectionalRpc::BiDirectionalRpc(shared_ptr<asio::io_service> _ioService,
-                                   shared_ptr<udp::socket> _localSocket,
-                                   const udp::endpoint& _remoteEndpoint)
-    : ioService(_ioService),
-      localSocket(_localSocket),
-      remoteEndpoint(_remoteEndpoint),
-      onBarrier(0),
-      onId(0),
-      flaky(false) {
-  dist = std::uniform_int_distribution<uint64_t>(0, UINT64_MAX);
+BiDirectionalRpc::BiDirectionalRpc() : onBarrier(0), onId(0), flaky(false) {}
 
-  localSocket->async_receive_from(
-      asio::buffer(receiveBuffer), remoteSource,
-      std::bind(&BiDirectionalRpc::handleRecieve, this, std::placeholders::_1,
-                std::placeholders::_2));
-}
+BiDirectionalRpc::~BiDirectionalRpc() {}
 
-BiDirectionalRpc::~BiDirectionalRpc() {
-  if (localSocket.get()) {
-    LOG(FATAL) << "Tried to destroy an RPC instance without calling shutdown";
-  }
-}
-
-void BiDirectionalRpc::shutdown() {
-  LOG(INFO) << "CLOSING SOCKET";
-  localSocket->close();
-  LOG(INFO) << "KILLING SOCKET";
-  localSocket.reset();
-}
+void BiDirectionalRpc::shutdown() {}
 
 void BiDirectionalRpc::heartbeat() {
   LOG(INFO) << "BEAT";
@@ -39,7 +15,7 @@ void BiDirectionalRpc::heartbeat() {
     LOG(INFO) << "SENDING HEARTBEAT";
     string s = "0";
     s[0] = HEARTBEAT;
-    post(s);
+    send(s);
   }
 }
 
@@ -47,23 +23,18 @@ void BiDirectionalRpc::resendRandomOutgoingMessage() {
   if (!outgoingReplies.empty() &&
       (outgoingRequests.empty() || rand() % 2 == 0)) {
     // Re-send a random reply
-    auto it = outgoingReplies.begin();
-    std::advance(it, rand() % outgoingReplies.size());
+    DRAW_FROM_UNORDERED(it, outgoingReplies);
     sendReply(*it);
   } else if (!outgoingRequests.empty()) {
     // Re-send a random request
-    auto it = outgoingRequests.begin();
-    std::advance(it, rand() % outgoingRequests.size());
+    DRAW_FROM_UNORDERED(it, outgoingRequests);
     sendRequest(*it);
   } else {
   }
 }
 
-void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
-                                     std::size_t bytesTransferredUnsigned) {
-  LOG(INFO) << "GOT PACKET FROM " << remoteSource;
-  int bytesTransferred = (int)bytesTransferredUnsigned;
-  reader.load(receiveBuffer, bytesTransferred);
+void BiDirectionalRpc::receive(const string& message) {
+  reader.load(message);
   RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
   if (flaky && rand() % 2 == 0) {
     // Pretend we never got the message
@@ -73,7 +44,7 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
     }
     switch (header) {
       case HEARTBEAT: {
-        // TODO: Update keepalive time
+        // MultiEndpointHandler deals with keepalive
       } break;
       case REQUEST: {
         RpcId uid = reader.readClass<RpcId>();
@@ -99,7 +70,7 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
         }
         if (!skip) {
           string payload = reader.readPrimitive<string>();
-          incomingRequests.push_back(IdPayload(uid, payload));
+          addIncomingRequest(IdPayload(uid, payload));
         }
       } break;
       case REPLY: {
@@ -125,7 +96,7 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
           }
           if (deletedRequest) {
             string payload = reader.readPrimitive<string>();
-            incomingReplies.emplace(uid, payload);
+            addIncomingReply(uid, payload);
             sendAcknowledge(uid);
           } else {
             // We must have processed both this request and reply.  Send the
@@ -154,11 +125,6 @@ void BiDirectionalRpc::handleRecieve(const asio::error_code& error,
       } break;
     }
   }
-
-  localSocket->async_receive_from(
-      asio::buffer(receiveBuffer), remoteSource,
-      std::bind(&BiDirectionalRpc::handleRecieve, this, std::placeholders::_1,
-                std::placeholders::_2));
 }
 
 RpcId BiDirectionalRpc::request(const string& payload) {
@@ -209,39 +175,28 @@ void BiDirectionalRpc::tryToSendBarrier() {
 }
 
 void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
-  LOG(INFO) << "SENDING REQUEST: " << idPayload.id.str() << " TO "
-            << remoteEndpoint;
+  LOG(INFO) << "SENDING REQUEST: " << idPayload.id.str();
   writer.start();
   writer.writePrimitive<unsigned char>(REQUEST);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
-  post(writer.finish());
+  send(writer.finish());
 }
 
 void BiDirectionalRpc::sendReply(const IdPayload& idPayload) {
-  LOG(INFO) << "SENDING REPLY: " << idPayload.id.str() << " TO "
-            << remoteEndpoint;
+  LOG(INFO) << "SENDING REPLY: " << idPayload.id.str();
   writer.start();
   writer.writePrimitive<unsigned char>(REPLY);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
-  post(writer.finish());
+  send(writer.finish());
 }
 
 void BiDirectionalRpc::sendAcknowledge(const RpcId& uid) {
   writer.start();
   writer.writePrimitive<unsigned char>(ACKNOWLEDGE);
   writer.writeClass<RpcId>(uid);
-  post(writer.finish());
+  send(writer.finish());
 }
 
-void BiDirectionalRpc::post(const string& s) {
-  ioService->post([this, s]() {
-    // TODO: We have remoteEndpoint (the public IP:PORT) of the remote host
-    // and we also have remoteSource which is where the previous packet
-    // came from.  We should be smart about which one to use.
-    int bytesSent = localSocket->send_to(asio::buffer(s), remoteEndpoint);
-    LOG(INFO) << bytesSent << " bytes sent";
-  });
-}
 }  // namespace wga

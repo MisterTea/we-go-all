@@ -2,8 +2,9 @@
 
 #include "gtest/gtest.h"
 
-#include "BiDirectionalRpc.hpp"
 #include "LogHandler.hpp"
+#include "MultiEndpointHandler.hpp"
+#include "PortMultiplexer.hpp"
 
 using namespace wga;
 
@@ -12,8 +13,27 @@ class FlakyRpcTest : public testing::Test {
   void SetUp() override {
     ioService = shared_ptr<asio::io_service>(new asio::io_service());
     shared_ptr<asio::io_service> localService = ioService;
-    rpc1 = setupConnection(6888, 6889);
-    rpc2 = setupConnection(6889, 6888);
+
+    shared_ptr<CryptoHandler> cryptoHandler1(new CryptoHandler());
+    shared_ptr<CryptoHandler> cryptoHandler2(new CryptoHandler());
+
+    cryptoHandler1->setOtherPublicKey(cryptoHandler2->getMyPublicKey());
+    cryptoHandler2->setOtherPublicKey(cryptoHandler1->getMyPublicKey());
+
+    if (!cryptoHandler2->recieveIncomingSessionKey(
+            cryptoHandler1->generateOutgoingSessionKey(
+                cryptoHandler2->getMyPublicKey()))) {
+      LOG(FATAL) << "Receive sesison key failed";
+    }
+    if (!cryptoHandler1->recieveIncomingSessionKey(
+            cryptoHandler2->generateOutgoingSessionKey(
+                cryptoHandler1->getMyPublicKey()))) {
+      LOG(FATAL) << "Receive sesison key failed";
+    }
+
+    setupConnection(cryptoHandler1, 6888, 6889, rpc1, multiplexer1);
+    setupConnection(cryptoHandler2, 6889, 6888, rpc2, multiplexer2);
+
     ioServiceThread = std::thread([localService]() { localService->run(); });
   }
 
@@ -26,26 +46,35 @@ class FlakyRpcTest : public testing::Test {
     LOG(INFO) << "TEAR DOWN COMPLETE";
   }
 
-  shared_ptr<BiDirectionalRpc> setupConnection(
-      int selfPort, int remotePort) {
-    shared_ptr<udp::socket> localSocket(new udp::socket(
-        *ioService, udp::endpoint(udp::v4(), selfPort)));
+  void setupConnection(shared_ptr<CryptoHandler> cryptoHandler, int selfPort,
+                       int remotePort, shared_ptr<MultiEndpointHandler>& rpc,
+                       shared_ptr<PortMultiplexer>& portMultiplexer) {
+    shared_ptr<udp::socket> localSocket(
+        new udp::socket(*ioService, udp::endpoint(udp::v4(), selfPort)));
     udp::resolver resolver(*ioService);
-    udp::resolver::query query(udp::v4(), "127.0.0.1", std::to_string(remotePort));
+    udp::resolver::query query(udp::v4(), "127.0.0.1",
+                               std::to_string(remotePort));
     auto it = resolver.resolve(query);
     auto remoteEndpoint = it->endpoint();
     LOG(INFO) << "GOT ENTRY: " << remoteEndpoint;
-    LOG(INFO) << "GOT ENTRY2: " << ((++it) == asio::ip::basic_resolver_results<asio::ip::udp>());
+    LOG(INFO) << "GOT ENTRY2: "
+              << ((++it) == asio::ip::basic_resolver_results<asio::ip::udp>());
 
-    shared_ptr<BiDirectionalRpc> rpc(new BiDirectionalRpc(
-        ioService, localSocket, remoteEndpoint));
+    rpc.reset(new MultiEndpointHandler(localSocket, ioService, cryptoHandler,
+                                       remoteEndpoint));
     rpc->setFlaky(true);
-    return rpc;
+
+    portMultiplexer.reset(new PortMultiplexer(ioService, localSocket));
+    portMultiplexer->addEndpointHandler(rpc);
   }
 
   shared_ptr<asio::io_service> ioService;
-  shared_ptr<BiDirectionalRpc> rpc1;
-  shared_ptr<BiDirectionalRpc> rpc2;
+  shared_ptr<MultiEndpointHandler> rpc1;
+  shared_ptr<MultiEndpointHandler> rpc2;
+
+  shared_ptr<PortMultiplexer> multiplexer1;
+  shared_ptr<PortMultiplexer> multiplexer2;
+
   std::thread ioServiceThread;
 };
 

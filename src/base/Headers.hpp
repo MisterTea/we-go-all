@@ -62,8 +62,8 @@
 #include "asio.hpp"
 #include "base64.hpp"
 #include "json.hpp"
-#include "sole.hpp"
 #include "msgpack.hpp"
+#include "sole.hpp"
 
 using namespace std;
 
@@ -97,6 +97,10 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 #define FATAL_IF_FALSE(X) \
   if (((X) == false))     \
     LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
+
+#define DRAW_FROM_UNORDERED(ITERATOR, COLLECTION) \
+  auto ITERATOR = COLLECTION.begin();             \
+  std::advance(ITERATOR, rand() % COLLECTION.size());
 
 namespace wga {
 template <typename Out>
@@ -148,6 +152,17 @@ inline int replaceAll(std::string& str, const std::string& from,
   }
   return retval;
 }
+
+template<class T, size_t N, class V>
+std::array<T, N> stringToArray(const V& v)
+{
+    assert(v.size() == N);
+    std::array<T, N> d;
+    using std::begin; using std::end; 
+    std::copy( begin(v), end(v), begin(d) ); // this is the recommended way
+    return d;
+}
+
 }  // namespace wga
 
 #endif
