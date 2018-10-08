@@ -8,10 +8,12 @@ namespace wga {
 class PortMultiplexer {
  public:
   PortMultiplexer(shared_ptr<asio::io_service> _ioService,
+                  shared_ptr<mutex> _ioServiceMutex,
                   shared_ptr<udp::socket> _localSocket);
 
   void handleRecieve(const asio::error_code& error,
                      std::size_t bytesTransferred);
+  shared_ptr<udp::socket> getLocalSocket() { return localSocket; }
 
   void addEndpointHandler(shared_ptr<MultiEndpointHandler> endpointHandler) {
     endpointHandlers.push_back(endpointHandler);
@@ -19,6 +21,7 @@ class PortMultiplexer {
 
  protected:
   shared_ptr<asio::io_service> ioService;
+  shared_ptr<mutex> ioServiceMutex;
   shared_ptr<udp::socket> localSocket;
   vector<shared_ptr<MultiEndpointHandler>> endpointHandlers;
 

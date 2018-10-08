@@ -17,9 +17,21 @@ typedef array<uint8_t, crypto_secretbox_NONCEBYTES + crypto_box_MACBYTES +
 
 class CryptoHandler {
  public:
-  CryptoHandler(const PrivateKey& _myPrivateKey, const PublicKey& _myPublicKey);
-  CryptoHandler();
+  CryptoHandler(const PublicKey& _myPublicKey, const PrivateKey& _myPrivateKey);
   ~CryptoHandler();
+
+  static void init() {
+    if (-1 == sodium_init()) {
+      LOG(FATAL) << "libsodium init failed";
+    }
+  }
+
+  static pair<PublicKey, PrivateKey> generateKey() {
+    PublicKey publicKey;
+    PrivateKey privateKey;
+    crypto_box_keypair(publicKey.data(), privateKey.data());
+    return make_pair(publicKey, privateKey);
+  }
 
   EncryptedSessionKey generateOutgoingSessionKey(
       const PublicKey& _otherPublicKey);
@@ -44,9 +56,8 @@ class CryptoHandler {
   }
 
  protected:
-  void init();
-  PrivateKey myPrivateKey;
   PrivateKey myPublicKey;
+  PrivateKey myPrivateKey;
   PublicKey otherPublicKey;
   SessionKey outgoingSessionKey;
   SessionKey incomingSessionKey;

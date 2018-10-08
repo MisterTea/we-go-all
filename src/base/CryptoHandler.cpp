@@ -8,21 +8,9 @@
 
 namespace wga {
 
-CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey,
-                             const PublicKey& _myPublicKey)
-    : myPrivateKey(_myPrivateKey), myPublicKey(_myPublicKey) {
-  init();
-}
-
-CryptoHandler::CryptoHandler() {
-  init();
-  crypto_box_keypair(myPublicKey.data(), myPrivateKey.data());
-}
-
-void CryptoHandler::init() {
-  if (-1 == sodium_init()) {
-    LOG(FATAL) << "libsodium init failed";
-  }
+CryptoHandler::CryptoHandler(const PublicKey& _myPublicKey,
+                             const PrivateKey& _myPrivateKey)
+    : myPublicKey(_myPublicKey), myPrivateKey(_myPrivateKey) {
   incomingSessionKey.fill(0);
   outgoingSessionKey.fill(0);
   emptySessionKey.fill(0);
@@ -89,6 +77,10 @@ string CryptoHandler::encrypt(const string& buffer) {
 pair<bool, string> CryptoHandler::tryToDecrypt(const string& buffer) {
   if (incomingSessionKey == emptySessionKey) {
     LOG(FATAL) << "Tried to use a session key when one doesn't exist!";
+  }
+  if (buffer.length() <=
+      (crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES)) {
+    return make_pair(false, "");
   }
   string retval((buffer.length() - crypto_secretbox_NONCEBYTES) -
                     crypto_secretbox_MACBYTES,

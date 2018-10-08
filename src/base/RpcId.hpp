@@ -11,6 +11,10 @@ class RpcId {
   bool operator==(const RpcId& other) const {
     return barrier == other.barrier && id == other.id;
   }
+  bool operator<(const RpcId& other) const {
+    return barrier < other.barrier ||
+           (barrier == other.barrier && id < other.id);
+  }
   string str() const { return to_string(barrier) + "/" + to_string(id); }
 
   uint64_t barrier;

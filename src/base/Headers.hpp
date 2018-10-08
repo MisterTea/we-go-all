@@ -39,6 +39,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <ctime>
 #include <deque>
 #include <exception>
@@ -66,6 +67,7 @@
 #include "sole.hpp"
 
 using namespace std;
+using namespace std::chrono;
 
 namespace google {}
 namespace gflags {}
@@ -153,14 +155,14 @@ inline int replaceAll(std::string& str, const std::string& from,
   return retval;
 }
 
-template<class T, size_t N, class V>
-std::array<T, N> stringToArray(const V& v)
-{
-    assert(v.size() == N);
-    std::array<T, N> d;
-    using std::begin; using std::end; 
-    std::copy( begin(v), end(v), begin(d) ); // this is the recommended way
-    return d;
+template <class T, size_t N, class V>
+std::array<T, N> stringToArray(const V& v) {
+  assert(v.size() == N);
+  std::array<T, N> d;
+  using std::begin;
+  using std::end;
+  std::copy(begin(v), end(v), begin(d));  // this is the recommended way
+  return d;
 }
 
 }  // namespace wga

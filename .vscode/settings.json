@@ -26,7 +26,8 @@
     "__mutex_base": "cpp",
     "unordered_set": "cpp",
     "array": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "chrono": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled"
 }

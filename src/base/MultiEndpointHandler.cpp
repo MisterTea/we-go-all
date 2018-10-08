@@ -29,7 +29,7 @@ void MultiEndpointHandler::send(const string& message) {
   }
 
   ioService->post([this, message]() {
-    LOG(INFO) << "IN SEND LAMBDA";
+    LOG(INFO) << "IN SEND LAMBDA: " << message.length();
     int bytesSent = localSocket->send_to(asio::buffer(message), activeEndpoint);
     LOG(INFO) << bytesSent << " bytes sent";
   });
