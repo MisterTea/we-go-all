@@ -8,6 +8,14 @@
 
 using namespace wga;
 
+struct RpcDetails {
+  RpcId id;
+  string request;
+  string reply;
+  int from;
+  int to;
+};
+
 class FlakyRpcTest : public testing::Test {
  protected:
   void SetUp() override {
@@ -96,6 +104,75 @@ class FlakyRpcTest : public testing::Test {
     ioServiceThread = std::thread([this]() { this->ioService->run(); });
   }
 
+  void runTest(int NUM_NODES, int NUM_TRIALS) {
+    map<RpcId, RpcDetails> allRpcDetails;
+    for (int trials = 0; trials < NUM_TRIALS; trials++) {
+      RpcDetails rpcDetails;
+      rpcDetails.from = rand() % NUM_NODES;
+      do {
+        rpcDetails.to = rand() % NUM_NODES;
+      } while (rpcDetails.to == rpcDetails.from);
+      rpcDetails.request = string("AAAAAAAA");
+      for (int a = 0; a < rpcDetails.request.length(); a++) {
+        rpcDetails.request[a] += rand() % 26;
+      }
+      rpcDetails.reply = rpcDetails.request;
+      transform(rpcDetails.reply.begin(), rpcDetails.reply.end(),
+                rpcDetails.reply.begin(), ::tolower);
+      rpcDetails.id =
+          rpcs[rpcDetails.from][rpcDetails.to]->request(rpcDetails.request);
+      allRpcDetails[rpcDetails.id] = rpcDetails;
+    }
+
+    auto currentTime =
+        duration_cast<milliseconds>(system_clock::now().time_since_epoch()) /
+        100;
+    int numAcks = 0;
+    while (true) {
+      lock_guard<std::mutex> guard(*ioServiceMutex);
+      auto iterationTime =
+          duration_cast<milliseconds>(system_clock::now().time_since_epoch()) /
+          100;
+      for (auto& a : rpcs) {
+        for (auto& rpc : a) {
+          if (rpc.get() == NULL) {
+            continue;
+          }
+
+          if (rpc->hasIncomingRequest()) {
+            auto request = rpc->consumeIncomingRequest();
+            LOG(INFO) << "GOT REQUEST, SENDING REPLY";
+            RpcDetails& rpcDetails = allRpcDetails.find(request.id)->second;
+            EXPECT_EQ(request.payload, rpcDetails.request);
+            rpc->reply(request.id, rpcDetails.reply);
+          }
+
+          if (rpc->hasIncomingReply()) {
+            auto reply = rpc->consumeIncomingReply();
+            LOG(INFO) << "GOT REPLY";
+            RpcDetails& rpcDetails = allRpcDetails.find(reply.id)->second;
+            EXPECT_EQ(reply.payload, rpcDetails.reply);
+            numAcks++;
+          }
+
+          if (currentTime != iterationTime) {
+            rpc->heartbeat();
+          }
+        }
+      }
+
+      if (numAcks == NUM_TRIALS) {
+        // Test complete
+        break;
+      }
+
+      usleep(1000);
+      if (currentTime != iterationTime) {
+        currentTime = iterationTime;
+      }
+    }
+  }
+
   shared_ptr<asio::io_service> ioService;
   std::thread ioServiceThread;
   shared_ptr<mutex> ioServiceMutex;
@@ -105,82 +182,26 @@ class FlakyRpcTest : public testing::Test {
   vector<vector<shared_ptr<MultiEndpointHandler>>> rpcs;
 };
 
-struct RpcDetails {
-  RpcId id;
-  string request;
-  string reply;
-  int from;
-  int to;
-};
-
 TEST_F(FlakyRpcTest, TwoNodes) {
   const int NUM_NODES = 2;
   const int NUM_TRIALS = 1000;
   initFullyConnectedMesh(NUM_NODES);
 
-  map<RpcId, RpcDetails> allRpcDetails;
-  for (int trials = 0; trials < NUM_TRIALS; trials++) {
-    RpcDetails rpcDetails;
-    rpcDetails.from = rand() % NUM_NODES;
-    do {
-      rpcDetails.to = rand() % NUM_NODES;
-    } while (rpcDetails.to == rpcDetails.from);
-    rpcDetails.request = string("AAAAAAAA");
-    for (int a = 0; a < rpcDetails.request.length(); a++) {
-      rpcDetails.request[a] += rand() % 26;
-    }
-    rpcDetails.reply = rpcDetails.request;
-    transform(rpcDetails.reply.begin(), rpcDetails.reply.end(),
-              rpcDetails.reply.begin(), ::tolower);
-    rpcDetails.id =
-        rpcs[rpcDetails.from][rpcDetails.to]->request(rpcDetails.request);
-    allRpcDetails[rpcDetails.id] = rpcDetails;
-  }
+  runTest(NUM_NODES, NUM_TRIALS);
+}
 
-  auto currentTime =
-      duration_cast<milliseconds>(system_clock::now().time_since_epoch()) / 100;
-  int numAcks = 0;
-  while (true) {
-    lock_guard<std::mutex> guard(*ioServiceMutex);
-    auto iterationTime =
-        duration_cast<milliseconds>(system_clock::now().time_since_epoch()) /
-        100;
-    for (auto& a : rpcs) {
-      for (auto& rpc : a) {
-        if (rpc.get() == NULL) {
-          continue;
-        }
+TEST_F(FlakyRpcTest, ThreeNodes) {
+  const int NUM_NODES = 3;
+  const int NUM_TRIALS = 1000;
+  initFullyConnectedMesh(NUM_NODES);
 
-        if (rpc->hasIncomingRequest()) {
-          auto request = rpc->consumeIncomingRequest();
-          LOG(INFO) << "GOT REQUEST, SENDING REPLY";
-          RpcDetails& rpcDetails = allRpcDetails.find(request.id)->second;
-          EXPECT_EQ(request.payload, rpcDetails.request);
-          rpc->reply(request.id, rpcDetails.reply);
-        }
+  runTest(NUM_NODES, NUM_TRIALS);
+}
 
-        if (rpc->hasIncomingReply()) {
-          auto reply = rpc->consumeIncomingReply();
-          LOG(INFO) << "GOT REPLY";
-          RpcDetails& rpcDetails = allRpcDetails.find(reply.id)->second;
-          EXPECT_EQ(reply.payload, rpcDetails.reply);
-          numAcks++;
-        }
+TEST_F(FlakyRpcTest, TenNodes) {
+  const int NUM_NODES = 10;
+  const int NUM_TRIALS = 1000;
+  initFullyConnectedMesh(NUM_NODES);
 
-        if (currentTime != iterationTime) {
-          rpc->heartbeat();
-        }
-      }
-    }
-
-    if (numAcks == NUM_TRIALS) {
-      // Test complete
-      break;
-    }
-
-    usleep(1000);
-    if (currentTime != iterationTime) {
-      currentTime = iterationTime;
-    }
-  }
+  runTest(NUM_NODES, NUM_TRIALS);
 }

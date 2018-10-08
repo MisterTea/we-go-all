@@ -27,7 +27,8 @@
     "unordered_set": "cpp",
     "array": "cpp",
     "thread": "cpp",
-    "chrono": "cpp"
+    "chrono": "cpp",
+    "map": "cpp"
   },
   "C_Cpp.configurationWarnings": "Disabled"
 }
