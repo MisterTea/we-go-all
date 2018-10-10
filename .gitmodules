@@ -1,12 +1,9 @@
-[submodule "external/googletest"]
-	path = external/googletest
+[submodule "peer/external/googletest"]
+	path = peer/external/googletest
 	url = https://github.com/google/googletest.git
-[submodule "src/external/asio"]
-	path = external/asio
+[submodule "peer/external/asio"]
+	path = peer/external/asio
 	url = https://github.com/chriskohlhoff/asio.git
-[submodule "src/external/msgpack-c"]
-	path = external/msgpack-c
+[submodule "peer/external/msgpack-c"]
+	path = peer/external/msgpack-c
 	url = https://github.com/msgpack/msgpack-c.git
-[submodule "external/cpr"]
-	path = external/cpr
-	url = https://github.com/whoshuu/cpr.git
