@@ -14,6 +14,8 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_NO_DEFAULT_LOG_FILE -DELPP_FEATUR
 # Enable standalone asio
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DASIO_STANDALONE")
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/external/curlpp)
+
 IF(BUILD_TEST)
   add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
 ENDIF(BUILD_TEST)
@@ -59,6 +61,7 @@ include_directories(
   external
   external/asio/asio/include
   external/msgpack-c/include
+  external/curlpp/include
   ${GFLAGS_INCLUDE_DIRS}
   ${sodium_INCLUDE_DIR}
   )
@@ -85,6 +88,7 @@ target_link_libraries (
   peer
   LINK_PUBLIC
   wga-lib
+  curlpp_static
   ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
   ${GFLAGS_LIBRARIES}
@@ -117,6 +121,7 @@ if(BUILD_TEST) # Build unit tests.
   target_link_libraries(
     wga-test
     wga-lib
+    curlpp_static
     ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
     ${GFLAGS_LIBRARIES}

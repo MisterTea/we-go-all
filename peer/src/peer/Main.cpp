@@ -1,17 +1,27 @@
-#include "BiDirectionalRpc.hpp"
 #include "Headers.hpp"
-#include "LogHandler.hpp"
 
-using namespace wga;
+#include <curlpp/Easy.hpp>
+#include <curlpp/Options.hpp>
+#include <curlpp/cURLpp.hpp>
 
-#include <cpr/cpr.h>
+int main(int, char **) {
+  try {
+    curlpp::Cleanup myCleanup;
 
-int main(int argc, char** argv) {
-  auto r = cpr::Get(
-      cpr::Url{"https://api.github.com/repos/whoshuu/cpr/contributors"},
-      cpr::Authentication{"user", "pass"},
-      cpr::Parameters{{"anon", "true"}, {"key", "value"}});
-  cout << r.status_code << endl;  // 200
-  r.header["content-type"];       // application/json; charset=utf-8
-  r.text;                         // JSON text string
+    // Creation of the URL option.
+    curlpp::Easy myRequest;
+    myRequest.setOpt(
+        new curlpp::options::Url(std::string("https://example.com")));
+    myRequest.setOpt(new curlpp::options::SslEngineDefault());
+
+    std::ostringstream os;
+    os << myRequest;
+    cout << os.str() << endl;
+  } catch (curlpp::RuntimeError &e) {
+    std::cout << e.what() << std::endl;
+  } catch (curlpp::LogicError &e) {
+    std::cout << e.what() << std::endl;
+  }
+
+  return 0;
 }
