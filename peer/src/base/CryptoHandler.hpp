@@ -5,6 +5,12 @@
 
 #include <sodium.h>
 
+#define SODIUM_FAIL(X)                                           \
+  {                                                              \
+    int rc = (X);                                                \
+    if ((rc) != 0) LOG(FATAL) << "Crypto Error: (" << rc << ")"; \
+  }
+
 namespace wga {
 typedef array<uint8_t, crypto_secretbox_NONCEBYTES> Nonce;
 typedef array<uint8_t, crypto_secretbox_KEYBYTES> SessionKey;
@@ -17,8 +23,32 @@ typedef array<uint8_t, crypto_secretbox_NONCEBYTES + crypto_box_MACBYTES +
 
 class CryptoHandler {
  public:
-  CryptoHandler(const PublicKey& _myPublicKey, const PrivateKey& _myPrivateKey);
+  CryptoHandler(const PrivateKey& _myPrivateKey);
   ~CryptoHandler();
+
+  static PublicKey makePublicFromPrivate(const PrivateKey& privateKey) {
+    PublicKey publicKey;
+    crypto_scalarmult_base(publicKey.data(), privateKey.data());
+    return publicKey;
+  }
+
+  static string sign(const PrivateKey& privateKey, const string& s) {
+    string retval(s.length() + crypto_sign_BYTES, '\0');
+    uint64_t signedLength;
+    SODIUM_FAIL(crypto_sign(&retval[0], &signedLength, &s[0], s.length(),
+                            privateKey.data()));
+    retval.resize(signedLength);
+    return retval;
+  }
+
+  static string unsign(const PublicKey& publicKey, const string& s) {
+    string retval(s.length(), '\0');
+    uint64_t unsignedLength;
+    SODIUM_FAIL(crypto_sign_open(&retval[0], &unsignedLength, &s[0], s.length(),
+                                 publicKey.data()));
+    retval.resize(unsignedLength);
+    return retval;
+  }
 
   static void init() {
     if (-1 == sodium_init()) {

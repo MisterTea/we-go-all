@@ -1,16 +1,10 @@
 #include "CryptoHandler.hpp"
 
-#define SODIUM_FAIL(X)                                           \
-  {                                                              \
-    int rc = (X);                                                \
-    if ((rc) != 0) LOG(FATAL) << "Crypto Error: (" << rc << ")"; \
-  }
-
 namespace wga {
 
-CryptoHandler::CryptoHandler(const PublicKey& _myPublicKey,
-                             const PrivateKey& _myPrivateKey)
-    : myPublicKey(_myPublicKey), myPrivateKey(_myPrivateKey) {
+CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey)
+    : myPrivateKey(_myPrivateKey) {
+  myPublicKey = CryptoHandler::makePublicFromPrivate(myPrivateKey);
   incomingSessionKey.fill(0);
   outgoingSessionKey.fill(0);
   emptySessionKey.fill(0);
