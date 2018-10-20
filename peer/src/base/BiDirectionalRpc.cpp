@@ -51,8 +51,8 @@ void BiDirectionalRpc::receive(const string& message) {
         LOG(INFO) << "GOT REQUEST: " << uid.str();
 
         bool skip = false;
-        for (const IdPayload& it : incomingRequests) {
-          if (it.id == uid) {
+        for (auto it : incomingRequests) {
+          if (it.first == uid) {
             // We already received this request.  Skip
             skip = true;
             break;
@@ -96,7 +96,15 @@ void BiDirectionalRpc::receive(const string& message) {
           }
           if (deletedRequest) {
             string payload = reader.readPrimitive<string>();
-            addIncomingReply(uid, payload);
+            auto it = oneWayRequests.find(uid);
+            if (it != oneWayRequests.end()) {
+              // Remove this from the set of one way requests and don't bother
+              // adding a reply.
+              oneWayRequests.erase(it);
+            } else {
+              // Add a reply to be processed
+              addIncomingReply(uid, payload);
+            }
             sendAcknowledge(uid);
           } else {
             // We must have processed both this request and reply.  Send the
@@ -135,9 +143,17 @@ RpcId BiDirectionalRpc::request(const string& payload) {
   return uuid;
 }
 
+void BiDirectionalRpc::requestNoReply(const string& payload) {
+  auto fullUuid = sole::uuid4();
+  auto uuid = RpcId(onBarrier, fullUuid.cd);
+  oneWayRequests.insert(uuid);
+  auto idPayload = IdPayload(uuid, payload);
+  requestWithId(idPayload);
+}
+
 void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
   if (outgoingRequests.empty() ||
-      outgoingRequests.front().id.barrier == onBarrier) {
+      outgoingRequests.begin()->id.barrier == onBarrier) {
     // We can send the request immediately
     outgoingRequests.push_back(idPayload);
     sendRequest(outgoingRequests.back());
@@ -148,6 +164,7 @@ void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
 }
 
 void BiDirectionalRpc::reply(const RpcId& rpcId, const string& payload) {
+  incomingRequests.erase(incomingRequests.find(rpcId));
   outgoingReplies.push_back(IdPayload(rpcId, payload));
   sendReply(outgoingReplies.back());
 }
@@ -165,7 +182,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
 
     while (!delayedRequests.empty() &&
            delayedRequests.front().id.barrier ==
-               outgoingRequests.front().id.barrier) {
+               outgoingRequests.begin()->id.barrier) {
       // Part of the same barrier, keep sending
       outgoingRequests.push_back(delayedRequests.front());
       delayedRequests.pop_front();

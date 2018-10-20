@@ -15,9 +15,10 @@ class MultiEndpointHandler : public BiDirectionalRpc {
                        const udp::endpoint& endpoint);
 
   void gotMessage() { lastUnrepliedSendTime = 0; }
-  bool hasEndpointAndResurrectIfFound(const udp::endpoint& endpoint);
+  virtual bool hasEndpointAndResurrectIfFound(const udp::endpoint& endpoint);
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
+  shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
 
  protected:
   shared_ptr<udp::socket> localSocket;

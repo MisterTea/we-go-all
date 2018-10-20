@@ -16,6 +16,7 @@ class RpcId {
            (barrier == other.barrier && id < other.id);
   }
   string str() const { return to_string(barrier) + "/" + to_string(id); }
+  bool empty() { return barrier == 0 && id == 0; }
 
   uint64_t barrier;
   uint64_t id;

@@ -1,12 +1,9 @@
 #include "PortMultiplexer.hpp"
 
 namespace wga {
-PortMultiplexer::PortMultiplexer(shared_ptr<asio::io_service> _ioService,
-                                 shared_ptr<mutex> _ioServiceMutex,
+PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
                                  shared_ptr<udp::socket> _localSocket)
-    : ioService(_ioService),
-      ioServiceMutex(_ioServiceMutex),
-      localSocket(_localSocket) {
+    : netEngine(_netEngine), localSocket(_localSocket) {
   localSocket->async_receive_from(
       asio::buffer(receiveBuffer), receiveEndpoint,
       std::bind(&PortMultiplexer::handleRecieve, this, std::placeholders::_1,
@@ -15,17 +12,12 @@ PortMultiplexer::PortMultiplexer(shared_ptr<asio::io_service> _ioService,
 
 void PortMultiplexer::handleRecieve(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
-  lock_guard<std::mutex> guard(*ioServiceMutex);
+  lock_guard<recursive_mutex> guard(*netEngine->getMutex());
   LOG(INFO) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
             << bytesTransferred;
-  if (bytesTransferred != 68 && bytesTransferred != 18 &&
-      bytesTransferred != 1) {
-    LOG(FATAL) << "INVALID SIZE: " << bytesTransferred << " "
-               << receiveBuffer.data()[bytesTransferred - 1];
-  }
   // We need to find out where this needs to go
-  shared_ptr<MultiEndpointHandler> recipient;
-  for (auto& it : endpointHandlers) {
+  shared_ptr<UdpRecipient> recipient;
+  for (auto& it : recipients) {
     if (it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
       recipient = it;
     }

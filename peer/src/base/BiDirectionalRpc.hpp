@@ -5,6 +5,7 @@
 #include "MessageReader.hpp"
 #include "MessageWriter.hpp"
 #include "RpcId.hpp"
+#include "UdpRecipient.hpp"
 
 namespace wga {
 class IdPayload {
@@ -37,7 +38,7 @@ struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
 namespace wga {
 enum RpcHeader { HEARTBEAT = 1, REQUEST = 2, REPLY = 3, ACKNOWLEDGE = 4 };
 
-class BiDirectionalRpc {
+class BiDirectionalRpc : public UdpRecipient {
  public:
   BiDirectionalRpc();
   virtual ~BiDirectionalRpc();
@@ -46,18 +47,24 @@ class BiDirectionalRpc {
   void barrier() { onBarrier++; }
 
   RpcId request(const string& payload);
+  void requestNoReply(const string& payload);
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
 
   bool hasIncomingRequest() { return !incomingRequests.empty(); }
-  IdPayload consumeIncomingRequest() {
-    IdPayload idPayload = incomingRequests.front();
-    incomingRequests.pop_front();
-    return idPayload;
+  bool hasIncomingRequestWithId(const RpcId& rpcId) {
+    return incomingRequests.find(rpcId) != incomingRequests.end();
+  }
+  IdPayload getFirstIncomingRequest() {
+    if (!hasIncomingRequest()) {
+      LOG(FATAL) << "Tried to get a request when one doesn't exist";
+    }
+    return IdPayload(incomingRequests.begin()->first,
+                     incomingRequests.begin()->second);
   }
 
   bool hasIncomingReply() { return !incomingReplies.empty(); }
-  IdPayload consumeIncomingReply() {
+  IdPayload getFirstIncomingReply() {
     if (incomingReplies.empty()) {
       LOG(FATAL) << "Tried to get reply when there was none";
     }
@@ -87,7 +94,8 @@ class BiDirectionalRpc {
  protected:
   deque<IdPayload> delayedRequests;
   deque<IdPayload> outgoingRequests;
-  deque<IdPayload> incomingRequests;
+  unordered_map<RpcId, string> incomingRequests;
+  unordered_set<RpcId> oneWayRequests;
 
   deque<IdPayload> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
@@ -105,7 +113,7 @@ class BiDirectionalRpc {
   void sendReply(const IdPayload& idPayload);
   void sendAcknowledge(const RpcId& uid);
   virtual void addIncomingRequest(const IdPayload& idPayload) {
-    incomingRequests.push_back(idPayload);
+    incomingRequests.insert(make_pair(idPayload.id, idPayload.payload));
   }
   virtual void addIncomingReply(const RpcId& uid, const string& payload) {
     incomingReplies.emplace(uid, payload);

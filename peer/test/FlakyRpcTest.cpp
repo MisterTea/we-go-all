@@ -4,7 +4,9 @@
 
 #include "LogHandler.hpp"
 #include "MultiEndpointHandler.hpp"
+#include "NetEngine.hpp"
 #include "PortMultiplexer.hpp"
+#include "RpcServer.hpp"
 
 using namespace wga;
 
@@ -13,7 +15,7 @@ struct RpcDetails {
   string request;
   string reply;
   int from;
-  int to;
+  PublicKey destinationKey;
 };
 
 class FlakyRpcTest : public testing::Test {
@@ -21,14 +23,13 @@ class FlakyRpcTest : public testing::Test {
   void SetUp() override {
     srand(time(NULL));
     CryptoHandler::init();
-    ioService = shared_ptr<asio::io_service>(new asio::io_service());
-    ioServiceMutex.reset(new mutex());
+    netEngine.reset(
+        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
   }
 
   void TearDown() override {
     LOG(INFO) << "TEARING DOWN";
-    ioService->stop();
-    ioServiceThread.join();
+    netEngine->shutdown();
     LOG(INFO) << "TEAR DOWN COMPLETE";
   }
 
@@ -38,20 +39,21 @@ class FlakyRpcTest : public testing::Test {
       keys.push_back(CryptoHandler::generateKey());
     }
     string secretKeyString;
-    FATAL_IF_FALSE(
-        Base64::Encode(string(keys[0].second.data(), keys[0].second.size()),
-                       &secretKeyString));
+    FATAL_IF_FALSE(Base64::Encode(
+        string((const char*)keys[0].second.data(), keys[0].second.size()),
+        &secretKeyString));
     LOG(INFO) << secretKeyString;
 
     // Create port multiplexers
     for (int a = 0; a < numNodes; a++) {
-      shared_ptr<udp::socket> localSocket(
-          new udp::socket(*ioService, udp::endpoint(udp::v4(), 20000 + a)));
-      servers.push_back(shared_ptr<PortMultiplexer>(
-          new PortMultiplexer(ioService, ioServiceMutex, localSocket)));
+      shared_ptr<udp::socket> localSocket(new udp::socket(
+          *netEngine->getIoService(), udp::endpoint(udp::v4(), 20000 + a)));
+      servers.push_back(
+          shared_ptr<RpcServer>(new RpcServer(netEngine, localSocket)));
     }
 
     // Create crypto handlers
+    vector<vector<shared_ptr<CryptoHandler>>> cryptoHandlers;
     for (int a = 0; a < numNodes; a++) {
       cryptoHandlers.push_back(vector<shared_ptr<CryptoHandler>>());
       for (int b = 0; b < numNodes; b++) {
@@ -60,7 +62,7 @@ class FlakyRpcTest : public testing::Test {
           continue;
         }
         shared_ptr<CryptoHandler> cryptoHandler(
-            new CryptoHandler(keys[a].first, keys[a].second));
+            new CryptoHandler(keys[a].second));
         cryptoHandler->setOtherPublicKey(keys[b].first);
         cryptoHandlers[a].push_back(cryptoHandler);
       }
@@ -82,13 +84,11 @@ class FlakyRpcTest : public testing::Test {
 
     // Create endpoint handlers
     for (int a = 0; a < numNodes; a++) {
-      rpcs.push_back(vector<shared_ptr<MultiEndpointHandler>>());
       for (int b = 0; b < numNodes; b++) {
         if (a == b) {
-          rpcs[a].push_back(shared_ptr<MultiEndpointHandler>());
           continue;
         }
-        udp::resolver resolver(*ioService);
+        udp::resolver resolver(*netEngine->getIoService());
         udp::resolver::query query(udp::v4(), "127.0.0.1",
                                    std::to_string(20000 + b));
         auto it = resolver.resolve(query);
@@ -98,15 +98,15 @@ class FlakyRpcTest : public testing::Test {
                   << ((++it) ==
                       asio::ip::basic_resolver_results<asio::ip::udp>());
         shared_ptr<MultiEndpointHandler> endpointHandler(
-            new MultiEndpointHandler(servers[a]->getLocalSocket(), ioService,
+            new MultiEndpointHandler(servers[a]->getLocalSocket(),
+                                     netEngine->getIoService(),
                                      cryptoHandlers[a][b], remoteEndpoint));
         endpointHandler->setFlaky(true);
-        rpcs[a].push_back(endpointHandler);
-        servers[a]->addEndpointHandler(endpointHandler);
+        servers[a]->addEndpoint(endpointHandler);
       }
     }
 
-    ioServiceThread = std::thread([this]() { this->ioService->run(); });
+    netEngine->start();
   }
 
   void runTest(int numNodes, int numTrials) {
@@ -114,9 +114,11 @@ class FlakyRpcTest : public testing::Test {
     for (int trials = 0; trials < numTrials; trials++) {
       RpcDetails rpcDetails;
       rpcDetails.from = rand() % numNodes;
+      int to = rpcDetails.from;
       do {
-        rpcDetails.to = rand() % numNodes;
-      } while (rpcDetails.to == rpcDetails.from);
+        to = rand() % numNodes;
+      } while (to == rpcDetails.from);
+      rpcDetails.destinationKey = keys[to].first;
       rpcDetails.request = string("AAAAAAAA");
       for (int a = 0; a < rpcDetails.request.length(); a++) {
         rpcDetails.request[a] += rand() % 26;
@@ -124,8 +126,8 @@ class FlakyRpcTest : public testing::Test {
       rpcDetails.reply = rpcDetails.request;
       transform(rpcDetails.reply.begin(), rpcDetails.reply.end(),
                 rpcDetails.reply.begin(), ::tolower);
-      rpcDetails.id =
-          rpcs[rpcDetails.from][rpcDetails.to]->request(rpcDetails.request);
+      rpcDetails.id = servers[rpcDetails.from]->request(
+          rpcDetails.destinationKey, rpcDetails.request);
       allRpcDetails[rpcDetails.id] = rpcDetails;
     }
 
@@ -134,39 +136,33 @@ class FlakyRpcTest : public testing::Test {
         100;
     int numAcks = 0;
     while (true) {
-      lock_guard<std::mutex> guard(*ioServiceMutex);
+      lock_guard<recursive_mutex> guard(*netEngine->getMutex());
       auto iterationTime =
           duration_cast<milliseconds>(system_clock::now().time_since_epoch()) /
           100;
-      for (auto& a : rpcs) {
-        for (auto& rpc : a) {
-          if (rpc.get() == NULL) {
-            continue;
-          }
+      for (auto& server : servers) {
+        auto request = server->getIncomingRequest();
+        if (!request.empty()) {
+          LOG(INFO) << "GOT REQUEST, SENDING REPLY";
+          RpcDetails& rpcDetails = allRpcDetails.find(request.id)->second;
+          EXPECT_EQ(request.payload, rpcDetails.request);
+          server->reply(request.key, request.id, rpcDetails.reply);
+        }
 
-          if (rpc->hasIncomingRequest()) {
-            auto request = rpc->consumeIncomingRequest();
-            LOG(INFO) << "GOT REQUEST, SENDING REPLY";
-            RpcDetails& rpcDetails = allRpcDetails.find(request.id)->second;
-            EXPECT_EQ(request.payload, rpcDetails.request);
-            rpc->reply(request.id, rpcDetails.reply);
-          }
+        auto reply = server->getIncomingReply();
+        if (!reply.empty()) {
+          RpcDetails& rpcDetails = allRpcDetails.find(reply.id)->second;
+          EXPECT_EQ(reply.payload, rpcDetails.reply);
+          numAcks++;
+          LOG(INFO) << "GOT REPLY: " << numAcks;
+        }
 
-          if (rpc->hasIncomingReply()) {
-            auto reply = rpc->consumeIncomingReply();
-            LOG(INFO) << "GOT REPLY";
-            RpcDetails& rpcDetails = allRpcDetails.find(reply.id)->second;
-            EXPECT_EQ(reply.payload, rpcDetails.reply);
-            numAcks++;
-          }
-
-          if (currentTime != iterationTime) {
-            rpc->heartbeat();
-          }
+        if (currentTime != iterationTime) {
+          server->heartbeat();
         }
       }
 
-      if (numAcks == numTrials) {
+      if (numAcks >= numTrials) {
         // Test complete
         break;
       }
@@ -178,13 +174,9 @@ class FlakyRpcTest : public testing::Test {
     }
   }
 
-  shared_ptr<asio::io_service> ioService;
-  std::thread ioServiceThread;
-  shared_ptr<mutex> ioServiceMutex;
+  shared_ptr<NetEngine> netEngine;
+  vector<shared_ptr<RpcServer>> servers;
   vector<pair<PublicKey, PrivateKey>> keys;
-  vector<shared_ptr<PortMultiplexer>> servers;
-  vector<vector<shared_ptr<CryptoHandler>>> cryptoHandlers;
-  vector<vector<shared_ptr<MultiEndpointHandler>>> rpcs;
 };
 
 TEST_F(FlakyRpcTest, TwoNodes) {

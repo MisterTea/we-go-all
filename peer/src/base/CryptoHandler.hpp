@@ -35,7 +35,8 @@ class CryptoHandler {
   static string sign(const PrivateKey& privateKey, const string& s) {
     string retval(s.length() + crypto_sign_BYTES, '\0');
     uint64_t signedLength;
-    SODIUM_FAIL(crypto_sign(&retval[0], &signedLength, &s[0], s.length(),
+    SODIUM_FAIL(crypto_sign((uint8_t*)&retval[0], &signedLength,
+                            (const uint8_t*)&s[0], s.length(),
                             privateKey.data()));
     retval.resize(signedLength);
     return retval;
@@ -44,7 +45,8 @@ class CryptoHandler {
   static string unsign(const PublicKey& publicKey, const string& s) {
     string retval(s.length(), '\0');
     uint64_t unsignedLength;
-    SODIUM_FAIL(crypto_sign_open(&retval[0], &unsignedLength, &s[0], s.length(),
+    SODIUM_FAIL(crypto_sign_open((uint8_t*)&retval[0], &unsignedLength,
+                                 (const uint8_t*)&s[0], s.length(),
                                  publicKey.data()));
     retval.resize(unsignedLength);
     return retval;
@@ -71,6 +73,7 @@ class CryptoHandler {
   bool canEncrypt() { return outgoingSessionKey != emptySessionKey; }
 
   PublicKey getMyPublicKey() { return myPublicKey; }
+  PublicKey getOtherPublicKey() { return otherPublicKey; }
   void setOtherPublicKey(const PublicKey& _otherPublicKey) {
     otherPublicKey = _otherPublicKey;
   }

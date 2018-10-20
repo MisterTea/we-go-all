@@ -58,6 +58,7 @@ ENDIF()
 
 include_directories(
   src/base
+  src/peer
   external
   external/asio/asio/include
   external/msgpack-c/include
@@ -101,12 +102,12 @@ if(BUILD_TEST) # Build unit tests.
 
   set(GTEST_PATH ${PROJECT_SOURCE_DIR}/test)
 
-  file(GLOB TEST_SRCS test/*Test.cpp )
   add_executable(
     wga-test
   
-    ${TEST_SRCS}
     test/Main.cpp
+
+    test/FlakyRpcTest.cpp
     )
   
   add_dependencies(

@@ -74,6 +74,8 @@ namespace gflags {}
 using namespace google;
 using namespace gflags;
 
+using namespace base64;
+
 using asio::ip::udp;
 using nlohmann::json;
 

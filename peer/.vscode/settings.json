@@ -1,4 +1,14 @@
 {
-  "C_Cpp.default.configurationProvider": "vector-of-bool.cmake-tools",
   "C_Cpp.clang_format_style": "Google",
+  "C_Cpp.configurationWarnings": "Disabled",
+  "files.associations": {
+    "thread": "cpp",
+    "iosfwd": "cpp",
+    "memory": "cpp",
+    "vector": "cpp",
+    "__mutex_base": "cpp",
+    "mutex": "cpp",
+    "*.ipp": "cpp",
+    "utility": "cpp"
+  },
 }

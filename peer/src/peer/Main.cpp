@@ -3,6 +3,9 @@
 #include <curlpp/Easy.hpp>
 #include <curlpp/Options.hpp>
 #include <curlpp/cURLpp.hpp>
+#include "CryptoHandler.hpp"
+#include "NetEngine.hpp"
+#include "PortMultiplexer.hpp"
 
 DEFINE_int32(serverPort, 0, "Port to listen on");
 DEFINE_bool(host, false, "True if hosting");
@@ -16,96 +19,126 @@ class Main {
   int run(int argc, char **argv) {
     srand(time(NULL));
     CryptoHandler::init();
-    ioService = shared_ptr<asio::io_service>(new asio::io_service());
-    ioServiceMutex.reset(new mutex());
+    shared_ptr<asio::io_service> ioService(new asio::io_service());
+    shared_ptr<NetEngine> netEngine(new NetEngine(ioService));
     shared_ptr<udp::socket> localSocket(new udp::socket(
         *ioService, udp::endpoint(udp::v4(), FLAGS_serverPort)));
-    server = portMultiplexer(
-        new PortMultiplexer(ioService, ioServiceMutex, localSocket));
+    server.reset(new PortMultiplexer(netEngine, localSocket));
 
     FATAL_IF_FALSE(Base64::Decode(&FLAGS_password[0], FLAGS_password.length(),
-                                  privateKey.data(), privateKey.size()));
+                                  (char *)privateKey.data(),
+                                  privateKey.size()));
+    publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
 
-    json gameStatus;
+    json gameJson;
     if (FLAGS_host) {
-      string hostInfo = R"(
-        {
-          "gameName": "carpolo",
-          "playerName": "DigitalGhost"
-        }
-      )";
-      string signedHostInfoBinary = CryptoHandler::sign(privateKey, hostInfo);
-      string signedHostInfoB64;
-      FATAL_IF_FALSE(Base64::Encode(signedHostInfoBinary, &signedHostInfoB64));
+      json hostInfo;
+      hostInfo["gameName"] = "carpolo";
+      hostInfo["playerName"] = "DigitalGhost";
+      hostInfo["publicKey"] = publicKey;
 
-      gameStatus = post("http://127.0.0.1:8080/host", signedHostInfoB64)._json;
+      gameJson =
+          json::parse(post("http://127.0.0.1:3000/host", hostInfo.dump(4)));
     } else {
-      string guestInfo = R"(
-        {
-          "playerName": "DogFart",
-          "hostName": "DigitalGhost"
-        }
-      )";
-      string signedGuestInfoBinary = CryptoHandler::sign(privateKey, guestInfo);
-      string signedGuestInfoB64;
-      FATAL_IF_FALSE(
-          Base64::Encode(signedGuestInfoBinary, &signedGuestInfoB64));
-      string publicKeyB64;
-      FATAL_IF_FALSE(Base64::Encode(string(publicKey.data(), publicKey.size()),
-                                    &publicKeyB64));
+      json guestInfo;
+      guestInfo["name"] = "DogFart";
+      guestInfo["publicKey"] = publicKey;
 
-      gameId = post("http://127.0.0.1:8080/guest",
-                    publicKeyB64 + "/" + signedGuestInfoB64);
+      gameJson =
+          json::parse(post("http://127.0.0.1:3000/join", guestInfo.dump(4)));
     }
 
-    ioServiceThread = std::thread([this]() { this->ioService->run(); });
+    netEngine->start();
 
     while (true) {
       {
-        lock_guard<std::mutex> guard(*ioServiceMutex);
+        lock_guard<recursive_mutex> guard(*netEngine->getMutex());
         // Make an RPC to get the peer data
-        json gameInfo =
-            getJson("http://127.0.0.1:8080/gameinfo", {"gameId" : gameId});
+        map<string, string> params = {{"id", gameJson["id"]}};
+        json newGameJson =
+            json::parse(get("http://127.0.0.1:3000/game", params));
 
         // TODO: Reconcile the game info with previous game info
+        LOG(INFO) << newGameJson.dump(4);
 
         // Heartbeat any rpcs
-        for (auto rpc : rpcs) {
-          rpc->heartbeat();
-        }
+        // for (auto rpc : rpcs) {
+        //   rpc->heartbeat();
+        // }
       }
       // Wait 1s before repeating
       usleep(1000 * 1000);
     }
 
+    return 0;
+  }
+
+  string post(const string &url, const string &payload) {
     try {
       curlpp::Cleanup myCleanup;
 
       // Creation of the URL option.
       curlpp::Easy myRequest;
-      myRequest.setOpt(
-          new curlpp::options::Url(std::string("https://example.com")));
-      myRequest.setOpt(new curlpp::options::SslEngineDefault());
+      myRequest.setOpt(new curlpp::options::Url(url));
+      myRequest.setOpt(new curlpp::options::Verbose(true));
+
+      std::list<std::string> header;
+      header.push_back("Content-Type: application/json");
+      myRequest.setOpt(new curlpp::options::HttpHeader(header));
+
+      myRequest.setOpt(new curlpp::options::PostFields(payload));
+      myRequest.setOpt(new curlpp::options::PostFieldSize(payload.length()));
 
       std::ostringstream os;
       os << myRequest;
-      cout << os.str() << endl;
+      LOG(INFO) << os.str();
+      return os.str();
     } catch (curlpp::RuntimeError &e) {
       std::cout << e.what() << std::endl;
     } catch (curlpp::LogicError &e) {
       std::cout << e.what() << std::endl;
     }
 
-    return 0;
+    return string();
   }
 
-  shared_ptr<asio::io_service> ioService;
-  std::thread ioServiceThread;
-  shared_ptr<mutex> ioServiceMutex;
+  string get(const string &url, map<string, string> queryParameters) {
+    try {
+      curlpp::Cleanup myCleanup;
+
+      string urlWithParams = url + "?";
+      bool first = true;
+      for (auto &it : queryParameters) {
+        if (!first) {
+          urlWithParams += "&";
+        }
+        first = false;
+        urlWithParams += it.first + "=" + it.second;
+      }
+
+      // Creation of the URL option.
+      curlpp::Easy myRequest;
+      myRequest.setOpt(new curlpp::options::Url(urlWithParams));
+      myRequest.setOpt(new curlpp::options::Verbose(true));
+      myRequest.setOpt(new curlpp::options::HttpGet(true));
+
+      std::ostringstream os;
+      os << myRequest;
+      LOG(INFO) << os.str();
+      return os.str();
+    } catch (curlpp::RuntimeError &e) {
+      std::cout << e.what() << std::endl;
+    } catch (curlpp::LogicError &e) {
+      std::cout << e.what() << std::endl;
+    }
+
+    return string();
+  }
+
+  shared_ptr<NetEngine> netEngine;
   PublicKey publicKey;
   PrivateKey privateKey;
   shared_ptr<PortMultiplexer> server;
-  vector<Peer> peers;
 };
 }  // namespace wga
 
