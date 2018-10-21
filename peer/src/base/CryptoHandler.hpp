@@ -23,7 +23,8 @@ typedef array<uint8_t, crypto_secretbox_NONCEBYTES + crypto_box_MACBYTES +
 
 class CryptoHandler {
  public:
-  CryptoHandler(const PrivateKey& _myPrivateKey);
+  CryptoHandler(const PrivateKey& _myPrivateKey,
+                const PublicKey& _otherPublicKey);
   ~CryptoHandler();
 
   static PublicKey makePublicFromPrivate(const PrivateKey& privateKey) {
@@ -65,8 +66,23 @@ class CryptoHandler {
     return make_pair(publicKey, privateKey);
   }
 
-  EncryptedSessionKey generateOutgoingSessionKey(
-      const PublicKey& _otherPublicKey);
+  template <typename T>
+  static string keyToString(const T& key) {
+    string s;
+    FATAL_IF_FALSE(
+        Base64::Encode(string((const char*)key.data(), key.size()), &s));
+    return s;
+  }
+
+  template <typename T>
+  static T stringToKey(const string& s) {
+    T key;
+    FATAL_IF_FALSE(
+        Base64::Decode(&s[0], s.length(), (char*)key.data(), key.size()));
+    return key;
+  }
+
+  EncryptedSessionKey generateOutgoingSessionKey();
   bool recieveIncomingSessionKey(const EncryptedSessionKey& otherSessionKey);
 
   bool canDecrypt() { return incomingSessionKey != emptySessionKey; }
@@ -74,9 +90,6 @@ class CryptoHandler {
 
   PublicKey getMyPublicKey() { return myPublicKey; }
   PublicKey getOtherPublicKey() { return otherPublicKey; }
-  void setOtherPublicKey(const PublicKey& _otherPublicKey) {
-    otherPublicKey = _otherPublicKey;
-  }
 
   string encrypt(const string& buffer);
   pair<bool, string> tryToDecrypt(const string& buffer);

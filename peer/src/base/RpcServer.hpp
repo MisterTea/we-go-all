@@ -81,6 +81,26 @@ class RpcServer : public PortMultiplexer {
     }
   }
 
+  bool ready() {
+    for (auto it : endpoints) {
+      if (!it.second->ready()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void runUntilInitialized() {
+    while (!ready()) {
+      {
+        lock_guard<recursive_mutex> guard(*netEngine->getMutex());
+        heartbeat();
+      }
+      LOG(INFO) << "WAITING FOR INIT";
+      usleep(1000 * 1000);
+    }
+  }
+
  protected:
   map<PublicKey, shared_ptr<MultiEndpointHandler>> endpoints;
 };

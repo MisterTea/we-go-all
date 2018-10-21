@@ -62,23 +62,8 @@ class FlakyRpcTest : public testing::Test {
           continue;
         }
         shared_ptr<CryptoHandler> cryptoHandler(
-            new CryptoHandler(keys[a].second));
-        cryptoHandler->setOtherPublicKey(keys[b].first);
+            new CryptoHandler(keys[a].second, keys[b].first));
         cryptoHandlers[a].push_back(cryptoHandler);
-      }
-    }
-
-    // Create session keys
-    for (int a = 0; a < numNodes; a++) {
-      for (int b = 0; b < numNodes; b++) {
-        if (a == b) {
-          continue;
-        }
-        if (!cryptoHandlers[a][b]->recieveIncomingSessionKey(
-                cryptoHandlers[b][a]->generateOutgoingSessionKey(
-                    cryptoHandlers[a][b]->getMyPublicKey()))) {
-          LOG(FATAL) << "Receive session key failed";
-        }
       }
     }
 
@@ -88,25 +73,38 @@ class FlakyRpcTest : public testing::Test {
         if (a == b) {
           continue;
         }
-        udp::resolver resolver(*netEngine->getIoService());
-        udp::resolver::query query(udp::v4(), "127.0.0.1",
-                                   std::to_string(20000 + b));
-        auto it = resolver.resolve(query);
-        auto remoteEndpoint = it->endpoint();
-        LOG(INFO) << "GOT ENTRY: " << remoteEndpoint;
-        LOG(INFO) << "GOT ENTRY2: "
-                  << ((++it) ==
-                      asio::ip::basic_resolver_results<asio::ip::udp>());
+        auto remoteEndpoint =
+            netEngine->resolve("127.0.0.1", std::to_string(20000 + b));
         shared_ptr<MultiEndpointHandler> endpointHandler(
-            new MultiEndpointHandler(servers[a]->getLocalSocket(),
-                                     netEngine->getIoService(),
-                                     cryptoHandlers[a][b], remoteEndpoint));
+            new MultiEndpointHandler(servers[a]->getLocalSocket(), netEngine,
+                                     cryptoHandlers[a][b], {remoteEndpoint}));
         endpointHandler->setFlaky(true);
         servers[a]->addEndpoint(endpointHandler);
       }
     }
 
     netEngine->start();
+
+    int numFinished = 0;
+    vector<shared_ptr<thread>> initThreads;
+    int numTotal = servers.size();
+    for (auto& server : servers) {
+      initThreads.push_back(shared_ptr<thread>(
+          new std::thread([server, this, &numFinished, numTotal]() {
+            server->runUntilInitialized();
+            numFinished++;
+            while (numFinished < numTotal) {
+              {
+                lock_guard<recursive_mutex> guard(*this->netEngine->getMutex());
+                server->heartbeat();
+              }
+              usleep(1000 * 1000);
+            }
+          })));
+    }
+    for (auto it : initThreads) {
+      it->join();
+    }
   }
 
   void runTest(int numNodes, int numTrials) {

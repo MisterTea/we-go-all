@@ -2,20 +2,41 @@
 
 namespace wga {
 MultiEndpointHandler::MultiEndpointHandler(
-    shared_ptr<udp::socket> _localSocket,
-    shared_ptr<asio::io_service> _ioService,
-    shared_ptr<CryptoHandler> _cryptoHandler, const udp::endpoint& endpoint)
+    shared_ptr<udp::socket> _localSocket, shared_ptr<NetEngine> _netEngine,
+    shared_ptr<CryptoHandler> _cryptoHandler,
+    const vector<udp::endpoint>& endpoints)
     : BiDirectionalRpc(),
       localSocket(_localSocket),
-      ioService(_ioService),
+      netEngine(_netEngine),
       cryptoHandler(_cryptoHandler),
-      activeEndpoint(endpoint),
       lastUpdateTime(time(NULL)),
       lastUnrepliedSendTime(0) {
-  if (!cryptoHandler->canDecrypt() || !cryptoHandler->canEncrypt()) {
-    LOG(FATAL) << "Created endpoint handler before we could encrypt/decrypt: "
-               << cryptoHandler->canDecrypt() << " "
-               << cryptoHandler->canEncrypt();
+  if (cryptoHandler->canDecrypt() || cryptoHandler->canEncrypt()) {
+    LOG(FATAL) << "Created endpoint handler with session key";
+  }
+
+  if (endpoints.empty()) {
+    LOG(FATAL) << "Passed an empty endpoints array";
+  }
+
+  activeEndpoint = endpoints[0];
+  for (int a = 1; a < endpoints.size(); a++) {
+    alternativeEndpoints.insert(endpoints[a]);
+  }
+
+  // Send session key as a one-way rpc
+  {
+    IdPayload idPayload;
+    EncryptedSessionKey encryptedSessionKey =
+        cryptoHandler->generateOutgoingSessionKey();
+    FATAL_IF_FALSE(
+        Base64::Encode(string((const char*)encryptedSessionKey.data(),
+                              encryptedSessionKey.size()),
+                       &idPayload.payload));
+    LOG(INFO) << idPayload.payload;
+    idPayload.id = RpcId(0, 1);
+    oneWayRequests.insert(idPayload.id);
+    BiDirectionalRpc::requestWithId(idPayload);
   }
 }
 
@@ -28,7 +49,7 @@ void MultiEndpointHandler::send(const string& message) {
     update();
   }
 
-  ioService->post([this, message]() {
+  netEngine->getIoService()->post([this, message]() {
     LOG(INFO) << "IN SEND LAMBDA: " << message.length();
     int bytesSent = localSocket->send_to(asio::buffer(message), activeEndpoint);
     LOG(INFO) << bytesSent << " bytes sent";
@@ -60,6 +81,9 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
 }
 
 void MultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
+  if (!ready()) {
+    LOG(FATAL) << "Tried to send data before we were ready";
+  }
   IdPayload encryptedIdPayload =
       IdPayload(idPayload.id, cryptoHandler->encrypt(idPayload.payload));
   BiDirectionalRpc::requestWithId(encryptedIdPayload);
@@ -71,6 +95,21 @@ void MultiEndpointHandler::reply(const RpcId& rpcId, const string& payload) {
 }
 
 void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
+  if (idPayload.id.id == 1) {
+    // Handshaking
+    LOG(INFO) << "GOT HANDSHAKE";
+    bool result = cryptoHandler->recieveIncomingSessionKey(
+        CryptoHandler::stringToKey<EncryptedSessionKey>(idPayload.payload));
+    if (!result) {
+      LOG(FATAL) << "Invalid session key";
+    }
+    BiDirectionalRpc::addIncomingRequest(idPayload);
+    BiDirectionalRpc::reply(idPayload.id, "OK");
+    return;
+  }
+  if (!ready()) {
+    LOG(FATAL) << "Tried to send data before we were ready";
+  }
   IdPayload decryptedIdPayload =
       IdPayload(idPayload.id, cryptoHandler->decrypt(idPayload.payload));
   LOG(INFO) << "GOT REQUEST WITH PAYLOAD: " << decryptedIdPayload.payload;

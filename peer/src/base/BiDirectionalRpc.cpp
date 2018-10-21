@@ -38,6 +38,7 @@ void BiDirectionalRpc::receive(const string& message) {
   RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
   if (flaky && rand() % 2 == 0) {
     // Pretend we never got the message
+    LOG(INFO) << "FLAKE";
   } else {
     if (header != HEARTBEAT) {
       LOG(INFO) << "GOT PACKET WITH HEADER " << header;

@@ -5,7 +5,8 @@
 #include <curlpp/cURLpp.hpp>
 #include "CryptoHandler.hpp"
 #include "NetEngine.hpp"
-#include "PortMultiplexer.hpp"
+#include "PlayerData.hpp"
+#include "RpcServer.hpp"
 
 DEFINE_int32(serverPort, 0, "Port to listen on");
 DEFINE_bool(host, false, "True if hosting");
@@ -19,11 +20,12 @@ class Main {
   int run(int argc, char **argv) {
     srand(time(NULL));
     CryptoHandler::init();
-    shared_ptr<asio::io_service> ioService(new asio::io_service());
-    shared_ptr<NetEngine> netEngine(new NetEngine(ioService));
-    shared_ptr<udp::socket> localSocket(new udp::socket(
-        *ioService, udp::endpoint(udp::v4(), FLAGS_serverPort)));
-    server.reset(new PortMultiplexer(netEngine, localSocket));
+    shared_ptr<NetEngine> netEngine(
+        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
+    shared_ptr<udp::socket> localSocket(
+        new udp::socket(*netEngine->getIoService(),
+                        udp::endpoint(udp::v4(), FLAGS_serverPort)));
+    server.reset(new RpcServer(netEngine, localSocket));
 
     FATAL_IF_FALSE(Base64::Decode(&FLAGS_password[0], FLAGS_password.length(),
                                   (char *)privateKey.data(),
@@ -34,18 +36,33 @@ class Main {
     if (FLAGS_host) {
       json hostInfo;
       hostInfo["gameName"] = "carpolo";
-      hostInfo["playerName"] = "DigitalGhost";
       hostInfo["publicKey"] = publicKey;
 
       gameJson =
           json::parse(post("http://127.0.0.1:3000/host", hostInfo.dump(4)));
     } else {
       json guestInfo;
-      guestInfo["name"] = "DogFart";
       guestInfo["publicKey"] = publicKey;
 
-      gameJson =
-          json::parse(post("http://127.0.0.1:3000/join", guestInfo.dump(4)));
+      gameJson = json::parse(
+          post("http://127.0.0.1:3000/gameinfo", guestInfo.dump(4)));
+    }
+
+    for (auto it = gameJson["players"].begin(); it != gameJson["players"].end();
+         it++) {
+      PublicKey playerKey = CryptoHandler::stringToKey<PublicKey>(it.key());
+      string playerName = it.value()["name"];
+      vector<string> endpointsString = it.value()["endpoints"];
+      vector<udp::endpoint> endpoints;
+      for (auto s : endpointsString) {
+        auto tokens = split(s, ':');
+        endpoints.push_back(netEngine->resolve(tokens[0], tokens[1]));
+      }
+      PlayerData playerData(playerKey, playerName);
+      shared_ptr<CryptoHandler> cryptoHandler(
+          new CryptoHandler(privateKey, playerKey));
+      shared_ptr<MultiEndpointHandler> endpointHandler(new MultiEndpointHandler(
+          localSocket, netEngine, cryptoHandler, endpoints));
     }
 
     netEngine->start();
@@ -138,7 +155,7 @@ class Main {
   shared_ptr<NetEngine> netEngine;
   PublicKey publicKey;
   PrivateKey privateKey;
-  shared_ptr<PortMultiplexer> server;
+  shared_ptr<RpcServer> server;
 };
 }  // namespace wga
 

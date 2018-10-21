@@ -24,6 +24,21 @@ class NetEngine {
 
   shared_ptr<recursive_mutex> getMutex() { return ioServiceMutex; }
 
+  udp::endpoint resolve(const string& hostname, const string& port) {
+    udp::resolver resolver(*ioService);
+    udp::resolver::query query(udp::v4(), hostname, port);
+    auto it = resolver.resolve(query);
+    auto remoteEndpoint = it->endpoint();
+    it++;
+    LOG(INFO) << "GOT ENTRY: " << remoteEndpoint;
+    LOG(INFO) << "GOT ENTRY2: "
+              << ((it) == asio::ip::basic_resolver_results<asio::ip::udp>());
+    if (it != asio::ip::basic_resolver_results<asio::ip::udp>()) {
+      LOG(FATAL) << "Ambiguous endpoint";
+    }
+    return remoteEndpoint;
+  }
+
  protected:
   shared_ptr<asio::io_service> ioService;
   thread ioServiceThread;

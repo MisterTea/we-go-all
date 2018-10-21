@@ -4,25 +4,29 @@
 #include "BiDirectionalRpc.hpp"
 #include "CryptoHandler.hpp"
 #include "Headers.hpp"
+#include "NetEngine.hpp"
 #include "RpcId.hpp"
 
 namespace wga {
 class MultiEndpointHandler : public BiDirectionalRpc {
  public:
   MultiEndpointHandler(shared_ptr<udp::socket> _localSocket,
-                       shared_ptr<asio::io_service> _ioService,
+                       shared_ptr<NetEngine> _netEngine,
                        shared_ptr<CryptoHandler> _cryptoHandler,
-                       const udp::endpoint& endpoint);
+                       const vector<udp::endpoint>& endpoints);
 
   void gotMessage() { lastUnrepliedSendTime = 0; }
   virtual bool hasEndpointAndResurrectIfFound(const udp::endpoint& endpoint);
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
+  bool ready() {
+    return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
+  }
 
  protected:
   shared_ptr<udp::socket> localSocket;
-  shared_ptr<asio::io_service> ioService;
+  shared_ptr<NetEngine> netEngine;
   shared_ptr<CryptoHandler> cryptoHandler;
   udp::endpoint activeEndpoint;
   time_t lastUpdateTime;

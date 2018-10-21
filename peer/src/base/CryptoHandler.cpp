@@ -2,8 +2,9 @@
 
 namespace wga {
 
-CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey)
-    : myPrivateKey(_myPrivateKey) {
+CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey,
+                             const PublicKey& _otherPublicKey)
+    : myPrivateKey(_myPrivateKey), otherPublicKey(_otherPublicKey) {
   myPublicKey = CryptoHandler::makePublicFromPrivate(myPrivateKey);
   incomingSessionKey.fill(0);
   outgoingSessionKey.fill(0);
@@ -12,9 +13,7 @@ CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey)
 
 CryptoHandler::~CryptoHandler() {}
 
-EncryptedSessionKey CryptoHandler::generateOutgoingSessionKey(
-    const PublicKey& _otherPublicKey) {
-  otherPublicKey = _otherPublicKey;
+EncryptedSessionKey CryptoHandler::generateOutgoingSessionKey() {
   if (outgoingSessionKey != emptySessionKey) {
     LOG(FATAL) << "Tried to generate a session key when one already exists!";
   }
