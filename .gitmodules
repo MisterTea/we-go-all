@@ -10,3 +10,6 @@
 [submodule "peer/external/curlpp"]
 	path = peer/external/curlpp
 	url = https://github.com/jpbarrette/curlpp.git
+[submodule "peer/external/Catch2"]
+	path = peer/external/Catch2
+	url = https://github.com/catchorg/Catch2.git

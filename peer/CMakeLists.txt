@@ -63,6 +63,7 @@ include_directories(
   external/asio/asio/include
   external/msgpack-c/include
   external/curlpp/include
+  external/Catch2/single_include
   ${GFLAGS_INCLUDE_DIRS}
   ${sodium_INCLUDE_DIR}
   )

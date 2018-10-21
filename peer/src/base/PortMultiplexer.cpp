@@ -13,8 +13,8 @@ PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
 void PortMultiplexer::handleRecieve(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
   lock_guard<recursive_mutex> guard(*netEngine->getMutex());
-  LOG(INFO) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
-            << bytesTransferred;
+  VLOG(1) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
+          << bytesTransferred;
   // We need to find out where this needs to go
   shared_ptr<UdpRecipient> recipient;
   for (auto& it : recipients) {

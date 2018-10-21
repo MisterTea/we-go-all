@@ -33,7 +33,7 @@ MultiEndpointHandler::MultiEndpointHandler(
         Base64::Encode(string((const char*)encryptedSessionKey.data(),
                               encryptedSessionKey.size()),
                        &idPayload.payload));
-    LOG(INFO) << idPayload.payload;
+    VLOG(1) << idPayload.payload;
     idPayload.id = RpcId(0, 1);
     oneWayRequests.insert(idPayload.id);
     BiDirectionalRpc::requestWithId(idPayload);
@@ -50,9 +50,9 @@ void MultiEndpointHandler::send(const string& message) {
   }
 
   netEngine->getIoService()->post([this, message]() {
-    LOG(INFO) << "IN SEND LAMBDA: " << message.length();
+    VLOG(1) << "IN SEND LAMBDA: " << message.length();
     int bytesSent = localSocket->send_to(asio::buffer(message), activeEndpoint);
-    LOG(INFO) << bytesSent << " bytes sent";
+    VLOG(1) << bytesSent << " bytes sent";
   });
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);
@@ -116,7 +116,7 @@ void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
   }
   IdPayload decryptedIdPayload =
       IdPayload(idPayload.id, cryptoHandler->decrypt(idPayload.payload));
-  LOG(INFO) << "GOT REQUEST WITH PAYLOAD: " << decryptedIdPayload.payload;
+  VLOG(1) << "GOT REQUEST WITH PAYLOAD: " << decryptedIdPayload.payload;
   BiDirectionalRpc::addIncomingRequest(decryptedIdPayload);
 }
 
@@ -126,7 +126,7 @@ void MultiEndpointHandler::addIncomingReply(const RpcId& uid,
     LOG(FATAL) << "Got reply before we were ready, something went wrong";
   }
   string decryptedPayload = cryptoHandler->decrypt(payload);
-  LOG(INFO) << "GOT REPLY WITH PAYLOAD: " << decryptedPayload;
+  VLOG(1) << "GOT REPLY WITH PAYLOAD: " << decryptedPayload;
   BiDirectionalRpc::addIncomingReply(uid, decryptedPayload);
 }
 

@@ -8,11 +8,11 @@ BiDirectionalRpc::~BiDirectionalRpc() {}
 void BiDirectionalRpc::shutdown() {}
 
 void BiDirectionalRpc::heartbeat() {
-  LOG(INFO) << "BEAT";
+  VLOG(1) << "BEAT";
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
     resendRandomOutgoingMessage();
   } else {
-    LOG(INFO) << "SENDING HEARTBEAT";
+    VLOG(1) << "SENDING HEARTBEAT";
     string s = "0";
     s[0] = HEARTBEAT;
     send(s);
@@ -38,10 +38,10 @@ void BiDirectionalRpc::receive(const string& message) {
   RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
   if (flaky && rand() % 2 == 0) {
     // Pretend we never got the message
-    LOG(INFO) << "FLAKE";
+    VLOG(1) << "FLAKE";
   } else {
     if (header != HEARTBEAT) {
-      LOG(INFO) << "GOT PACKET WITH HEADER " << header;
+      VLOG(1) << "GOT PACKET WITH HEADER " << header;
     }
     switch (header) {
       case HEARTBEAT: {
@@ -49,7 +49,7 @@ void BiDirectionalRpc::receive(const string& message) {
       } break;
       case REQUEST: {
         RpcId uid = reader.readClass<RpcId>();
-        LOG(INFO) << "GOT REQUEST: " << uid.str();
+        VLOG(1) << "GOT REQUEST: " << uid.str();
 
         bool skip = false;
         for (auto it : incomingRequests) {
@@ -119,10 +119,10 @@ void BiDirectionalRpc::receive(const string& message) {
       } break;
       case ACKNOWLEDGE: {
         RpcId uid = reader.readClass<RpcId>();
-        LOG(INFO) << "ACK UID " << uid.str();
+        VLOG(1) << "ACK UID " << uid.str();
         for (auto it = outgoingReplies.begin(); it != outgoingReplies.end();
              it++) {
-          LOG(INFO) << "REPLY UID " << it->id.str();
+          VLOG(1) << "REPLY UID " << it->id.str();
           if (it->id == uid) {
             outgoingReplies.erase(it);
 
@@ -193,7 +193,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
 }
 
 void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
-  LOG(INFO) << "SENDING REQUEST: " << idPayload.id.str();
+  VLOG(1) << "SENDING REQUEST: " << idPayload.id.str();
   writer.start();
   writer.writePrimitive<unsigned char>(REQUEST);
   writer.writeClass<RpcId>(idPayload.id);
@@ -202,7 +202,7 @@ void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
 }
 
 void BiDirectionalRpc::sendReply(const IdPayload& idPayload) {
-  LOG(INFO) << "SENDING REPLY: " << idPayload.id.str();
+  VLOG(1) << "SENDING REPLY: " << idPayload.id.str();
   writer.start();
   writer.writePrimitive<unsigned char>(REPLY);
   writer.writeClass<RpcId>(idPayload.id);

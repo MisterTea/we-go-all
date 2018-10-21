@@ -30,8 +30,8 @@ class NetEngine {
     auto it = resolver.resolve(query);
     auto remoteEndpoint = it->endpoint();
     it++;
-    LOG(INFO) << "GOT ENTRY: " << remoteEndpoint;
-    LOG(INFO) << "GOT ENTRY2: "
+    VLOG(1) << "GOT ENTRY: " << remoteEndpoint;
+    VLOG(1) << "GOT ENTRY2: "
               << ((it) == asio::ip::basic_resolver_results<asio::ip::udp>());
     if (it != asio::ip::basic_resolver_results<asio::ip::udp>()) {
       LOG(FATAL) << "Ambiguous endpoint";

@@ -107,10 +107,10 @@ class FlakyRpcTest : public testing::Test {
                   rpcDetails.reply.begin(), ::tolower);
         rpcDetails.id =
             server->request(rpcDetails.destinationKey, rpcDetails.request);
-        LOG(INFO) << "SENDING " << rpcDetails.id.id << " FROM "
-                  << CryptoHandler::keyToString(server->getMyPublicKey())
-                  << " TO "
-                  << CryptoHandler::keyToString(rpcDetails.destinationKey);
+        VLOG(1) << "SENDING " << rpcDetails.id.id << " FROM "
+                << CryptoHandler::keyToString(server->getMyPublicKey())
+                << " TO "
+                << CryptoHandler::keyToString(rpcDetails.destinationKey);
         allRpcDetails[rpcDetails.id] = rpcDetails;
       }
     }
@@ -130,7 +130,7 @@ class FlakyRpcTest : public testing::Test {
         if (!request.empty()) {
           string payload = request.payload;
           transform(payload.begin(), payload.end(), payload.begin(), ::tolower);
-          LOG(INFO) << "GOT REQUEST, SENDING " << request.id.id << " TO "
+          VLOG(1) << "GOT REQUEST, SENDING " << request.id.id << " TO "
                     << CryptoHandler::keyToString(request.key) << " WITH "
                     << payload;
           server->reply(request.key, request.id, payload);
@@ -151,7 +151,7 @@ class FlakyRpcTest : public testing::Test {
                        << " != " << rpcDetails.reply;
           }
           numAcks++;
-          LOG(INFO) << "GOT REPLY: " << numAcks;
+          VLOG(1) << "GOT REPLY: " << numAcks;
         }
 
         if (currentTime != iterationTime) {

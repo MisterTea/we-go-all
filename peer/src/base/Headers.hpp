@@ -62,6 +62,7 @@
 
 #include "asio.hpp"
 #include "base64.hpp"
+#include "catch2/catch.hpp"
 #include "ctpl_stl.h"
 #include "json.hpp"
 #include "msgpack.hpp"
