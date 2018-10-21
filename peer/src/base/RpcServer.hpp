@@ -101,6 +101,41 @@ class RpcServer : public PortMultiplexer {
     }
   }
 
+  void finish() {
+    while (!hasWork()) {
+      {
+        lock_guard<recursive_mutex> guard(*netEngine->getMutex());
+        heartbeat();
+      }
+      LOG(INFO) << "WAITING FOR FINISH";
+      usleep(1000 * 1000);
+    }
+  }
+
+  bool hasWork() {
+    for (auto it : endpoints) {
+      if (it.second->hasWork()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  vector<PublicKey> getPeerKeys() {
+    vector<PublicKey> retval;
+    for (auto it : endpoints) {
+      retval.push_back(it.first);
+    }
+    return retval;
+  }
+
+  PublicKey getMyPublicKey() {
+    if (endpoints.empty()) {
+      LOG(FATAL) << "Tried to get key without endpoints";
+    }
+    return endpoints.begin()->second->getCryptoHandler()->getMyPublicKey();
+  }
+
  protected:
   map<PublicKey, shared_ptr<MultiEndpointHandler>> endpoints;
 };

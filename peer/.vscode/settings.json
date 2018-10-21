@@ -9,6 +9,9 @@
     "__mutex_base": "cpp",
     "mutex": "cpp",
     "*.ipp": "cpp",
-    "utility": "cpp"
+    "utility": "cpp",
+    "algorithm": "cpp",
+    "map": "cpp",
+    "deque": "cpp"
   },
 }

@@ -62,6 +62,7 @@
 
 #include "asio.hpp"
 #include "base64.hpp"
+#include "ctpl_stl.h"
 #include "json.hpp"
 #include "msgpack.hpp"
 #include "sole.hpp"
@@ -78,6 +79,7 @@ using namespace base64;
 
 using asio::ip::udp;
 using nlohmann::json;
+using namespace ctpl;
 
 // The ET protocol version supported by this binary
 static const int PROTOCOL_VERSION = 4;

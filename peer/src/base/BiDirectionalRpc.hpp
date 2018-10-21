@@ -91,6 +91,12 @@ class BiDirectionalRpc : public UdpRecipient {
 
   virtual void receive(const string& message);
 
+  bool hasWork() {
+    return !delayedRequests.empty() || !outgoingRequests.empty() ||
+           !incomingRequests.empty() || !outgoingReplies.empty() ||
+           !incomingReplies.empty();
+  }
+
  protected:
   deque<IdPayload> delayedRequests;
   deque<IdPayload> outgoingRequests;
