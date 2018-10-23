@@ -20,7 +20,17 @@ class MultiEndpointHandler : public BiDirectionalRpc {
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
-  bool ready() {
+  bool readyToSend() {
+    // Make sure rpc(0,1) is finished
+    for (auto& it : outgoingRequests) {
+      if (it.id == RpcId(0, 1)) {
+        return false;
+      }
+    }
+    return readyToRecieve();
+  }
+
+  bool readyToRecieve() {
     return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
   }
 

@@ -15,8 +15,6 @@ class KeyIdPayload {
   KeyIdPayload(const PublicKey& _key, const IdPayload& idPayload)
       : key(_key), id(idPayload.id), payload(idPayload.payload) {}
 
-  bool empty() { return id.empty(); }
-
   PublicKey key;
   RpcId id;
   string payload;
@@ -48,13 +46,13 @@ class RpcServer : public PortMultiplexer {
     return it->second->request(payload);
   }
 
-  KeyIdPayload getIncomingRequest() {
+  optional<KeyIdPayload> getIncomingRequest() {
     for (auto it : endpoints) {
       if (it.second->hasIncomingRequest()) {
         return KeyIdPayload(it.first, it.second->getFirstIncomingRequest());
       }
     }
-    return KeyIdPayload();
+    return optional<KeyIdPayload>();
   }
 
   void reply(const PublicKey& publicKey, const RpcId& rpcId,
@@ -66,13 +64,13 @@ class RpcServer : public PortMultiplexer {
     it->second->reply(rpcId, payload);
   }
 
-  KeyIdPayload getIncomingReply() {
+  optional<KeyIdPayload> getIncomingReply() {
     for (auto it : endpoints) {
       if (it.second->hasIncomingReply()) {
         return KeyIdPayload(it.first, it.second->getFirstIncomingReply());
       }
     }
-    return KeyIdPayload();
+    return optional<KeyIdPayload>();
   }
 
   void heartbeat() {
@@ -81,9 +79,9 @@ class RpcServer : public PortMultiplexer {
     }
   }
 
-  bool ready() {
+  bool readyToSend() {
     for (auto it : endpoints) {
-      if (!it.second->ready()) {
+      if (!it.second->readyToSend()) {
         return false;
       }
     }
@@ -91,9 +89,12 @@ class RpcServer : public PortMultiplexer {
   }
 
   void runUntilInitialized() {
-    while (!ready()) {
+    while (true) {
       {
         lock_guard<recursive_mutex> guard(*netEngine->getMutex());
+        if (readyToSend()) {
+          break;
+        }
         heartbeat();
       }
       LOG(INFO) << "WAITING FOR INIT";

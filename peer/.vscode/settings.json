@@ -12,6 +12,9 @@
     "utility": "cpp",
     "algorithm": "cpp",
     "map": "cpp",
-    "deque": "cpp"
+    "deque": "cpp",
+    "unordered_map": "cpp",
+    "__tree": "cpp",
+    "set": "cpp"
   },
 }

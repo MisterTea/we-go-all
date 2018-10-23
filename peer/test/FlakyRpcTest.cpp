@@ -127,27 +127,27 @@ class FlakyRpcTest : public testing::Test {
       {
         lock_guard<recursive_mutex> guard(*netEngine->getMutex());
         auto request = server->getIncomingRequest();
-        if (!request.empty()) {
-          string payload = request.payload;
+        if (request) {
+          string payload = request->payload;
           transform(payload.begin(), payload.end(), payload.begin(), ::tolower);
-          VLOG(1) << "GOT REQUEST, SENDING " << request.id.id << " TO "
-                    << CryptoHandler::keyToString(request.key) << " WITH "
+          VLOG(1) << "GOT REQUEST, SENDING " << request->id.id << " TO "
+                    << CryptoHandler::keyToString(request->key) << " WITH "
                     << payload;
-          server->reply(request.key, request.id, payload);
+          server->reply(request->key, request->id, payload);
         }
 
         auto reply = server->getIncomingReply();
-        if (!reply.empty()) {
-          if (allRpcDetails.find(reply.id) == allRpcDetails.end()) {
+        if (reply) {
+          if (allRpcDetails.find(reply->id) == allRpcDetails.end()) {
             LOG(INFO) << CryptoHandler::keyToString(server->getMyPublicKey());
             for (auto it : allRpcDetails) {
               LOG(INFO) << it.first.id;
             }
-            LOG(FATAL) << "Got invalid rpc id: " << reply.id.id;
+            LOG(FATAL) << "Got invalid rpc id: " << reply->id.id;
           }
-          RpcDetails& rpcDetails = allRpcDetails.find(reply.id)->second;
-          if (reply.payload != rpcDetails.reply) {
-            LOG(FATAL) << "Reply doesn't match expectation: " << reply.payload
+          RpcDetails& rpcDetails = allRpcDetails.find(reply->id)->second;
+          if (reply->payload != rpcDetails.reply) {
+            LOG(FATAL) << "Reply doesn't match expectation: " << reply->payload
                        << " != " << rpcDetails.reply;
           }
           numAcks++;

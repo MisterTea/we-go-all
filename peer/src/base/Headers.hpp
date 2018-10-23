@@ -66,10 +66,12 @@
 #include "ctpl_stl.h"
 #include "json.hpp"
 #include "msgpack.hpp"
+#include "optional.hpp"
 #include "sole.hpp"
 
 using namespace std;
 using namespace std::chrono;
+using namespace std::experimental;
 
 namespace google {}
 namespace gflags {}

@@ -81,7 +81,7 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
 }
 
 void MultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
-  if (!ready()) {
+  if (!readyToSend()) {
     LOG(FATAL) << "Tried to send data before we were ready";
   }
   IdPayload encryptedIdPayload =
@@ -90,7 +90,7 @@ void MultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
 }
 
 void MultiEndpointHandler::reply(const RpcId& rpcId, const string& payload) {
-  if (!ready()) {
+  if (!readyToSend()) {
     LOG(FATAL) << "Got reply before we were ready, something went wrong";
   }
   string encryptedPayload = cryptoHandler->encrypt(payload);
@@ -110,7 +110,7 @@ void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
     BiDirectionalRpc::reply(idPayload.id, "OK");
     return;
   }
-  if (!ready()) {
+  if (!readyToRecieve()) {
     LOG(INFO) << "Tried to receive data before we were ready";
     return;
   }
@@ -122,7 +122,7 @@ void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
 
 void MultiEndpointHandler::addIncomingReply(const RpcId& uid,
                                             const string& payload) {
-  if (!ready()) {
+  if (!readyToSend()) {
     LOG(FATAL) << "Got reply before we were ready, something went wrong";
   }
   string decryptedPayload = cryptoHandler->decrypt(payload);

@@ -60,6 +60,7 @@ include_directories(
   src/base
   src/peer
   external
+  external/Optional
   external/asio/asio/include
   external/msgpack-c/include
   external/curlpp/include
@@ -108,6 +109,7 @@ if(BUILD_TEST) # Build unit tests.
   
     test/Main.cpp
 
+    test/ChronoMapTest.cpp
     test/FlakyRpcTest.cpp
     )
   
