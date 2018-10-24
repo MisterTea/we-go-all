@@ -52,9 +52,14 @@ class MessageReader {
     return t;
   }
 
+  inline int64_t sizeRemaining() {
+    // TODO: Make sure this is accurate
+    return unpackHandler.nonparsed_size();
+  }
+
  protected:
   msgpack::unpacker unpackHandler;
 };
-}  // namespace codefs
+}  // namespace wga
 
 #endif  // __MESSAGE_READER_H__

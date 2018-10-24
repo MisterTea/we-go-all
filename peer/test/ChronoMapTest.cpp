@@ -79,6 +79,11 @@ TEST_F(ChronoMapTest, Simple) {
 
   v = testMap.getOrDie(5, "k");
   EXPECT_EQ(v, "v5");
+
+  testMap.put(3, 4, {{"k", "v333"}});
+
+  v = testMap.getOrDie(3, "k");
+  EXPECT_EQ(v, "v3");
 }
 
 }  // namespace wga

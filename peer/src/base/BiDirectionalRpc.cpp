@@ -48,73 +48,17 @@ void BiDirectionalRpc::receive(const string& message) {
         // MultiEndpointHandler deals with keepalive
       } break;
       case REQUEST: {
-        RpcId uid = reader.readClass<RpcId>();
-        VLOG(1) << "GOT REQUEST: " << uid.str();
-
-        bool skip = false;
-        for (auto it : incomingRequests) {
-          if (it.first == uid) {
-            // We already received this request.  Skip
-            skip = true;
-            break;
-          }
-        }
-        if (!skip) {
-          for (const IdPayload& it : outgoingReplies) {
-            if (it.id == uid) {
-              // We already processed this request.  Send the reply again
-              skip = true;
-              sendReply(it);
-              break;
-            }
-          }
-        }
-        if (!skip) {
+        while (reader.sizeRemaining()) {
+          RpcId rpcId = reader.readClass<RpcId>();
           string payload = reader.readPrimitive<string>();
-          addIncomingRequest(IdPayload(uid, payload));
+          handleRequest(rpcId, payload);
         }
       } break;
       case REPLY: {
-        RpcId uid = reader.readClass<RpcId>();
-
-        bool skip = false;
-        if (incomingReplies.find(uid) != incomingReplies.end()) {
-          // We already received this reply.  Send acknowledge again and skip.
-          sendAcknowledge(uid);
-          skip = true;
-        }
-        if (!skip) {
-          // Stop sending the request once you get the reply
-          bool deletedRequest = false;
-          for (auto it = outgoingRequests.begin(); it != outgoingRequests.end();
-               it++) {
-            if (it->id == uid) {
-              outgoingRequests.erase(it);
-              deletedRequest = true;
-              tryToSendBarrier();
-              break;
-            }
-          }
-          if (deletedRequest) {
-            string payload = reader.readPrimitive<string>();
-            auto it = oneWayRequests.find(uid);
-            if (it != oneWayRequests.end()) {
-              // Remove this from the set of one way requests and don't bother
-              // adding a reply.
-              oneWayRequests.erase(it);
-            } else {
-              // Add a reply to be processed
-              addIncomingReply(uid, payload);
-            }
-            sendAcknowledge(uid);
-          } else {
-            // We must have processed both this request and reply.  Send the
-            // acknowledge again.
-            sendAcknowledge(uid);
-          }
-
-          // When we complete an reply, try to send a new message
-          resendRandomOutgoingMessage();
+        while (reader.sizeRemaining()) {
+          RpcId uid = reader.readClass<RpcId>();
+          string payload = reader.readPrimitive<string>();
+          handleReply(uid, payload);
         }
       } break;
       case ACKNOWLEDGE: {
@@ -133,6 +77,74 @@ void BiDirectionalRpc::receive(const string& message) {
         }
       } break;
     }
+  }
+}
+
+void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
+                                     const string& payload) {
+  VLOG(1) << "GOT REQUEST: " << rpcId.str();
+
+  bool skip = false;
+  for (auto it : incomingRequests) {
+    if (it.first == rpcId) {
+      // We already received this request.  Skip
+      skip = true;
+      break;
+    }
+  }
+  if (!skip) {
+    for (const IdPayload& it : outgoingReplies) {
+      if (it.id == rpcId) {
+        // We already processed this request.  Send the reply again
+        skip = true;
+        sendReply(it);
+        break;
+      }
+    }
+  }
+  if (!skip) {
+    addIncomingRequest(IdPayload(rpcId, payload));
+  }
+}
+
+void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload) {
+  bool skip = false;
+  if (incomingReplies.find(rpcId) != incomingReplies.end()) {
+    // We already received this reply.  Send acknowledge again and skip.
+    sendAcknowledge(rpcId);
+    skip = true;
+  }
+  if (!skip) {
+    // Stop sending the request once you get the reply
+    bool deletedRequest = false;
+    for (auto it = outgoingRequests.begin(); it != outgoingRequests.end();
+         it++) {
+      if (it->id == rpcId) {
+        outgoingRequests.erase(it);
+        deletedRequest = true;
+        tryToSendBarrier();
+        break;
+      }
+    }
+    if (deletedRequest) {
+      auto it = oneWayRequests.find(rpcId);
+      if (it != oneWayRequests.end()) {
+        // Remove this from the set of one way requests and don't bother
+        // adding a reply.
+        oneWayRequests.erase(it);
+      } else {
+        // Add a reply to be processed
+        addIncomingReply(rpcId, payload);
+      }
+      sendAcknowledge(rpcId);
+    } else {
+      // We must have processed both this request and reply.  Send the
+      // acknowledge again.
+      sendAcknowledge(rpcId);
+    }
+
+    // When we complete an reply, try to send a new message
+    resendRandomOutgoingMessage();
   }
 }
 
@@ -195,9 +207,24 @@ void BiDirectionalRpc::tryToSendBarrier() {
 void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
   VLOG(1) << "SENDING REQUEST: " << idPayload.id.str();
   writer.start();
+  vector<RpcId> rpcsSent;
   writer.writePrimitive<unsigned char>(REQUEST);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
+  // Try to attach more requests to this packet
+  int i = 0;
+  while (!outgoingRequests.empty()) {
+    DRAW_FROM_UNORDERED(it, outgoingRequests);
+    int size = sizeof(RpcId) + it->payload.length();
+    if (size + writer.size() > 400) {
+      // Too big
+      break;
+    }
+    i++;
+    writer.writeClass<RpcId>(it->id);
+    writer.writePrimitive<string>(it->payload);
+  }
+  VLOG(1) << "Attached " << i << " extra packets";
   send(writer.finish());
 }
 
@@ -207,6 +234,20 @@ void BiDirectionalRpc::sendReply(const IdPayload& idPayload) {
   writer.writePrimitive<unsigned char>(REPLY);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
+  // Try to attach more requests to this packet
+  int i = 0;
+  while (!outgoingReplies.empty()) {
+    DRAW_FROM_UNORDERED(it, outgoingReplies);
+    int size = sizeof(RpcId) + it->payload.length();
+    if (size + writer.size() > 400) {
+      // Too big
+      break;
+    }
+    i++;
+    writer.writeClass<RpcId>(it->id);
+    writer.writePrimitive<string>(it->payload);
+  }
+  VLOG(1) << "Attached " << i << " extra packets";
   send(writer.finish());
 }
 

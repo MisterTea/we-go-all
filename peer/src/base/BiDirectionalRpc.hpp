@@ -113,6 +113,8 @@ class BiDirectionalRpc : public UdpRecipient {
   uint64_t onId;
   bool flaky;
 
+  void handleRequest(const RpcId& rpcId, const string& payload);
+  void handleReply(const RpcId& rpcId, const string& payload);
   void resendRandomOutgoingMessage();
   void tryToSendBarrier();
   void sendRequest(const IdPayload& idPayload);

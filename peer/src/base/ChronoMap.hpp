@@ -11,7 +11,8 @@ class ChronoMap {
 
   void put(int64_t startTime, int64_t endTime, map<K, V> data) {
     if (startTime < currentTime) {
-      LOG(FATAL) << "Tried to add a time interval that overlaps";
+      VLOG(1) << "Tried to add a time interval that overlaps";
+      return;
     }
     if (startTime != currentTime) {
       futureData.insert(

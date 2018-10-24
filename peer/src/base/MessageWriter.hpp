@@ -8,9 +8,7 @@ class MessageWriter {
  public:
   MessageWriter() : packHandler(buffer) {}
 
-  inline void start() {
-    buffer.clear();
-  }
+  inline void start() { buffer.clear(); }
 
   template <typename T>
   inline void writePrimitive(const T& t) {
@@ -37,10 +35,12 @@ class MessageWriter {
     return s;
   }
 
+  inline int64_t size() { return buffer.size(); }
+
  protected:
   msgpack::sbuffer buffer;
   msgpack::packer<msgpack::sbuffer> packHandler;
 };
-}  // namespace codefs
+}  // namespace wga
 
 #endif  // __MESSAGE_WRITER_H__
