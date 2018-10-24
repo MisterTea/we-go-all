@@ -52,7 +52,7 @@ class RpcServer : public PortMultiplexer {
         return KeyIdPayload(it.first, it.second->getFirstIncomingRequest());
       }
     }
-    return optional<KeyIdPayload>();
+    return nullopt;
   }
 
   void reply(const PublicKey& publicKey, const RpcId& rpcId,
@@ -70,7 +70,7 @@ class RpcServer : public PortMultiplexer {
         return KeyIdPayload(it.first, it.second->getFirstIncomingReply());
       }
     }
-    return optional<KeyIdPayload>();
+    return nullopt;
   }
 
   void heartbeat() {
@@ -135,6 +135,11 @@ class RpcServer : public PortMultiplexer {
       LOG(FATAL) << "Tried to get key without endpoints";
     }
     return endpoints.begin()->second->getCryptoHandler()->getMyPublicKey();
+  }
+
+  void updateEndpoints(const PublicKey& key,
+                       const vector<udp::endpoint>& newEndpoints) {
+    endpoints[key]->updateEndpoints(newEndpoints);
   }
 
  protected:

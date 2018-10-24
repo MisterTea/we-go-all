@@ -34,6 +34,8 @@ class MultiEndpointHandler : public BiDirectionalRpc {
     return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
   }
 
+  void updateEndpoints(const vector<udp::endpoint>& newEndpoints);
+
  protected:
   shared_ptr<udp::socket> localSocket;
   shared_ptr<NetEngine> netEngine;

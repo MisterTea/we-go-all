@@ -1,8 +1,9 @@
 #ifndef __PLAYER_DATA_H__
 #define __PLAYER_DATA_H__
 
-#include "CryptoHandler.hpp"
 #include "Headers.hpp"
+
+#include "ChronoMap.hpp"
 
 namespace wga {
 class PlayerData {
@@ -13,6 +14,8 @@ class PlayerData {
  protected:
   PublicKey publicKey;
   string name;
+  ChronoMap<int, string> playerInputData;
+  ChronoMap<int, string> metadata;
 };
 }  // namespace wga
 

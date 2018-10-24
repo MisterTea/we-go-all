@@ -1,9 +1,7 @@
 #include "Headers.hpp"
 
-#include <curlpp/Easy.hpp>
-#include <curlpp/Options.hpp>
-#include <curlpp/cURLpp.hpp>
 #include "CryptoHandler.hpp"
+#include "CurlHandler.hpp"
 #include "NetEngine.hpp"
 #include "PlayerData.hpp"
 #include "RpcServer.hpp"
@@ -27,25 +25,54 @@ class Main {
                         udp::endpoint(udp::v4(), FLAGS_serverPort)));
     server.reset(new RpcServer(netEngine, localSocket));
 
-    FATAL_IF_FALSE(Base64::Decode(&FLAGS_password[0], FLAGS_password.length(),
-                                  (char *)privateKey.data(),
-                                  privateKey.size()));
+    privateKey = CryptoHandler::stringToKey<PrivateKey>(FLAGS_password);
     publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
 
-    json gameJson;
+    string gameId;
+
+    {
+      json gameIdRequest;
+      gameIdRequest["publicKey"] = publicKey;
+
+      auto gameIdResponseString = CurlHandler::post(
+          "http://127.0.0.1:3000/get_game_id", gameIdRequest.dump(4));
+      if (gameIdResponseString == nullopt) {
+        LOG(FATAL) << "Could not make initial RPC to server";
+      }
+      json gameIdResponse = json::parse(*gameIdResponseString);
+      gameId = gameIdResponse["gameId"];
+    }
+
     if (FLAGS_host) {
       json hostInfo;
       hostInfo["gameName"] = "carpolo";
       hostInfo["publicKey"] = publicKey;
+      hostInfo["gameId"] = gameId;
 
-      gameJson =
-          json::parse(post("http://127.0.0.1:3000/host", hostInfo.dump(4)));
-    } else {
-      json guestInfo;
-      guestInfo["publicKey"] = publicKey;
+      auto hostData = CurlHandler::post("http://127.0.0.1:3000/set_game_name",
+                                        hostInfo.dump(4));
+      if (hostData == nullopt) {
+        LOG(FATAL) << "Could not make initial RPC to server";
+      }
+      json hostJson = json::parse(*hostData);
+    }
 
-      gameJson = json::parse(
-          post("http://127.0.0.1:3000/gameinfo", guestInfo.dump(4)));
+    json gameJson;
+    json gameInfo;
+    gameInfo["publicKey"] = publicKey;
+    gameInfo["gameId"] = gameId;
+
+    while (true) {
+      auto gameInfoResult =
+          CurlHandler::post("http://127.0.0.1:3000/gameinfo", gameInfo.dump(4));
+      if (gameInfoResult == nullopt) {
+        LOG(FATAL) << "Could not make initial RPC to server";
+      }
+      gameJson = json::parse(*gameInfoResult);
+      if (gameJson["gameName"].get<string>().length()) {
+        break;
+      }
+      usleep(1000 * 1000);
     }
 
     for (auto it = gameJson["players"].begin(); it != gameJson["players"].end();
@@ -58,104 +85,80 @@ class Main {
         auto tokens = split(s, ':');
         endpoints.push_back(netEngine->resolve(tokens[0], tokens[1]));
       }
-      PlayerData playerData(playerKey, playerName);
+      allPlayerData.insert(
+          make_pair(playerKey, PlayerData(playerKey, playerName)));
       shared_ptr<CryptoHandler> cryptoHandler(
           new CryptoHandler(privateKey, playerKey));
       shared_ptr<MultiEndpointHandler> endpointHandler(new MultiEndpointHandler(
           localSocket, netEngine, cryptoHandler, endpoints));
+      server->addEndpoint(endpointHandler);
     }
 
     netEngine->start();
 
+    server->runUntilInitialized();
+
+    auto lastUpdateTime = 0;
     while (true) {
       {
         lock_guard<recursive_mutex> guard(*netEngine->getMutex());
-        // Make an RPC to get the peer data
-        map<string, string> params = {{"id", gameJson["id"]}};
-        json newGameJson =
-            json::parse(get("http://127.0.0.1:3000/game", params));
+        auto currentTime = time(NULL);
+        if (currentTime != lastUpdateTime) {
+          currentTime = lastUpdateTime;
 
-        // TODO: Reconcile the game info with previous game info
-        LOG(INFO) << newGameJson.dump(4);
+          // TODO: Get local ip addresses
+          udp::endpoint serverEndpoint =
+              netEngine->resolve("127.0.0.1", "3000");
+          string localIpAddresses =
+              "192.168.0.1:" + to_string(FLAGS_serverPort);
+          netEngine->getIoService()->post(
+              [localSocket, serverEndpoint, localIpAddresses]() {
+                VLOG(1) << "IN SEND LAMBDA: " << localIpAddresses.length();
+                int bytesSent = localSocket->send_to(
+                    asio::buffer(localIpAddresses), serverEndpoint);
+                VLOG(1) << bytesSent << " bytes sent";
+              });
 
-        // Heartbeat any rpcs
-        // for (auto rpc : rpcs) {
-        //   rpc->heartbeat();
-        // }
+          // Make an RPC to get the peer data
+          json guestInfo;
+          guestInfo["publicKey"] = publicKey;
+
+          // TODO: Make async
+          auto gameData = CurlHandler::post("http://127.0.0.1:3000/gameinfo",
+                                            guestInfo.dump(4));
+          if (gameData == nullopt) {
+            LOG(FATAL) << "Rpc to server failed";
+          }
+          gameJson = json::parse(*gameData);
+
+          for (auto it = gameJson["players"].begin();
+               it != gameJson["players"].end(); it++) {
+            PublicKey playerKey =
+                CryptoHandler::stringToKey<PublicKey>(it.key());
+            vector<string> endpointsString = it.value()["endpoints"];
+            vector<udp::endpoint> endpoints;
+            for (auto s : endpointsString) {
+              auto tokens = split(s, ':');
+              endpoints.push_back(netEngine->resolve(tokens[0], tokens[1]));
+            }
+            server->updateEndpoints(playerKey, endpoints);
+          }
+
+          server->heartbeat();
+        }
       }
-      // Wait 1s before repeating
-      usleep(1000 * 1000);
+      // Wait before repeating
+      usleep(3000 * 1000);
     }
 
     return 0;
-  }
-
-  string post(const string &url, const string &payload) {
-    try {
-      curlpp::Cleanup myCleanup;
-
-      // Creation of the URL option.
-      curlpp::Easy myRequest;
-      myRequest.setOpt(new curlpp::options::Url(url));
-      myRequest.setOpt(new curlpp::options::Verbose(true));
-
-      std::list<std::string> header;
-      header.push_back("Content-Type: application/json");
-      myRequest.setOpt(new curlpp::options::HttpHeader(header));
-
-      myRequest.setOpt(new curlpp::options::PostFields(payload));
-      myRequest.setOpt(new curlpp::options::PostFieldSize(payload.length()));
-
-      std::ostringstream os;
-      os << myRequest;
-      LOG(INFO) << os.str();
-      return os.str();
-    } catch (curlpp::RuntimeError &e) {
-      std::cout << e.what() << std::endl;
-    } catch (curlpp::LogicError &e) {
-      std::cout << e.what() << std::endl;
-    }
-
-    return string();
-  }
-
-  string get(const string &url, map<string, string> queryParameters) {
-    try {
-      curlpp::Cleanup myCleanup;
-
-      string urlWithParams = url + "?";
-      bool first = true;
-      for (auto &it : queryParameters) {
-        if (!first) {
-          urlWithParams += "&";
-        }
-        first = false;
-        urlWithParams += it.first + "=" + it.second;
-      }
-
-      // Creation of the URL option.
-      curlpp::Easy myRequest;
-      myRequest.setOpt(new curlpp::options::Url(urlWithParams));
-      myRequest.setOpt(new curlpp::options::Verbose(true));
-      myRequest.setOpt(new curlpp::options::HttpGet(true));
-
-      std::ostringstream os;
-      os << myRequest;
-      LOG(INFO) << os.str();
-      return os.str();
-    } catch (curlpp::RuntimeError &e) {
-      std::cout << e.what() << std::endl;
-    } catch (curlpp::LogicError &e) {
-      std::cout << e.what() << std::endl;
-    }
-
-    return string();
   }
 
   shared_ptr<NetEngine> netEngine;
   PublicKey publicKey;
   PrivateKey privateKey;
   shared_ptr<RpcServer> server;
+  map<PublicKey, PlayerData> allPlayerData;
 };
 }  // namespace wga
 

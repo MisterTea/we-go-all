@@ -15,6 +15,11 @@
     "deque": "cpp",
     "unordered_map": "cpp",
     "__tree": "cpp",
-    "set": "cpp"
+    "set": "cpp",
+    "bitset": "cpp",
+    "__functional_base": "cpp",
+    "istream": "cpp",
+    "locale": "cpp",
+    "tuple": "cpp"
   },
 }

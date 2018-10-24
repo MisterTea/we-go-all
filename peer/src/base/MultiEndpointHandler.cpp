@@ -97,6 +97,22 @@ void MultiEndpointHandler::reply(const RpcId& rpcId, const string& payload) {
   BiDirectionalRpc::reply(rpcId, encryptedPayload);
 }
 
+void MultiEndpointHandler::updateEndpoints(
+    const vector<udp::endpoint>& newEndpoints) {
+  for (auto& it : newEndpoints) {
+    if (it == activeEndpoint) {
+      continue;
+    }
+    if (alternativeEndpoints.find(it) != alternativeEndpoints.end()) {
+      continue;
+    }
+    if (deadEndpoints.find(it) != deadEndpoints.end()) {
+      continue;
+    }
+    alternativeEndpoints.insert(it);
+  }
+}
+
 void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
   if (idPayload.id.id == 1) {
     // Handshaking
