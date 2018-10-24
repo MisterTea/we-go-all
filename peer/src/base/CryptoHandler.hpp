@@ -43,12 +43,13 @@ class CryptoHandler {
     return retval;
   }
 
-  static string unsign(const PublicKey& publicKey, const string& s) {
+  static optional<string> unsign(const PublicKey& publicKey, const string& s) {
     string retval(s.length(), '\0');
     uint64_t unsignedLength;
-    SODIUM_FAIL(crypto_sign_open((uint8_t*)&retval[0], &unsignedLength,
-                                 (const uint8_t*)&s[0], s.length(),
-                                 publicKey.data()));
+    if (crypto_sign_open((uint8_t*)&retval[0], &unsignedLength,
+                         (const uint8_t*)&s[0], s.length(), publicKey.data())) {
+      return nullopt;
+    }
     retval.resize(unsignedLength);
     return retval;
   }
@@ -92,14 +93,7 @@ class CryptoHandler {
   PublicKey getOtherPublicKey() { return otherPublicKey; }
 
   string encrypt(const string& buffer);
-  pair<bool, string> tryToDecrypt(const string& buffer);
-  string decrypt(const string& buffer) {
-    auto retval = tryToDecrypt(buffer);
-    if (!retval.first) {
-      LOG(FATAL) << "Decrypt failed";
-    }
-    return retval.second;
-  }
+  optional<string> decrypt(const string& buffer);
 
  protected:
   PrivateKey myPublicKey;

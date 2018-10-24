@@ -67,13 +67,13 @@ string CryptoHandler::encrypt(const string& buffer) {
   return retval;
 }
 
-pair<bool, string> CryptoHandler::tryToDecrypt(const string& buffer) {
+optional<string> CryptoHandler::decrypt(const string& buffer) {
   if (incomingSessionKey == emptySessionKey) {
     LOG(FATAL) << "Tried to use a session key when one doesn't exist!";
   }
   if (buffer.length() <=
       (crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES)) {
-    return make_pair(false, "");
+    return nullopt;
   }
   string retval((buffer.length() - crypto_secretbox_NONCEBYTES) -
                     crypto_secretbox_MACBYTES,
@@ -86,8 +86,8 @@ pair<bool, string> CryptoHandler::tryToDecrypt(const string& buffer) {
           (const uint8_t*)buffer.c_str(),   // Nonce
           incomingSessionKey.data()         // Session Key
           ) != 0) {
-    return make_pair(false, "");
+    return nullopt;
   }
-  return make_pair(true, retval);
+  return retval;
 }
 }  // namespace wga

@@ -120,7 +120,8 @@ void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
     bool result = cryptoHandler->recieveIncomingSessionKey(
         CryptoHandler::stringToKey<EncryptedSessionKey>(idPayload.payload));
     if (!result) {
-      LOG(FATAL) << "Invalid session key";
+      LOG(ERROR) << "Invalid session key";
+      return;
     }
     BiDirectionalRpc::addIncomingRequest(idPayload);
     BiDirectionalRpc::reply(idPayload.id, "OK");
@@ -130,8 +131,13 @@ void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
     LOG(INFO) << "Tried to receive data before we were ready";
     return;
   }
-  IdPayload decryptedIdPayload =
-      IdPayload(idPayload.id, cryptoHandler->decrypt(idPayload.payload));
+  auto decryptedString = cryptoHandler->decrypt(idPayload.payload);
+  if (!decryptedString) {
+    // Corrupt message, ignore
+    LOG(ERROR) << "Got a corrupt packet";
+    return;
+  }
+  IdPayload decryptedIdPayload = IdPayload(idPayload.id, *decryptedString);
   VLOG(1) << "GOT REQUEST WITH PAYLOAD: " << decryptedIdPayload.payload;
   BiDirectionalRpc::addIncomingRequest(decryptedIdPayload);
 }
@@ -141,9 +147,13 @@ void MultiEndpointHandler::addIncomingReply(const RpcId& uid,
   if (!readyToSend()) {
     LOG(FATAL) << "Got reply before we were ready, something went wrong";
   }
-  string decryptedPayload = cryptoHandler->decrypt(payload);
-  VLOG(1) << "GOT REPLY WITH PAYLOAD: " << decryptedPayload;
-  BiDirectionalRpc::addIncomingReply(uid, decryptedPayload);
+  auto decryptedPayload = cryptoHandler->decrypt(payload);
+  if (!decryptedPayload) {
+    LOG(ERROR) << "Got corrupt packet";
+    return;
+  }
+  VLOG(1) << "GOT REPLY WITH PAYLOAD: " << *decryptedPayload;
+  BiDirectionalRpc::addIncomingReply(uid, *decryptedPayload);
 }
 
 void MultiEndpointHandler::update() {
