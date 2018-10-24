@@ -52,6 +52,33 @@ TEST_F(ChronoMapTest, Simple) {
 
   v = testMap.getOrDie(2, "k3");
   EXPECT_EQ(v, "v3");
+
+  testMap.put(4, 5, {{"k", "v4"}});
+
+  vOptional = testMap.get(3, "k");
+  EXPECT_EQ(vOptional, nullopt);
+
+  vOptional = testMap.get(4, "k");
+  EXPECT_EQ(vOptional, nullopt);
+
+  testMap.put(5, 6, {{"k", "v5"}});
+
+  vOptional = testMap.get(3, "k");
+  EXPECT_EQ(vOptional, nullopt);
+
+  vOptional = testMap.get(4, "k");
+  EXPECT_EQ(vOptional, nullopt);
+
+  testMap.put(3, 4, {{"k", "v3"}});
+
+  v = testMap.getOrDie(3, "k");
+  EXPECT_EQ(v, "v3");
+
+  v = testMap.getOrDie(4, "k");
+  EXPECT_EQ(v, "v4");
+
+  v = testMap.getOrDie(5, "k");
+  EXPECT_EQ(v, "v5");
 }
 
 }  // namespace wga
