@@ -7,6 +7,7 @@
 #include "NetEngine.hpp"
 #include "PortMultiplexer.hpp"
 #include "RpcServer.hpp"
+#include "TimeHandler.hpp"
 
 using namespace wga;
 
@@ -22,6 +23,7 @@ class FlakyRpcTest : public testing::Test {
   void SetUp() override {
     srand(time(NULL));
     CryptoHandler::init();
+    TimeHandler::init();
     netEngine.reset(
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
   }
@@ -131,8 +133,8 @@ class FlakyRpcTest : public testing::Test {
           string payload = request->payload;
           transform(payload.begin(), payload.end(), payload.begin(), ::tolower);
           VLOG(1) << "GOT REQUEST, SENDING " << request->id.id << " TO "
-                    << CryptoHandler::keyToString(request->key) << " WITH "
-                    << payload;
+                  << CryptoHandler::keyToString(request->key) << " WITH "
+                  << payload;
           server->reply(request->key, request->id, payload);
         }
 

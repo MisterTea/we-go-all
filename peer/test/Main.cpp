@@ -13,6 +13,9 @@ int main(int argc, char **argv) {
   srand(1);
   testing::InitGoogleTest(&argc, argv);
 
+  // GFLAGS parse command line arguments
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
   // Setup easylogging configurations
   el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
   defaultConf.setGlobally(el::ConfigurationType::ToFile, "false");

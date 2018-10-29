@@ -7,53 +7,33 @@ namespace wga {
 template <typename K, typename V>
 class ChronoMap {
  public:
-  ChronoMap() : currentTime(0) {}
+  ChronoMap() : currentTime(0), startTime(0) {}
 
-  void put(int64_t startTime, int64_t endTime, map<K, V> data) {
-    if (startTime < currentTime) {
+  ChronoMap(int64_t _startTime) : currentTime(_startTime), startTime(_startTime) {}
+
+  void put(int64_t putStartTime, int64_t endTime, unordered_map<K, V> data) {
+    if (putStartTime < startTime) {
+      LOG(FATAL) << "Tried to put before start time";
+    }
+    if (putStartTime < currentTime) {
       VLOG(1) << "Tried to add a time interval that overlaps";
       return;
     }
-    if (startTime != currentTime) {
+    if (putStartTime >= endTime) {
+      LOG(FATAL) << "Invalid start/end time: " << putStartTime << " " << endTime;
+    }
+    if (putStartTime != currentTime) {
       futureData.insert(
-          make_pair(startTime, make_tuple(startTime, endTime, data)));
+          make_pair(putStartTime, make_tuple(putStartTime, endTime, data)));
     } else {
-      addNextTimeBlock(startTime, endTime, data);
+      addNextTimeBlock(putStartTime, endTime, data);
     }
   }
 
-  void addNextTimeBlock(int64_t startTime, int64_t endTime, map<K, V> newData) {
-    if (currentTime != startTime) {
-      LOG(FATAL) << "Tried to add an invalid time block";
+  optional<V> get(int64_t timestamp, const K& key) {
+    if (timestamp < startTime) {
+      LOG(FATAL) << "Tried to put before start time: " << timestamp << " < " << startTime;
     }
-    if (data.empty() && startTime != 0) {
-      LOG(FATAL)
-          << "Inserting into an empty map should always have a 0 startTime";
-    }
-
-    currentTime = endTime;
-    for (auto& it : newData) {
-      if (data.find(it.first) == data.end() ||
-          data[it.first].rbegin()->second != it.second) {
-        // New/updated data.  Add.
-        data[it.first][startTime] = it.second;
-        LOG(INFO) << "ADDING VALUE " << it.second;
-      }
-    }
-
-    if (futureData.empty()) {
-      return;
-    }
-
-    if (std::get<0>(*(futureData.begin())) == currentTime) {
-      auto newData = futureData.begin()->second;
-      futureData.erase(futureData.begin());
-      addNextTimeBlock(std::get<0>(newData), std::get<1>(newData),
-                       std::get<2>(newData));
-    }
-  }
-
-  optional<string> get(int64_t timestamp, const K& key) {
     if (timestamp < 0) {
       LOG(FATAL) << "Invalid time stamp";
     }
@@ -81,7 +61,6 @@ class ChronoMap {
     }
 
     // Return the value
-    LOG(INFO) << "Got value " << retval;
     return retval;
   }
 
@@ -95,10 +74,48 @@ class ChronoMap {
 
   int64_t getCurrentTime() { return currentTime; }
 
+  int64_t getStartTime() { return startTime; }
+
+  bool empty() { return currentTime == startTime; }
+
  protected:
   unordered_map<K, map<int64_t, V>> data;
   int64_t currentTime;
-  map<int64_t, tuple<int64_t, int64_t, map<K, V>>> futureData;
+  int64_t startTime;
+  map<int64_t, tuple<int64_t, int64_t, unordered_map<K, V>>> futureData;
+
+  void addNextTimeBlock(int64_t putStartTime, int64_t endTime, unordered_map<K, V> newData) {
+    if (currentTime != putStartTime) {
+      LOG(FATAL) << "Tried to add an invalid time block";
+    }
+    if (data.empty() && putStartTime != startTime) {
+      LOG(FATAL)
+          << "Inserting into an empty map should always use startTime";
+    }
+
+    currentTime = endTime;
+    for (auto& it : newData) {
+      if (data.find(it.first) == data.end()) {
+        // New key.
+        data[it.first] = {{putStartTime, it.second}};
+      } else if(!(data[it.first].rbegin()->second == it.second)) {
+        // Updated data.  Add new information.
+        data[it.first][putStartTime] = it.second;
+      }
+    }
+
+    if (futureData.empty()) {
+      return;
+    }
+
+    if (std::get<0>(*(futureData.begin())) == currentTime) {
+      auto newData = futureData.begin()->second;
+      futureData.erase(futureData.begin());
+      addNextTimeBlock(std::get<0>(newData), std::get<1>(newData),
+                       std::get<2>(newData));
+    }
+  }
+
 };
 }  // namespace wga
 

@@ -102,12 +102,15 @@ class BiDirectionalRpc : public UdpRecipient {
   deque<IdPayload> outgoingRequests;
   unordered_map<RpcId, string> incomingRequests;
   unordered_set<RpcId> oneWayRequests;
+  unordered_map<RpcId, int64_t> requestTime;
 
   deque<IdPayload> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
 
   MessageReader reader;
   MessageWriter writer;
+
+  deque<int> rpcTime;
 
   uint64_t onBarrier;
   uint64_t onId;

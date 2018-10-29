@@ -1,5 +1,7 @@
 #include "BiDirectionalRpc.hpp"
 
+#include "TimeHandler.hpp"
+
 namespace wga {
 BiDirectionalRpc::BiDirectionalRpc() : onBarrier(0), onId(0), flaky(false) {}
 
@@ -120,6 +122,14 @@ void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload) {
     for (auto it = outgoingRequests.begin(); it != outgoingRequests.end();
          it++) {
       if (it->id == rpcId) {
+        auto reqTimeIt = requestTime.find(it->id);
+        if (reqTimeIt == requestTime.end()) {
+          LOG(FATAL) << "We think a request is just replied to, but it's time "
+                        "is not found";
+        }
+        rpcTime.push_back(TimeHandler::currentTimeMs() - reqTimeIt->second);
+        requestTime.erase(reqTimeIt);
+
         outgoingRequests.erase(it);
         deletedRequest = true;
         tryToSendBarrier();
@@ -169,6 +179,7 @@ void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
       outgoingRequests.begin()->id.barrier == onBarrier) {
     // We can send the request immediately
     outgoingRequests.push_back(idPayload);
+    requestTime[idPayload.id] = TimeHandler::currentTimeMs();
     sendRequest(outgoingRequests.back());
   } else {
     // We have to wait for existing requests from an older barrier
@@ -190,6 +201,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
   if (outgoingRequests.empty()) {
     // There are no outgoing requests, we can send the next barrier
     outgoingRequests.push_back(delayedRequests.front());
+    requestTime[delayedRequests.front().id] = TimeHandler::currentTimeMs();
     delayedRequests.pop_front();
     sendRequest(outgoingRequests.back());
 
@@ -197,6 +209,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
            delayedRequests.front().id.barrier ==
                outgoingRequests.begin()->id.barrier) {
       // Part of the same barrier, keep sending
+      requestTime[delayedRequests.front().id] = TimeHandler::currentTimeMs();
       outgoingRequests.push_back(delayedRequests.front());
       delayedRequests.pop_front();
       sendRequest(outgoingRequests.back());

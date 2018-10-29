@@ -7,6 +7,8 @@
 namespace wga {
 class ChronoMapTest : public testing::Test {
  public:
+  ChronoMapTest() : testing::Test() {}
+
   void SetUp() override { srand(time(NULL)); }
 
   void TearDown() override {}

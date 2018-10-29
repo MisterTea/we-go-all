@@ -78,6 +78,7 @@ add_library(
   src/base/LogHandler.cpp
   src/base/MultiEndpointHandler.cpp
   src/base/PortMultiplexer.cpp
+  src/base/TimeHandler.cpp
   external/easylogging++.cc
   )
 

@@ -2,13 +2,16 @@
 
 #include "CryptoHandler.hpp"
 #include "CurlHandler.hpp"
+#include "LogHandler.hpp"
 #include "NetEngine.hpp"
 #include "PlayerData.hpp"
 #include "RpcServer.hpp"
+#include "TimeHandler.hpp"
 
 DEFINE_int32(serverPort, 0, "Port to listen on");
 DEFINE_bool(host, false, "True if hosting");
 DEFINE_string(password, "", "Secret key for cryptography");
+DEFINE_int32(v, 0, "verbose level");
 
 namespace wga {
 class Main {
@@ -18,6 +21,19 @@ class Main {
   int run(int argc, char **argv) {
     srand(time(NULL));
     CryptoHandler::init();
+    TimeHandler::init();
+
+    // GFLAGS parse command line arguments
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+    // Setup easylogging configurations
+    el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
+    defaultConf.setGlobally(el::ConfigurationType::ToFile, "false");
+    el::Loggers::setVerboseLevel(FLAGS_v);
+
+    // Reconfigure default logger to apply settings above
+    el::Loggers::reconfigureLogger("default", defaultConf);
+
     shared_ptr<NetEngine> netEngine(
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
     shared_ptr<udp::socket> localSocket(
