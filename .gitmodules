@@ -16,3 +16,6 @@
 [submodule "peer/external/Optional"]
 	path = peer/external/Optional
 	url = https://github.com/akrzemi1/Optional.git
+[submodule "peer/external/cxxopts"]
+	path = peer/external/cxxopts
+	url = https://github.com/jarro2783/cxxopts.git

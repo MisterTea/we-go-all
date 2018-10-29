@@ -3,28 +3,30 @@
 #include "LogHandler.hpp"
 
 #include "gtest/gtest.h"
+#include <cxxopts.hpp>
 
 using namespace wga;
-
-DEFINE_int32(v, 0, "verbose level");
-DEFINE_bool(stress, false, "Stress test");
 
 int main(int argc, char **argv) {
   srand(1);
   testing::InitGoogleTest(&argc, argv);
 
-  // GFLAGS parse command line arguments
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  cxxopts::Options options("Peer", "Peer Program for WGA");
+  options.add_options()
+    ("stress", "Enable stress tests", cxxopts::value<bool>()->default_value("false"))
+    ("v,verbose", "Log verbosity", cxxopts::value<int>()->default_value("0"))
+  ;
+  auto params = options.parse(argc, argv);
 
   // Setup easylogging configurations
   el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
   defaultConf.setGlobally(el::ConfigurationType::ToFile, "false");
-  el::Loggers::setVerboseLevel(FLAGS_v);
+  el::Loggers::setVerboseLevel(params["v"].as<int>());
 
   // Reconfigure default logger to apply settings above
   el::Loggers::reconfigureLogger("default", defaultConf);
 
-  if (FLAGS_stress) {
+  if (params["stress"].as<bool>()) {
     for (int a = 0; a < 99; a++) {
       if (RUN_ALL_TESTS()) {
         LOG(FATAL) << "Tests failed";

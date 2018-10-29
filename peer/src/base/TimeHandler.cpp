@@ -1,5 +1,5 @@
 #include "TimeHandler.hpp"
 
 namespace wga {
-int64_t TimeHandler::initialTime = 0;
+std::chrono::time_point<std::chrono::system_clock> TimeHandler::initialTime;
 }

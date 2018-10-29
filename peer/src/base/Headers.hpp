@@ -5,35 +5,21 @@
 #define _WITH_GETLINE
 #endif
 
-#if __APPLE__
-#include <sys/ucred.h>
-#include <util.h>
-#elif __FreeBSD__
-#include <libutil.h>
-#elif __NetBSD__  // do not need pty.h on NetBSD
-#else
-#include <pty.h>
-#endif
+#include "asio.hpp"
 
 #if __NetBSD__
 #include <util.h>
 #endif
 
-#include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <pwd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/un.h>
-#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include <algorithm>
@@ -56,11 +42,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include <gflags/gflags.h>
-
 #include "easylogging++.h"
 
-#include "asio.hpp"
 #include "base64.hpp"
 #include "catch2/catch.hpp"
 #include "ctpl_stl.h"

@@ -7,19 +7,14 @@ namespace wga {
 class TimeHandler {
  public:
   static void init() {
-    timeval tp;
-    gettimeofday(&tp, 0);
-    initialTime = (tp.tv_sec) * (int64_t(1000) + (tp.tv_usec / 1000));
+    initialTime = std::chrono::system_clock::now();
   }
 
   static int64_t currentTimeMs() {
-    timeval tp;
-    gettimeofday(&tp, 0);
-    int64_t curTime = (tp.tv_sec) * (int64_t(1000) + (tp.tv_usec / 1000));
-    return curTime - initialTime;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - initialTime).count();
   }
 
-  static int64_t initialTime;
+  static std::chrono::time_point<std::chrono::system_clock> initialTime;
 };
 }  // namespace wga
 

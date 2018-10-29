@@ -12,7 +12,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWGA_VERSION='\"${PROJECT_VERSION}\"'")
 # For easylogging, disable default log file, enable crash log, ensure thread safe, and catch c++ exceptions
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_NO_DEFAULT_LOG_FILE -DELPP_FEATURE_CRASH_LOG -DELPP_THREAD_SAFE -DELPP_HANDLE_SIGABRT")
 # Enable standalone asio
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DASIO_STANDALONE")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DASIO_STANDALONE -D_WIN32_WINNT=_WIN32_WINNT_WIN7")
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/external/curlpp)
 
@@ -45,10 +45,11 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Required packages
 find_package(Threads REQUIRED)
-find_package(GFlags REQUIRED)
 find_package(Sodium REQUIRED)
 
-IF(FREEBSD)
+IF(MINGW)
+set(CORE_LIBRARIES Ws2_32)
+ELSEIF(FREEBSD)
   set(CORE_LIBRARIES util execinfo)
 ELSEIF(NETBSD)
   set(CORE_LIBRARIES util resolv execinfo)
@@ -60,12 +61,12 @@ include_directories(
   src/base
   src/peer
   external
+  external/cxxopts/include
   external/Optional
   external/asio/asio/include
   external/msgpack-c/include
   external/curlpp/include
   external/Catch2/single_include
-  ${GFLAGS_INCLUDE_DIRS}
   ${sodium_INCLUDE_DIR}
   )
 
@@ -95,7 +96,6 @@ target_link_libraries (
   curlpp_static
   ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
-  ${GFLAGS_LIBRARIES}
   ${CORE_LIBRARIES}
   )
 
@@ -129,14 +129,11 @@ if(BUILD_TEST) # Build unit tests.
     curlpp_static
     ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${GFLAGS_LIBRARIES}
     ${CORE_LIBRARIES}
     gtest
     gtest_main
     gmock
     gmock_main
-    resolv
-    util
     )
   add_test(
     wga-test
