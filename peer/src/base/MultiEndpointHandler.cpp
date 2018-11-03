@@ -20,7 +20,7 @@ MultiEndpointHandler::MultiEndpointHandler(
   }
 
   activeEndpoint = endpoints[0];
-  for (int a = 1; a < endpoints.size(); a++) {
+  for (int a = 1; a < int(endpoints.size()); a++) {
     alternativeEndpoints.insert(endpoints[a]);
   }
 

@@ -101,7 +101,7 @@ class FlakyRpcTest : public testing::Test {
         RpcDetails rpcDetails;
         rpcDetails.destinationKey = peerKeys[rand() % peerKeys.size()];
         rpcDetails.request = string("AAAAAAAA");
-        for (int a = 0; a < rpcDetails.request.length(); a++) {
+        for (int a = 0; a < int(rpcDetails.request.length()); a++) {
           rpcDetails.request[a] += rand() % 26;
         }
         rpcDetails.reply = rpcDetails.request;
