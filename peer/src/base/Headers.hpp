@@ -1,6 +1,23 @@
 #ifndef __ET_HEADERS__
 #define __ET_HEADERS__
 
+// For easylogging, disable default log file, enable crash log, ensure thread safe, and catch c++ exceptions
+// This is duplicated here to make linters happy, but actually set in CMakeLists.txt
+#ifndef ELPP_NO_DEFAULT_LOG_FILE
+#define ELPP_NO_DEFAULT_LOG_FILE (1)
+#define ELPP_FEATURE_CRASH_LOG (1)
+#define ELPP_THREAD_SAFE (1)
+#define ELPP_HANDLE_SIGABRT (1)
+#endif
+
+// Enable standalone asio
+#define ASIO_STANDALONE (1)
+#define USE_STANDALONE_ASIO (1)
+
+// Require win7 or higher
+#define _WIN32_WINNT _WIN32_WINNT_WIN7
+
+
 #if __FreeBSD__
 #define _WITH_GETLINE
 #endif
@@ -52,23 +69,23 @@
 #include "optional.hpp"
 #include "sole.hpp"
 
+#include "client_http.hpp"
+#include "server_http.hpp"
+
+using namespace sole;
+
+using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
+using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
+
 using namespace std;
 using namespace std::chrono;
 using namespace std::experimental;
-
-namespace google {}
-namespace gflags {}
-using namespace google;
-using namespace gflags;
 
 using namespace base64;
 
 using asio::ip::udp;
 using nlohmann::json;
 using namespace ctpl;
-
-// The ET protocol version supported by this binary
-static const int PROTOCOL_VERSION = 4;
 
 // Nonces for CryptoHandler
 static const unsigned char CLIENT_SERVER_NONCE_MSB = 0;

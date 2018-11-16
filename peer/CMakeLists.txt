@@ -4,17 +4,26 @@ project (WeGoAll VERSION 0.0.1)
 option(BUILD_TEST "Build all unit test" ON)
 option(CODE_COVERAGE "Enable code coverage" OFF)
 
+# Enable C++-11
+if(UNIX)
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+endif()
+
 IF(APPLE)
 SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+
+# Turn off address randomizing to get debug prints
+SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-pie")
+
 ENDIF()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWGA_VERSION='\"${PROJECT_VERSION}\"'")
-# For easylogging, disable default log file, enable crash log, ensure thread safe, and catch c++ exceptions
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_NO_DEFAULT_LOG_FILE -DELPP_FEATURE_CRASH_LOG -DELPP_THREAD_SAFE -DELPP_HANDLE_SIGABRT")
-# Enable standalone asio
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DASIO_STANDALONE -D_WIN32_WINNT=_WIN32_WINNT_WIN7")
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/external/curlpp)
+include(CheckIncludeFileCXX)
+SET(CMAKE_REQUIRED_INCLUDES "${CMAKE_SOURCE_DIR}/external/asio/asio/include")
+SET(CMAKE_REQUIRED_DEFINITIONS "-DASIO_STANDALONE -D_WIN32_WINNT=_WIN32_WINNT_WIN7")
+SET(USE_STANDALONE_ASIO ON CACHE BOOL "set ON to use standalone Asio instead of Boost.Asio")
+add_subdirectory(${CMAKE_SOURCE_DIR}/external/SimpleWebServer)
 
 IF(BUILD_TEST)
   add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
@@ -24,11 +33,6 @@ IF(CODE_COVERAGE)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
   endif()
 ENDIF(CODE_COVERAGE)
-
-# Enable C++-11
-if(UNIX)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
-endif()
 
 #Using FreeBSD?
 if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
@@ -65,8 +69,8 @@ include_directories(
   external/Optional
   external/asio/asio/include
   external/msgpack-c/include
-  external/curlpp/include
   external/Catch2/single_include
+  external/SimpleWebServer
   ${sodium_INCLUDE_DIR}
   )
 
@@ -80,7 +84,7 @@ add_library(
   src/base/MultiEndpointHandler.cpp
   src/base/PortMultiplexer.cpp
   src/base/TimeHandler.cpp
-  external/easylogging++.cc
+  src/base/EasyLoggingWrapper.cpp
   )
 
 add_executable (
@@ -93,7 +97,6 @@ target_link_libraries (
   peer
   LINK_PUBLIC
   wga-lib
-  curlpp_static
   ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
@@ -112,6 +115,7 @@ if(BUILD_TEST) # Build unit tests.
 
     test/ChronoMapTest.cpp
     test/FlakyRpcTest.cpp
+    test/PeerTest.cpp
     )
   
   add_dependencies(
@@ -126,7 +130,6 @@ if(BUILD_TEST) # Build unit tests.
   target_link_libraries(
     wga-test
     wga-lib
-    curlpp_static
     ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
     ${CORE_LIBRARIES}
