@@ -85,6 +85,8 @@ add_library(
   src/base/PortMultiplexer.cpp
   src/base/TimeHandler.cpp
   src/base/EasyLoggingWrapper.cpp
+
+  src/peer/MyPeer.cpp
   )
 
 add_executable (

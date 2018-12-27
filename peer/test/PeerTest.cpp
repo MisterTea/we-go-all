@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 
 #include "CryptoHandler.hpp"
+#include "MyPeer.hpp"
 #include "NetEngine.hpp"
 #include "PeerConnectionServer.hpp"
 #include "SingleGameServer.hpp"
@@ -19,13 +20,15 @@ class PeerTest : public testing::Test {
     TimeHandler::init();
     netEngine.reset(
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
+  }
 
-    for (int a = 0; a < 4; a++) {
+  void initGameServer(int numPlayers) {
+    for (int a = 0; a < numPlayers; a++) {
       keys.push_back(CryptoHandler::generateKey());
     }
     server.reset(new SingleGameServer(
         30000, CryptoHandler::keyToString(keys[0].first), names[0]));
-    for (int a = 1; a < 4; a++) {
+    for (int a = 1; a < numPlayers; a++) {
       server->addPeer(CryptoHandler::keyToString(keys[a].first), names[a]);
     }
 
@@ -52,7 +55,8 @@ class PeerTest : public testing::Test {
   shared_ptr<PeerConnectionServer> peerConnectionServer;
 };
 
-TEST_F(PeerTest, Simple) {
+TEST_F(PeerTest, ProtocolTest) {
+  initGameServer(4);
   HttpClient client("localhost:30000");
   string hostKey = CryptoHandler::keyToString(keys[0].first);
 
@@ -80,19 +84,17 @@ TEST_F(PeerTest, Simple) {
     ASSERT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
   }
 
-  shared_ptr<udp::socket> localSocket(
-      new udp::socket(*netEngine->getIoService(),
-                      udp::endpoint(udp::v4(), 12345)));
+  shared_ptr<udp::socket> localSocket(new udp::socket(
+      *netEngine->getIoService(), udp::endpoint(udp::v4(), 12345)));
   udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "30000");
-  string ipAddressPacket =
-      hostKey + "_" + "192.168.0.1:" + to_string(12345);
-  netEngine->getIoService()->post([localSocket, serverEndpoint,
-                                   ipAddressPacket]() {
-    VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-    int bytesSent =
-        localSocket->send_to(asio::buffer(ipAddressPacket), serverEndpoint);
-    VLOG(1) << bytesSent << " bytes sent";
-  });
+  string ipAddressPacket = hostKey + "_" + "192.168.0.1:" + to_string(12345);
+  netEngine->getIoService()->post(
+      [localSocket, serverEndpoint, ipAddressPacket]() {
+        VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
+        int bytesSent =
+            localSocket->send_to(asio::buffer(ipAddressPacket), serverEndpoint);
+        VLOG(1) << bytesSent << " bytes sent";
+      });
 
   this_thread::sleep_for(chrono::seconds(1));
 
@@ -111,5 +113,19 @@ TEST_F(PeerTest, Simple) {
       ASSERT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
     }
   }
+}
+
+TEST_F(PeerTest, SinglePeer) {
+  initGameServer(1);
+  shared_ptr<MyPeer> firstPeer(
+      new MyPeer(netEngine, keys[0].second, true, 12345));
+  firstPeer->start();
+  while (!firstPeer->initialized()) {
+    LOG(INFO) << "Waiting for initialization...";
+    sleep(1);
+  }
+  firstPeer->updateState(200, {{"button", "0"}});
+  sleep(3);
+  firstPeer->shutdown();
 }
 }  // namespace wga

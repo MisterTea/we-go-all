@@ -7,7 +7,7 @@ namespace wga {
 struct ServerPeerData {
   string key;
   string name;
-  vector<string> endpoints;
+  set<string> endpoints;
 
   ServerPeerData() {}
 
@@ -94,7 +94,10 @@ class SingleGameServer {
     if (it == peerData.end()) {
       LOG(FATAL) << "Could not find peer";
     }
-    it->second.endpoints = endpoints;
+    LOG(INFO) << "SETTING ENDPOINTS: " << endpoints[0] << " " << endpoints[1];
+    for (auto &endpoint : endpoints) {
+      it->second.endpoints.insert(endpoint);
+    }
   }
 
   uuid getGameId() { return gameId; }

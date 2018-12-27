@@ -23,6 +23,7 @@ class PeerConnectionServer {
         [this](std::error_code ec, std::size_t bytes_recvd) {
           if (!ec && bytes_recvd > 0) {
             string s(data.data(), bytes_recvd);
+            LOG(INFO) << "GOT ENDPOINT DATA: " << s;
             auto tokens = split(s, '_');
             string peerKey = tokens[0];
             string udpSendEndpoint = sender_endpoint.address().to_string() +

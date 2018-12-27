@@ -66,11 +66,15 @@
 #include "ctpl_stl.h"
 #include "json.hpp"
 #include "msgpack.hpp"
-#include "optional.hpp"
 #include "sole.hpp"
 
 #include "client_http.hpp"
 #include "server_http.hpp"
+
+#ifndef _LIBCPP_OPTIONAL
+#include "optional.hpp"
+using namespace std::experimental;
+#endif
 
 using namespace sole;
 
@@ -79,7 +83,6 @@ using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
 using namespace std;
 using namespace std::chrono;
-using namespace std::experimental;
 
 using namespace base64;
 
@@ -106,6 +109,10 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 #define FATAL_IF_FALSE(X) \
   if (((X) == false))     \
     LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
+
+#define FATAL_FAIL_HTTP(RESPONSE) \
+  if(RESPONSE->status_code != "200 OK") \
+    LOG(FATAL) << "Error making http request: " << RESPONSE->status_code;
 
 #define DRAW_FROM_UNORDERED(ITERATOR, COLLECTION) \
   auto ITERATOR = COLLECTION.begin();             \
