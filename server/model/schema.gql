@@ -1,0 +1,17 @@
+type User {
+  email: String
+  name: String
+  publicKey: String
+  endpoints: [String]
+}
+
+type Game {
+  gameName: String!
+  host: String
+  peers: [User]
+  active: Boolean
+}
+
+type Query {
+  activeGames: [Game]
+}
