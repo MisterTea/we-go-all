@@ -1,0 +1,34 @@
+{
+  "name": "we-go-all-client",
+  "version": "0.1.0",
+  "private": true,
+  "proxy": "http://127.0.0.1:3000",
+  "dependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/react-bootstrap": "^0.32.15",
+    "axios": "^0.18.0",
+    "bootstrap": "^3.4.0",
+    "mobx": "^5.8.0",
+    "mobx-react": "^5.4.3",
+    "mobx-react-devtools": "^6.0.3",
+    "react": "^16.7.0",
+    "react-bootstrap": "^0.32.4",
+    "react-dom": "^16.7.0",
+    "react-scripts-ts": "3.1.0",
+    "strip-json-comments": "^2.0.1"
+  },
+  "scripts": {
+    "start": "cross-env PORT=3006 react-scripts-ts start",
+    "build": "cross-env PORT=3006 react-scripts-ts build",
+    "test": "cross-env PORT=3006 react-scripts-ts test --env=jsdom",
+    "eject": "cross-env PORT=3006 react-scripts-ts eject"
+  },
+  "devDependencies": {
+    "@types/jest": "^23.3.12",
+    "@types/node": "^10.12.18",
+    "@types/react": "^16.7.18",
+    "@types/react-dom": "^16.0.11",
+    "cross-env": "^5.2.0",
+    "typescript": "^3.2.2"
+  }
+}
