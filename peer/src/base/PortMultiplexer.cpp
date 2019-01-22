@@ -25,11 +25,10 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
   if (recipient.get() == NULL) {
     // We don't have any endpoint to receive this, so drop it.
     LOG(INFO) << "DO NOT KNOW WHO SHOULD GET PACKET";
-    return;
+  } else {
+    string packetString(receiveBuffer.data(), bytesTransferred);
+    recipient->receive(packetString);
   }
-
-  string packetString(receiveBuffer.data(), bytesTransferred);
-  recipient->receive(packetString);
 
   localSocket->async_receive_from(
       asio::buffer(receiveBuffer), receiveEndpoint,

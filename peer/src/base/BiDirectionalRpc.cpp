@@ -10,7 +10,7 @@ BiDirectionalRpc::~BiDirectionalRpc() {}
 void BiDirectionalRpc::shutdown() {}
 
 void BiDirectionalRpc::heartbeat() {
-  VLOG(1) << "BEAT";
+  VLOG(1) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
     resendRandomOutgoingMessage();
   } else {

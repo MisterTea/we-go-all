@@ -31,6 +31,14 @@ class MessageReader {
     return t;
   }
 
+  template <typename K, typename V>
+  inline map<K, V> readMap() {
+    msgpack::object_handle oh;
+    FATAL_IF_FALSE(unpackHandler.next(oh));
+    map<K, V> t = oh.get().convert();
+    return t;
+  }
+
   template <typename T>
   inline T readClass() {
     T t;

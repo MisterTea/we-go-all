@@ -12,7 +12,20 @@ class NetEngine {
   }
 
   void start() {
-    ioServiceThread = std::thread([this]() { this->ioService->run(); });
+    ioServiceThread = std::thread([this]() {
+      while (!this->ioService->stopped()) {
+        std::chrono::system_clock::time_point futureTime;
+        {
+          lock_guard<recursive_mutex> guard(*(this->ioServiceMutex));
+          futureTime =
+              std::chrono::system_clock::now() + std::chrono::milliseconds(10);
+          this->ioService->run_until(std::chrono::system_clock::now() +
+                                     std::chrono::milliseconds(1));
+        }
+        std::this_thread::sleep_until(futureTime);
+      }
+      LOG(ERROR) << "NET ENGINE FINISHED";
+    });
   }
 
   void shutdown() {
@@ -32,7 +45,7 @@ class NetEngine {
     it++;
     VLOG(1) << "GOT ENTRY: " << remoteEndpoint;
     VLOG(1) << "GOT ENTRY2: "
-              << ((it) == asio::ip::basic_resolver_results<asio::ip::udp>());
+            << ((it) == asio::ip::basic_resolver_results<asio::ip::udp>());
     if (it != asio::ip::basic_resolver_results<asio::ip::udp>()) {
       LOG(FATAL) << "Ambiguous endpoint";
     }

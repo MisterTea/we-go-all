@@ -26,9 +26,8 @@ class RpcServer : public PortMultiplexer {
             shared_ptr<udp::socket> _localSocket)
       : PortMultiplexer(_netEngine, _localSocket) {}
 
-  void addEndpoint(shared_ptr<MultiEndpointHandler> endpoint) {
-    endpoints.insert(
-        make_pair(endpoint->getCryptoHandler()->getOtherPublicKey(), endpoint));
+  void addEndpoint(PublicKey key, shared_ptr<MultiEndpointHandler> endpoint) {
+    endpoints.insert(make_pair(key, endpoint));
     addRecipient(endpoint);
   }
 
@@ -140,6 +139,15 @@ class RpcServer : public PortMultiplexer {
   void updateEndpoints(const PublicKey& key,
                        const vector<udp::endpoint>& newEndpoints) {
     endpoints[key]->updateEndpoints(newEndpoints);
+  }
+
+  shared_ptr<MultiEndpointHandler> getEndpointHandler(const PublicKey& key) {
+    auto it = endpoints.find(key);
+    if (it == endpoints.end()) {
+      LOG(FATAL) << "Invalid endpoint handler: "
+                 << CryptoHandler::keyToString(key);
+    }
+    return it->second;
   }
 
  protected:

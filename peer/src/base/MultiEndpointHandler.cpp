@@ -41,16 +41,19 @@ MultiEndpointHandler::MultiEndpointHandler(
 }
 
 void MultiEndpointHandler::send(const string& message) {
+  //LOG(INFO) << "SENDING MESSAGE: " << message;
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);
   }
 
   if (time(NULL) != lastUpdateTime) {
+    LOG(INFO) << "UPDATING ENDPOINT HANDLER";
     update();
   }
 
   netEngine->getIoService()->post([this, message]() {
-    VLOG(1) << "IN SEND LAMBDA: " << message.length();
+    VLOG(1) << "IN SEND LAMBDA: " << message.length() << " TO "
+            << activeEndpoint;
     int bytesSent = localSocket->send_to(asio::buffer(message), activeEndpoint);
     VLOG(1) << bytesSent << " bytes sent";
   });
@@ -114,7 +117,7 @@ void MultiEndpointHandler::updateEndpoints(
 }
 
 void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
-  if (idPayload.id.id == 1) {
+  if (idPayload.id == RpcId(0, 1)) {
     // Handshaking
     LOG(INFO) << "GOT HANDSHAKE";
     bool result = cryptoHandler->recieveIncomingSessionKey(

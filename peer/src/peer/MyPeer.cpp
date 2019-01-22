@@ -3,7 +3,7 @@
 #include "CryptoHandler.hpp"
 
 namespace wga {
-MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey &_privateKey,
+MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
                bool _host, int _serverPort)
     : netEngine(_netEngine),
       privateKey(_privateKey),
@@ -11,22 +11,30 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey &_privateKey,
       serverPort(_serverPort) {
   publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
   publicKeyString = CryptoHandler::keyToString(publicKey);
+  LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(new udp::socket(*netEngine->getIoService(),
                                     udp::endpoint(udp::v4(), serverPort)));
-  updateTimer.reset(new asio::steady_timer(*(netEngine->getIoService()),
-                                           asio::chrono::milliseconds(10)));
-  updateTimer->async_wait(std::bind(&MyPeer::start, this));
+  asio::socket_base::reuse_address option(true);
+  localSocket->set_option(option);
+  rpcServer.reset(new RpcServer(netEngine, localSocket));
+  LOG(INFO) << "STARTED SERVER ON PORT: " << serverPort;
 }
 
 void MyPeer::shutdown() {
-  updateTimer->cancel();
-  updateTimer.reset();
+  LOG(INFO) << "SHUTTING DOWN";
+  {
+    lock_guard<recursive_mutex> guard(*(netEngine->getMutex()));
+    updateTimer->cancel();
+    updateTimer.reset();
+  }
   // Wait 1s for the updates to flush
   sleep(1);
+  lock_guard<recursive_mutex> guard(*(netEngine->getMutex()));
+  rpcServer.reset();
 }
 
 void MyPeer::start() {
-  client.reset(new HttpClient("localhost:30000"));
+  client.reset(new HttpClient("localhost:20000"));
 
   string path = string("/get_current_game_id/") + publicKeyString;
   auto response = client->request("GET", path);
@@ -43,9 +51,7 @@ void MyPeer::start() {
     FATAL_FAIL_HTTP(response);
   }
 
-  updateTimer->async_wait(std::bind(&MyPeer::checkForEndpoints, this));
-
-  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "30000");
+  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000");
   string ipAddressPacket =
       publicKeyString + "_" + "127.0.0.1:" + to_string(serverPort);
   auto localSocketStack = localSocket;
@@ -58,9 +64,27 @@ void MyPeer::start() {
                                                   serverEndpoint);
         LOG(INFO) << bytesSent << " bytes sent";
       });
+
+  updateTimer.reset(new asio::steady_timer(
+      *(netEngine->getIoService()),
+      std::chrono::steady_clock::now() + std::chrono::seconds(1)));
+  updateTimer->async_wait(
+      std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
+  LOG(INFO) << "CALLING HEARTBEAT: "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                   updateTimer->expires_at().time_since_epoch())
+                   .count()
+            << " VS "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count();
 }
 
-void MyPeer::checkForEndpoints() {
+void MyPeer::checkForEndpoints(const asio::error_code& error) {
+  if (error == asio::error::operation_aborted) {
+    return;
+  }
+
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
   string path = string("/get_game_info/") + gameId.str();
@@ -94,7 +118,18 @@ void MyPeer::checkForEndpoints() {
       endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
     }
     if (endpoints.empty()) {
-      updateTimer->async_wait(std::bind(&MyPeer::checkForEndpoints, this));
+      updateTimer->expires_at(updateTimer->expires_at() +
+                              asio::chrono::milliseconds(1000));
+      updateTimer->async_wait(
+          std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
+      LOG(INFO) << "CALLING HEARTBEAT: "
+                << std::chrono::duration_cast<std::chrono::seconds>(
+                       updateTimer->expires_at().time_since_epoch())
+                       .count()
+                << " VS "
+                << std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::steady_clock::now().time_since_epoch())
+                       .count();
       return;
     }
   }
@@ -120,19 +155,23 @@ void MyPeer::checkForEndpoints() {
     }
     shared_ptr<CryptoHandler> peerCryptoHandler(
         new CryptoHandler(privateKey, peerKey));
-    peerHandlers[peerKey] =
-        shared_ptr<MultiEndpointHandler>(new MultiEndpointHandler(
-            localSocket, netEngine, peerCryptoHandler, endpoints));
+    rpcServer->addEndpoint(
+        peerKey, shared_ptr<MultiEndpointHandler>(new MultiEndpointHandler(
+                     localSocket, netEngine, peerCryptoHandler, endpoints)));
   }
 
   this_thread::sleep_for(chrono::seconds(1));
 
   myData = peerData[publicKey];
 
-  updateTimer->async_wait(std::bind(&MyPeer::update, this));
+  update(asio::error_code());
 }
 
-void MyPeer::update() {
+void MyPeer::update(const asio::error_code& error) {
+  if (error == asio::error::operation_aborted) {
+    return;
+  }
+
   LOG(INFO) << "UPDATING";
   string path = string("/get_game_info/") + gameId.str();
   auto response = client->request("GET", path);
@@ -141,7 +180,7 @@ void MyPeer::update() {
   auto peerDataObject = result["peerData"];
   for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
        ++it) {
-    std::cout << it.key() << " : " << it.value() << "\n";
+    // std::cout << it.key() << " : " << it.value() << "\n";
     PublicKey peerKey = CryptoHandler::stringToKey<PublicKey>(it.key());
     if (peerKey == publicKey) {
       continue;
@@ -153,11 +192,75 @@ void MyPeer::update() {
       vector<string> tokens = split(endpointString, ':');
       endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
     }
-    peerHandlers[peerKey]->updateEndpoints(endpoints);
+
+    auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
+    endpointHandler->updateEndpoints(endpoints);
+
+    if (endpointHandler->hasIncomingRequest()) {
+      auto idPayload = endpointHandler->getFirstIncomingRequest();
+      MessageReader reader;
+      reader.load(idPayload.payload);
+      int64_t startTime = reader.readPrimitive<int64_t>();
+      int64_t endTime = reader.readPrimitive<int64_t>();
+      map<string, string> m = reader.readMap<string, string>();
+      unordered_map<string, string> mHashed(m.begin(), m.end());
+      peerData[peerKey]->playerInputData.put(startTime, endTime, mHashed);
+    }
   }
 
-  if (updateTimer.get()) {
-    updateTimer->async_wait(std::bind(&MyPeer::update, this));
-  }
+  LOG(INFO) << "CALLING HEARTBEAT: "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                   updateTimer->expires_at().time_since_epoch())
+                   .count()
+            << " VS "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count();
+  rpcServer->heartbeat();
+
+  updateTimer->expires_at(updateTimer->expires_at() +
+                          asio::chrono::milliseconds(1000));
+  updateTimer->async_wait(
+      std::bind(&MyPeer::update, this, std::placeholders::_1));
 }
+
+bool MyPeer::initialized() {
+  if (myData.get() == NULL) {
+    return false;
+  }
+
+  if (!rpcServer->readyToSend()) {
+    return false;
+  }
+
+  return true;
+}
+
+void MyPeer::updateState(int64_t timestamp,
+                         unordered_map<string, string> data) {
+  int64_t startTime = myData->playerInputData.getCurrentTime();
+  myData->playerInputData.put(startTime, timestamp, data);
+  MessageWriter writer;
+  writer.start();
+  writer.writePrimitive(startTime);
+  writer.writePrimitive(timestamp);
+  map<string, string> m(data.begin(), data.end());
+  writer.writeMap(m);
+  string s = writer.finish();
+  rpcServer->broadcast(s);
+}
+
+unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
+  myData->playerInputData.blockUntilTime(timestamp);
+  unordered_map<string, string> state =
+      myData->playerInputData.getAll(timestamp);
+  for (auto& it : peerData) {
+    it.second->playerInputData.blockUntilTime(timestamp);
+    unordered_map<string, string> peerState =
+        it.second->playerInputData.getAll(timestamp);
+    state.insert(peerState.begin(), peerState.end());
+  }
+  return state;
+}
+
 }  // namespace wga

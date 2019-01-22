@@ -81,7 +81,9 @@ class FlakyRpcTest : public testing::Test {
             new MultiEndpointHandler(servers[a]->getLocalSocket(), netEngine,
                                      cryptoHandlers[a][b], {remoteEndpoint}));
         endpointHandler->setFlaky(true);
-        servers[a]->addEndpoint(endpointHandler);
+        servers[a]->addEndpoint(
+            endpointHandler->getCryptoHandler()->getOtherPublicKey(),
+            endpointHandler);
       }
     }
 

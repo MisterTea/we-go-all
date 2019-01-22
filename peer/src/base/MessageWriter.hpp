@@ -15,6 +15,15 @@ class MessageWriter {
     packHandler.pack(t);
   }
 
+  template <typename K, typename V>
+  inline void writeMap(const map<K,V>& m) {
+    packHandler.pack_map(m.size());
+    for (auto& it : m) {
+      writePrimitive(it.first);
+      writePrimitive(it.second);
+    }
+  }
+
   template <typename T>
   inline void writeClass(const T& t) {
     string s(sizeof(T), '\0');

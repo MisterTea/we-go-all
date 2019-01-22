@@ -27,13 +27,13 @@ class PeerTest : public testing::Test {
       keys.push_back(CryptoHandler::generateKey());
     }
     server.reset(new SingleGameServer(
-        30000, CryptoHandler::keyToString(keys[0].first), names[0]));
+        20000, CryptoHandler::keyToString(keys[0].first), names[0]));
     for (int a = 1; a < numPlayers; a++) {
       server->addPeer(CryptoHandler::keyToString(keys[a].first), names[a]);
     }
 
     peerConnectionServer.reset(
-        new PeerConnectionServer(netEngine, 30000, server));
+        new PeerConnectionServer(netEngine, 20000, server));
 
     netEngine->start();
 
@@ -57,36 +57,36 @@ class PeerTest : public testing::Test {
 
 TEST_F(PeerTest, ProtocolTest) {
   initGameServer(4);
-  HttpClient client("localhost:30000");
+  HttpClient client("localhost:20000");
   string hostKey = CryptoHandler::keyToString(keys[0].first);
 
   string path = string("/get_current_game_id/") + hostKey;
   auto response = client.request("GET", path);
   json result = json::parse(response->content.string());
   uuid gameId = sole::rebuild(result["gameId"]);
-  ASSERT_EQ(gameId.str(), server->getGameId().str());
+  EXPECT_EQ(gameId.str(), server->getGameId().str());
 
   path = string("/host");
   json request = {
       {"hostKey", hostKey}, {"gameId", gameId.str()}, {"gameName", "Starwars"}};
   response = client.request("POST", path, request.dump(2));
-  ASSERT_EQ(response->status_code, "200 OK");
+  EXPECT_EQ(response->status_code, "200 OK");
 
   path = string("/get_game_info/") + gameId.str();
   response = client.request("GET", path);
   result = json::parse(response->content.string());
-  ASSERT_EQ(result["gameName"], "Starwars");
-  ASSERT_EQ(result["hostKey"], hostKey);
+  EXPECT_EQ(result["gameName"], "Starwars");
+  EXPECT_EQ(result["hostKey"], hostKey);
   for (int a = 0; a < 4; a++) {
     string stringKey = CryptoHandler::keyToString(keys[a].first);
-    ASSERT_EQ(result["peerData"][stringKey]["key"].get<string>(), stringKey);
-    ASSERT_EQ(result["peerData"][stringKey]["name"].get<string>(), names[a]);
-    ASSERT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
+    EXPECT_EQ(result["peerData"][stringKey]["key"].get<string>(), stringKey);
+    EXPECT_EQ(result["peerData"][stringKey]["name"].get<string>(), names[a]);
+    EXPECT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
   }
 
   shared_ptr<udp::socket> localSocket(new udp::socket(
       *netEngine->getIoService(), udp::endpoint(udp::v4(), 12345)));
-  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "30000");
+  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000");
   string ipAddressPacket = hostKey + "_" + "192.168.0.1:" + to_string(12345);
   netEngine->getIoService()->post(
       [localSocket, serverEndpoint, ipAddressPacket]() {
@@ -101,16 +101,16 @@ TEST_F(PeerTest, ProtocolTest) {
   path = string("/get_game_info/") + gameId.str();
   response = client.request("GET", path);
   result = json::parse(response->content.string());
-  ASSERT_EQ(result["gameName"], "Starwars");
-  ASSERT_EQ(result["hostKey"], hostKey);
+  EXPECT_EQ(result["gameName"], "Starwars");
+  EXPECT_EQ(result["hostKey"], hostKey);
   for (int a = 0; a < 4; a++) {
     string stringKey = CryptoHandler::keyToString(keys[a].first);
-    ASSERT_EQ(result["peerData"][stringKey]["key"].get<string>(), stringKey);
-    ASSERT_EQ(result["peerData"][stringKey]["name"].get<string>(), names[a]);
+    EXPECT_EQ(result["peerData"][stringKey]["key"].get<string>(), stringKey);
+    EXPECT_EQ(result["peerData"][stringKey]["name"].get<string>(), names[a]);
     if (a == 0) {
-      ASSERT_EQ(result["peerData"][stringKey]["endpoints"].size(), 2);
+      EXPECT_EQ(result["peerData"][stringKey]["endpoints"].size(), 2);
     } else {
-      ASSERT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
+      EXPECT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
     }
   }
 }
@@ -124,8 +124,46 @@ TEST_F(PeerTest, SinglePeer) {
     LOG(INFO) << "Waiting for initialization...";
     sleep(1);
   }
-  firstPeer->updateState(200, {{"button", "0"}});
+  firstPeer->updateState(200, {{"button0", "0"}});
   sleep(3);
+  unordered_map<string, string> state = firstPeer->getFullState(199);
+  EXPECT_NE(state.find("button0"), state.end());
+  EXPECT_EQ(state.find("button0")->second, "0");
   firstPeer->shutdown();
+}
+
+TEST_F(PeerTest, TwoPeers) {
+  LOG(INFO) << "STARTING GAME SERVER";
+  initGameServer(2);
+  LOG(INFO) << "CREATING PEERS";
+  vector<shared_ptr<MyPeer>> peers = {
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, true, 11000)),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, false, 11001)),
+  };
+  LOG(INFO) << "STARTING PEERS";
+  for (auto it : peers) {
+    it->start();
+  }
+  for (int a = 0; a < peers.size(); a++) {
+    while (!peers[a]->initialized()) {
+      LOG(INFO) << "Waiting for initialization for peer " << a << " ...";
+      sleep(1);
+    }
+  }
+  peers[0]->updateState(200, {{"button0", "0"}});
+  peers[1]->updateState(200, {{"button1", "1"}});
+  unordered_map<string, string> state = peers[0]->getFullState(199);
+  EXPECT_NE(state.find("button0"), state.end());
+  EXPECT_EQ(state.find("button0")->second, "0");
+  EXPECT_NE(state.find("button1"), state.end());
+  EXPECT_EQ(state.find("button1")->second, "1");
+  state = peers[1]->getFullState(199);
+  EXPECT_NE(state.find("button0"), state.end());
+  EXPECT_EQ(state.find("button0")->second, "0");
+  EXPECT_NE(state.find("button1"), state.end());
+  EXPECT_EQ(state.find("button1")->second, "1");
+  for (auto it : peers) {
+    it->shutdown();
+  }
 }
 }  // namespace wga

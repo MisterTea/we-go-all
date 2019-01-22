@@ -12,8 +12,10 @@ class PeerConnectionServer {
   PeerConnectionServer(shared_ptr<NetEngine> _netEngine, int _port,
                        shared_ptr<SingleGameServer> _singleGameServer)
       : socket(*(_netEngine->getIoService()),
-                udp::endpoint(udp::v4(), short(_port))),
+               udp::endpoint(udp::v4(), short(_port))),
         singleGameServer(_singleGameServer) {
+    asio::socket_base::reuse_address option(true);
+    socket.set_option(option);
     receive();
   }
 

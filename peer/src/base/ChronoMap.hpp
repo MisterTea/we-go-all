@@ -9,7 +9,8 @@ class ChronoMap {
  public:
   ChronoMap() : currentTime(0), startTime(0) {}
 
-  ChronoMap(int64_t _startTime) : currentTime(_startTime), startTime(_startTime) {}
+  ChronoMap(int64_t _startTime)
+      : currentTime(_startTime), startTime(_startTime) {}
 
   void put(int64_t putStartTime, int64_t endTime, unordered_map<K, V> data) {
     if (putStartTime < startTime) {
@@ -20,7 +21,8 @@ class ChronoMap {
       return;
     }
     if (putStartTime >= endTime) {
-      LOG(FATAL) << "Invalid start/end time: " << putStartTime << " " << endTime;
+      LOG(FATAL) << "Invalid start/end time: " << putStartTime << " "
+                 << endTime;
     }
     if (putStartTime != currentTime) {
       futureData.insert(
@@ -30,9 +32,10 @@ class ChronoMap {
     }
   }
 
-  optional<V> get(int64_t timestamp, const K& key) {
+  optional<V> get(int64_t timestamp, const K& key) const {
     if (timestamp < startTime) {
-      LOG(FATAL) << "Tried to put before start time: " << timestamp << " < " << startTime;
+      LOG(FATAL) << "Tried to put before start time: " << timestamp << " < "
+                 << startTime;
     }
     if (timestamp < 0) {
       LOG(FATAL) << "Invalid time stamp";
@@ -64,7 +67,15 @@ class ChronoMap {
     return retval;
   }
 
-  V getOrDie(int64_t timestamp, const K& key) {
+  unordered_map<K, V> getAll(int64_t timestamp) const {
+    unordered_map<K, V> retval;
+    for (auto& it : data) {
+      retval[it.first] = *(get(timestamp, it.first));
+    }
+    return retval;
+  }
+
+  V getOrDie(int64_t timestamp, const K& key) const {
     auto v = get(timestamp, key);
     if (v == nullopt) {
       LOG(FATAL) << "Tried to get a null value: " << timestamp << " " << key;
@@ -72,11 +83,18 @@ class ChronoMap {
     return *v;
   }
 
-  int64_t getCurrentTime() { return currentTime; }
+  int64_t getCurrentTime() const { return currentTime; }
 
-  int64_t getStartTime() { return startTime; }
+  int64_t getStartTime() const { return startTime; }
 
-  bool empty() { return currentTime == startTime; }
+  bool empty() const { return currentTime == startTime; }
+
+  void blockUntilTime(int64_t timestamp) {
+    while (currentTime < timestamp) {
+      LOG(INFO) << "Waiting for time: " << currentTime << " < " << timestamp;
+      usleep(100 * 1000);
+    }
+  }
 
  protected:
   unordered_map<K, map<int64_t, V>> data;
@@ -84,13 +102,13 @@ class ChronoMap {
   int64_t startTime;
   map<int64_t, tuple<int64_t, int64_t, unordered_map<K, V>>> futureData;
 
-  void addNextTimeBlock(int64_t putStartTime, int64_t endTime, unordered_map<K, V> newData) {
+  void addNextTimeBlock(int64_t putStartTime, int64_t endTime,
+                        unordered_map<K, V> newData) {
     if (currentTime != putStartTime) {
       LOG(FATAL) << "Tried to add an invalid time block";
     }
     if (data.empty() && putStartTime != startTime) {
-      LOG(FATAL)
-          << "Inserting into an empty map should always use startTime";
+      LOG(FATAL) << "Inserting into an empty map should always use startTime";
     }
 
     currentTime = endTime;
@@ -98,7 +116,7 @@ class ChronoMap {
       if (data.find(it.first) == data.end()) {
         // New key.
         data[it.first] = {{putStartTime, it.second}};
-      } else if(!(data[it.first].rbegin()->second == it.second)) {
+      } else if (!(data[it.first].rbegin()->second == it.second)) {
         // Updated data.  Add new information.
         data[it.first][putStartTime] = it.second;
       }
@@ -115,7 +133,6 @@ class ChronoMap {
                        std::get<2>(newData));
     }
   }
-
 };
 }  // namespace wga
 

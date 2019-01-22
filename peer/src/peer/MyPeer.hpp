@@ -7,6 +7,7 @@
 #include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
 #include "PlayerData.hpp"
+#include "RpcServer.hpp"
 
 namespace wga {
 class MyPeer {
@@ -17,15 +18,14 @@ class MyPeer {
   void shutdown();
 
   void start();
-  void checkForEndpoints();
-  void update();
+  void checkForEndpoints(const asio::error_code& error);
+  void update(const asio::error_code& error);
 
-  bool initialized() { return myData.get() != NULL; }
+  bool initialized();
 
-  void updateState(int64_t timestamp, unordered_map<string, string> data) {
-    myData->playerInputData.put(myData->playerInputData.getCurrentTime(),
-                                timestamp, data);
-  }
+  void updateState(int64_t timestamp, unordered_map<string, string> data);
+
+  unordered_map<string, string> getFullState(int64_t timestamp);
 
  protected:
   shared_ptr<NetEngine> netEngine;
@@ -38,7 +38,7 @@ class MyPeer {
   int serverPort;
   string gameName;
   PublicKey hostKey;
-  map<PublicKey, shared_ptr<MultiEndpointHandler>> peerHandlers;
+  shared_ptr<RpcServer> rpcServer;
   map<PublicKey, shared_ptr<PlayerData>> peerData;
   shared_ptr<PlayerData> myData;
   shared_ptr<udp::socket> localSocket;

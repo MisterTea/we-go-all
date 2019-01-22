@@ -2,8 +2,8 @@
 
 #include "LogHandler.hpp"
 
-#include "gtest/gtest.h"
 #include <cxxopts.hpp>
+#include "gtest/gtest.h"
 
 using namespace wga;
 
@@ -12,10 +12,12 @@ int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
 
   cxxopts::Options options("Peer", "Peer Program for WGA");
-  options.add_options()
-    ("stress", "Enable stress tests", cxxopts::value<bool>()->default_value("false"))
-    ("v,verbose", "Log verbosity", cxxopts::value<int>()->default_value("0"))
-  ;
+  options.add_options()  //
+      ("stress", "Enable stress tests",
+       cxxopts::value<bool>()->default_value("false"))  //
+      ("v,verbose", "Log verbosity",
+       cxxopts::value<int>()->default_value("0"))  //
+      ;
   auto params = options.parse(argc, argv);
 
   // Setup easylogging configurations
