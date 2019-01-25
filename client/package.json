@@ -19,7 +19,7 @@
   },
   "scripts": {
     "start": "cross-env PORT=3006 react-scripts-ts start",
-    "build": "cross-env PORT=3006 react-scripts-ts build",
+    "build": "cross-env PORT=3006 react-scripts-ts build && rm -Rf ../server/react_build && mkdir -p ../server/react_build && cp -Rf build/* ../server/react_build/",
     "test": "cross-env PORT=3006 react-scripts-ts test --env=jsdom",
     "eject": "cross-env PORT=3006 react-scripts-ts eject"
   },
