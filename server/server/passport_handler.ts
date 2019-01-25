@@ -34,9 +34,12 @@ if ("discord" in config.login) {
   logger.info("Setting up discord login");
   passport.use(new DiscordStrategy(config.login.discord,
     function (accessToken, refreshToken, profile, cb) {
+      logger.info("GOT PROFILE");
+      logger.info(profile);
+      const email = profile.email;
       db.users.findOneAndUpdate(
-        { discordId: profile.id },
-        { $set: { discordId: profile.id, email: profile.email } },
+        { email: email },
+        { $set: { discordId: profile.id, email: email } },
         { new: true, upsert: true },
         function (err, user) {
           return cb(err, user);
@@ -48,9 +51,12 @@ if ("github" in config.login) {
   logger.info("Setting up github login");
   passport.use(new GitHubStrategy(config.login.github,
     function (accessToken, refreshToken, profile, cb) {
+      logger.info("GOT PROFILE");
+      logger.info(profile);
+      const email = profile.emails[0].value;
       db.users.findOneAndUpdate(
-        { githubId: profile.id },
-        { $set: { githubId: profile.id, email: profile.email } },
+        { email: email },
+        { $set: { githubId: profile.id, email: email } },
         { new: true, upsert: true },
         function (err, user) {
           return cb(err, user);

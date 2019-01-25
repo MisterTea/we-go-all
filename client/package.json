@@ -2,15 +2,32 @@
   "name": "we-go-all-client",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://127.0.0.1:3000",
+  "proxy": {
+    "/api": {
+      "target": "http://127.0.0.1:3000"
+    },
+    "/login": {
+      "target": "http://127.0.0.1:3000"
+    }
+  },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^5.6.3",
+    "@fortawesome/fontawesome-svg-core": "^1.2.12",
+    "@fortawesome/free-brands-svg-icons": "^5.6.3",
+    "@fortawesome/free-regular-svg-icons": "^5.6.3",
+    "@fortawesome/free-solid-svg-icons": "^5.6.3",
+    "@fortawesome/react-fontawesome": "^0.1.4",
     "@types/axios": "^0.14.0",
     "@types/react-bootstrap": "^0.32.15",
     "axios": "^0.18.0",
     "bootstrap": "^3.4.0",
+    "bootstrap-social": "^5.1.1",
+    "http-proxy-middleware": "^0.19.1",
+    "i": "^0.3.6",
     "mobx": "^5.8.0",
     "mobx-react": "^5.4.3",
     "mobx-react-devtools": "^6.0.3",
+    "npm": "^6.7.0",
     "react": "^16.7.0",
     "react-bootstrap": "^0.32.4",
     "react-dom": "^16.7.0",

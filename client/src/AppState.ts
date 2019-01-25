@@ -48,6 +48,14 @@ class AppState {
         }
       })
   }
+
+  loginGithub() {
+    window.location.href = "/login/github";
+  }
+
+  loginDiscord() {
+    window.location.href = "/login/discord";
+  }
 }
 
 export default AppState;

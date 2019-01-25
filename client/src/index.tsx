@@ -6,6 +6,7 @@ import AppState from './AppState';
 
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap/dist/css/bootstrap-theme.css';
+import 'bootstrap-social/bootstrap-social.css';
 import './index.css';
 
 let appState = new AppState();

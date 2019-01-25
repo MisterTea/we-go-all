@@ -2,33 +2,45 @@ var mongoose = require('mongoose');
 var config = require('../server/config');
 var ObjectId = mongoose.Schema.Types.ObjectId;
 
+function requiresString(s: any) {
+  return typeof s === 'string' ? false : true
+}
+
 var UserSchema = new mongoose.Schema({
   email: {
     type: String,
     index: true,
     unique: true,
-    required: true,
+    required: requiresString,
   },
   discordId: {
     type: String,
-    index: true,
-    unique: true,
+    index: {
+      unique: true,
+      partialFilterExpression: { discordId: { $type: 'string' } },
+    },
   },
   githubId: {
     type: String,
-    index: true,
-    unique: true,
+    index: {
+      unique: true,
+      partialFilterExpression: { githubId: { $type: 'string' } },
+    },
   },
   name: {
     type: String,
-    index: true,
-    unique: true,
+    index: {
+      unique: true,
+      partialFilterExpression: { name: { $type: 'string' } },
+    },
   },
   password: String,
   publicKey: {
     type: String,
-    index: true,
-    unique: true,
+    index: {
+      unique: true,
+      partialFilterExpression: { publicKey: { $type: 'string' } },
+    },
   },
   endpoints: [String],
 });

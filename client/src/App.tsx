@@ -5,17 +5,23 @@ import { observer } from 'mobx-react';
 import DevTools from 'mobx-react-devtools';
 import logo from './logo.svg';
 import AppState from './AppState';
-import { Alert, Button } from 'react-bootstrap';
-
+import { Alert } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faDiscord, faGithub } from '@fortawesome/free-brands-svg-icons'
 
 @observer
 class App extends React.Component<{ appState: AppState }, { [username: string]: string, password: string }> {
+  form: any;
+  loginType: string | null;
+
   constructor(props: Readonly<{ appState: AppState }>) {
     super(props);
     this.state = {
       username: "",
       password: "",
     };
+    this.form = null;
+    this.loginType = null;
 
     this.handleChange = this.handleChange.bind(this);
     this.handleLoginSubmit = this.handleLoginSubmit.bind(this);
@@ -23,9 +29,15 @@ class App extends React.Component<{ appState: AppState }, { [username: string]: 
 
   handleLoginSubmit(event: React.FormEvent<HTMLFormElement>) {
     console.log(event);
-    console.log(this.state.username);
-    console.log(this.state.password);
-    this.props.appState.login(this.state.username, this.state.password);
+    if (this.loginType === "discord") {
+      this.props.appState.loginDiscord();
+    } else if (this.loginType === "github") {
+      this.props.appState.loginGithub();
+    } else {
+      console.log(this.state.username);
+      console.log(this.state.password);
+      this.props.appState.login(this.state.username, this.state.password);
+    }
     event.preventDefault();
   }
 
@@ -41,14 +53,25 @@ class App extends React.Component<{ appState: AppState }, { [username: string]: 
     var body;
     if (this.props.appState.userId === null) {
       body = (
-        <form role="form" className="form" onSubmit={this.handleLoginSubmit}>
+        <form role="form" className="form" onSubmit={this.handleLoginSubmit} ref={el => this.form = el}>
           <div className="form-group">
             <label htmlFor="data">Username</label>
             <input type="text" name="username" value={this.state.username} onChange={this.handleChange}></input>
             <label htmlFor="data">Password</label>
             <input type="password" name="password" value={this.state.password} onChange={this.handleChange}></input>
           </div>
-          <Button type="submit">Submit</Button>
+          <a className="btn btn-social btn-twitter" onClick={() => {
+            this.loginType = "discord";
+            this.form.dispatchEvent(new Event('submit'))
+          }} >
+            <span><FontAwesomeIcon icon={faDiscord} /></span>Sign in with Discord
+          </a>
+          <a className="btn btn-social btn-github" onClick={() => {
+            this.loginType = "github";
+            this.form.dispatchEvent(new Event('submit'))
+          }} >
+            <span><FontAwesomeIcon icon={faGithub} /></span>Sign in with Github
+          </a>
         </form >
       );
     } else {
