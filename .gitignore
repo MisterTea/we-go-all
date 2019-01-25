@@ -4,9 +4,10 @@ site.config.json
 # Nodejs
 node_modules
 
-# Client build
+# build
 react_build
 build
+.build
 
 # Build artifacts
 deps

@@ -44,7 +44,7 @@ app.use(require('express-session')({ secret: 'we-go-all', resave: false, saveUni
 //app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 // view engine setup
-app.set('views', path.join(__dirname, '../views'));
+app.set('views', './views');
 app.set('view engine', 'pug');
 
 app.use(express.json());
@@ -56,8 +56,8 @@ app.use(cookieParser());
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use(express.static(path.join(__dirname, '../public')));
-app.use(express.static(path.join(__dirname, '../react_build')));
+app.use(express.static('./public'));
+app.use(express.static('./react_build'));
 
 //app.use(['/', '/index.html'], indexRouter);
 app.use('/api', graphlHTTP({
@@ -86,6 +86,7 @@ app.use(function (err: any, req: any, res: any, next: any) {
   res.locals.error = req.app.get('env') === 'development' ? err : {};
 
   logger.error("Got 500 Error: " + err);
+  logger.error(path.join(__dirname, '../views'));
 
   // render the error page
   res.status(err.status || 500);

@@ -1,14 +1,14 @@
-#!/usr/bin/env node
-
 /**
  * Module dependencies.
  */
 
-var app = require('../app/app');
-var logger = require('../app/logger').logger;
+var app = require('./app');
+var logger = require('./logger').logger;
 var http = require('http');
-var udpServer = require("../app/udp_server")
+var UdpServer = require("./udp_server")
 var db = require('../model/db');
+
+let currentApp = app;
 
 /**
  * Get port from environment and store in Express.
@@ -22,6 +22,7 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+var udpServer = UdpServer.start();
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -35,7 +36,6 @@ db.start(function (error) {
   server.listen(port);
   server.on('error', onError);
   server.on('listening', onListening);
-  udpServer.start()
 });
 
 /**
@@ -89,6 +89,16 @@ function onError(error) {
 /**
  * Event listener for HTTP server "listening" event.
  */
+
+if (module.hot) {
+  module.hot.accept();
+
+  // Next callback is essential: After code changes were accepted     we need to restart the app. server.close() is here Express.JS-specific and can differ in other frameworks. The idea is that you should shut down your app here. Data/state saving between shutdown and new start is possible
+  module.hot.dispose(() => {
+    udpServer.close();
+    server.close();
+  });
+}
 
 function onListening() {
   var addr = server.address();

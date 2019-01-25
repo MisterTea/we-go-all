@@ -1,5 +1,5 @@
 var mongoose = require('mongoose');
-var config = require('../app/config');
+var config = require('../server/config');
 var ObjectId = mongoose.Schema.Types.ObjectId;
 
 var UserSchema = new mongoose.Schema({
