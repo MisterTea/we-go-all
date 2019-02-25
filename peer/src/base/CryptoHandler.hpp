@@ -54,12 +54,6 @@ class CryptoHandler {
     return retval;
   }
 
-  static void init() {
-    if (-1 == sodium_init()) {
-      LOG(FATAL) << "libsodium init failed";
-    }
-  }
-
   static pair<PublicKey, PrivateKey> generateKey() {
     PublicKey publicKey;
     PrivateKey privateKey;

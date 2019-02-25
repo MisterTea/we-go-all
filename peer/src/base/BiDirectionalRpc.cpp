@@ -220,20 +220,29 @@ void BiDirectionalRpc::tryToSendBarrier() {
 void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
   VLOG(1) << "SENDING REQUEST: " << idPayload.id.str();
   writer.start();
-  vector<RpcId> rpcsSent;
+  set<RpcId> rpcsSent;
+
+  rpcsSent.insert(idPayload.id);
   writer.writePrimitive<unsigned char>(REQUEST);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
   // Try to attach more requests to this packet
   int i = 0;
-  while (!outgoingRequests.empty()) {
+  while (!outgoingRequests.empty() &&
+         rpcsSent.size() < outgoingRequests.size()) {
     DRAW_FROM_UNORDERED(it, outgoingRequests);
+    if (rpcsSent.find(it->id) != rpcsSent.end()) {
+      // Drew an rpc that's already in the packet.  Just bail for now, maybe in
+      // the future do something more clever.
+      break;
+    }
     int size = sizeof(RpcId) + it->payload.length();
     if (size + writer.size() > 400) {
       // Too big
       break;
     }
     i++;
+    rpcsSent.insert(it->id);
     writer.writeClass<RpcId>(it->id);
     writer.writePrimitive<string>(it->payload);
   }
@@ -243,20 +252,30 @@ void BiDirectionalRpc::sendRequest(const IdPayload& idPayload) {
 
 void BiDirectionalRpc::sendReply(const IdPayload& idPayload) {
   VLOG(1) << "SENDING REPLY: " << idPayload.id.str();
+  set<RpcId> rpcsSent;
+
+  rpcsSent.insert(idPayload.id);
   writer.start();
   writer.writePrimitive<unsigned char>(REPLY);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
   // Try to attach more requests to this packet
   int i = 0;
-  while (!outgoingReplies.empty()) {
+  while (!outgoingReplies.empty() &&
+         rpcsSent.size() < outgoingRequests.size()) {
     DRAW_FROM_UNORDERED(it, outgoingReplies);
+    if (rpcsSent.find(it->id) != rpcsSent.end()) {
+      // Drew an rpc that's already in the packet.  Just bail for now, maybe in
+      // the future do something more clever.
+      break;
+    }
     int size = sizeof(RpcId) + it->payload.length();
     if (size + writer.size() > 400) {
       // Too big
       break;
     }
     i++;
+    rpcsSent.insert(it->id);
     writer.writeClass<RpcId>(it->id);
     writer.writePrimitive<string>(it->payload);
   }

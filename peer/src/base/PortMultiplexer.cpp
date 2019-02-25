@@ -16,7 +16,7 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
   VLOG(1) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
   // We need to find out where this needs to go
-  shared_ptr<UdpRecipient> recipient;
+  shared_ptr<MultiEndpointHandler> recipient;
   for (auto& it : recipients) {
     if (it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
       recipient = it;

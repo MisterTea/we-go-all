@@ -2,19 +2,11 @@
 
 namespace wga {
 MultiEndpointHandler::MultiEndpointHandler(
-    shared_ptr<udp::socket> _localSocket, shared_ptr<NetEngine> _netEngine,
-    shared_ptr<CryptoHandler> _cryptoHandler,
+    shared_ptr<NetEngine> _netEngine, shared_ptr<udp::socket> _localSocket,
     const vector<udp::endpoint>& endpoints)
-    : BiDirectionalRpc(),
-      localSocket(_localSocket),
-      netEngine(_netEngine),
-      cryptoHandler(_cryptoHandler),
+    : UdpBiDirectionalRpc(_netEngine, _localSocket),
       lastUpdateTime(time(NULL)),
       lastUnrepliedSendTime(0) {
-  if (cryptoHandler->canDecrypt() || cryptoHandler->canEncrypt()) {
-    LOG(FATAL) << "Created endpoint handler with session key";
-  }
-
   if (endpoints.empty()) {
     LOG(FATAL) << "Passed an empty endpoints array";
   }
@@ -23,25 +15,10 @@ MultiEndpointHandler::MultiEndpointHandler(
   for (int a = 1; a < int(endpoints.size()); a++) {
     alternativeEndpoints.insert(endpoints[a]);
   }
-
-  // Send session key as a one-way rpc
-  {
-    IdPayload idPayload;
-    EncryptedSessionKey encryptedSessionKey =
-        cryptoHandler->generateOutgoingSessionKey();
-    FATAL_IF_FALSE(
-        Base64::Encode(string((const char*)encryptedSessionKey.data(),
-                              encryptedSessionKey.size()),
-                       &idPayload.payload));
-    VLOG(1) << idPayload.payload;
-    idPayload.id = RpcId(0, 1);
-    oneWayRequests.insert(idPayload.id);
-    BiDirectionalRpc::requestWithId(idPayload);
-  }
 }
 
 void MultiEndpointHandler::send(const string& message) {
-  //LOG(INFO) << "SENDING MESSAGE: " << message;
+  // LOG(INFO) << "SENDING MESSAGE: " << message;
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);
   }
@@ -51,12 +28,8 @@ void MultiEndpointHandler::send(const string& message) {
     update();
   }
 
-  netEngine->getIoService()->post([this, message]() {
-    VLOG(1) << "IN SEND LAMBDA: " << message.length() << " TO "
-            << activeEndpoint;
-    int bytesSent = localSocket->send_to(asio::buffer(message), activeEndpoint);
-    VLOG(1) << bytesSent << " bytes sent";
-  });
+  UdpBiDirectionalRpc::send(message);
+
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);
   }
@@ -83,23 +56,6 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
   return false;
 }
 
-void MultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
-  if (!readyToSend()) {
-    LOG(FATAL) << "Tried to send data before we were ready";
-  }
-  IdPayload encryptedIdPayload =
-      IdPayload(idPayload.id, cryptoHandler->encrypt(idPayload.payload));
-  BiDirectionalRpc::requestWithId(encryptedIdPayload);
-}
-
-void MultiEndpointHandler::reply(const RpcId& rpcId, const string& payload) {
-  if (!readyToSend()) {
-    LOG(FATAL) << "Got reply before we were ready, something went wrong";
-  }
-  string encryptedPayload = cryptoHandler->encrypt(payload);
-  BiDirectionalRpc::reply(rpcId, encryptedPayload);
-}
-
 void MultiEndpointHandler::updateEndpoints(
     const vector<udp::endpoint>& newEndpoints) {
   for (auto& it : newEndpoints) {
@@ -114,49 +70,6 @@ void MultiEndpointHandler::updateEndpoints(
     }
     alternativeEndpoints.insert(it);
   }
-}
-
-void MultiEndpointHandler::addIncomingRequest(const IdPayload& idPayload) {
-  if (idPayload.id == RpcId(0, 1)) {
-    // Handshaking
-    LOG(INFO) << "GOT HANDSHAKE";
-    bool result = cryptoHandler->recieveIncomingSessionKey(
-        CryptoHandler::stringToKey<EncryptedSessionKey>(idPayload.payload));
-    if (!result) {
-      LOG(ERROR) << "Invalid session key";
-      return;
-    }
-    BiDirectionalRpc::addIncomingRequest(idPayload);
-    BiDirectionalRpc::reply(idPayload.id, "OK");
-    return;
-  }
-  if (!readyToRecieve()) {
-    LOG(INFO) << "Tried to receive data before we were ready";
-    return;
-  }
-  auto decryptedString = cryptoHandler->decrypt(idPayload.payload);
-  if (!decryptedString) {
-    // Corrupt message, ignore
-    LOG(ERROR) << "Got a corrupt packet";
-    return;
-  }
-  IdPayload decryptedIdPayload = IdPayload(idPayload.id, *decryptedString);
-  VLOG(1) << "GOT REQUEST WITH PAYLOAD: " << decryptedIdPayload.payload;
-  BiDirectionalRpc::addIncomingRequest(decryptedIdPayload);
-}
-
-void MultiEndpointHandler::addIncomingReply(const RpcId& uid,
-                                            const string& payload) {
-  if (!readyToSend()) {
-    LOG(FATAL) << "Got reply before we were ready, something went wrong";
-  }
-  auto decryptedPayload = cryptoHandler->decrypt(payload);
-  if (!decryptedPayload) {
-    LOG(ERROR) << "Got corrupt packet";
-    return;
-  }
-  VLOG(1) << "GOT REPLY WITH PAYLOAD: " << *decryptedPayload;
-  BiDirectionalRpc::addIncomingReply(uid, *decryptedPayload);
 }
 
 void MultiEndpointHandler::update() {

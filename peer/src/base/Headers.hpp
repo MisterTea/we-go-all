@@ -1,8 +1,9 @@
 #ifndef __ET_HEADERS__
 #define __ET_HEADERS__
 
-// For easylogging, disable default log file, enable crash log, ensure thread safe, and catch c++ exceptions
-// This is duplicated here to make linters happy, but actually set in CMakeLists.txt
+// For easylogging, disable default log file, enable crash log, ensure thread
+// safe, and catch c++ exceptions This is duplicated here to make linters happy,
+// but actually set in CMakeLists.txt
 #ifndef ELPP_NO_DEFAULT_LOG_FILE
 #define ELPP_NO_DEFAULT_LOG_FILE (1)
 #define ELPP_FEATURE_CRASH_LOG (1)
@@ -16,7 +17,6 @@
 
 // Require win7 or higher
 #define _WIN32_WINNT _WIN32_WINNT_WIN7
-
 
 #if __FreeBSD__
 #define _WITH_GETLINE
@@ -110,8 +110,8 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
   if (((X) == false))     \
     LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
 
-#define FATAL_FAIL_HTTP(RESPONSE) \
-  if(RESPONSE->status_code != "200 OK") \
+#define FATAL_FAIL_HTTP(RESPONSE)        \
+  if (RESPONSE->status_code != "200 OK") \
     LOG(FATAL) << "Error making http request: " << RESPONSE->status_code;
 
 #define DRAW_FROM_UNORDERED(ITERATOR, COLLECTION) \

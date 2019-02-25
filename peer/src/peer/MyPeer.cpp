@@ -1,6 +1,7 @@
 #include "MyPeer.hpp"
 
 #include "CryptoHandler.hpp"
+#include "EncryptedMultiEndpointHandler.hpp"
 
 namespace wga {
 MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
@@ -155,9 +156,10 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     }
     shared_ptr<CryptoHandler> peerCryptoHandler(
         new CryptoHandler(privateKey, peerKey));
-    rpcServer->addEndpoint(
-        peerKey, shared_ptr<MultiEndpointHandler>(new MultiEndpointHandler(
-                     localSocket, netEngine, peerCryptoHandler, endpoints)));
+    rpcServer->addEndpoint(peerKey, shared_ptr<EncryptedMultiEndpointHandler>(
+                                        new EncryptedMultiEndpointHandler(
+                                            localSocket, netEngine,
+                                            peerCryptoHandler, endpoints)));
   }
 
   this_thread::sleep_for(chrono::seconds(1));

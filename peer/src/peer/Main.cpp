@@ -16,8 +16,6 @@ class Main {
 
   int run(int argc, char **argv) {
     srand(time(NULL));
-    CryptoHandler::init();
-    TimeHandler::init();
 
     cxxopts::Options options("Peer", "Peer Program for WGA");
     options.add_options()("serverport", "Port to run server on",

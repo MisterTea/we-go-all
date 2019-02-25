@@ -5,7 +5,6 @@
 #include "MessageReader.hpp"
 #include "MessageWriter.hpp"
 #include "RpcId.hpp"
-#include "UdpRecipient.hpp"
 
 namespace wga {
 class IdPayload {
@@ -38,7 +37,7 @@ struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
 namespace wga {
 enum RpcHeader { HEARTBEAT = 1, REQUEST = 2, REPLY = 3, ACKNOWLEDGE = 4 };
 
-class BiDirectionalRpc : public UdpRecipient {
+class BiDirectionalRpc {
  public:
   BiDirectionalRpc();
   virtual ~BiDirectionalRpc();

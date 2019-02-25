@@ -5,6 +5,13 @@ namespace wga {
 CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey,
                              const PublicKey& _otherPublicKey)
     : myPrivateKey(_myPrivateKey), otherPublicKey(_otherPublicKey) {
+  static bool calledInit = false;
+  if (!calledInit) {
+    if (-1 == sodium_init()) {
+      LOG(FATAL) << "libsodium init failed";
+    }
+  }
+  calledInit = true;
   myPublicKey = CryptoHandler::makePublicFromPrivate(myPrivateKey);
   incomingSessionKey.fill(0);
   outgoingSessionKey.fill(0);

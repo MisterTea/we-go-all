@@ -2,6 +2,7 @@
 
 #include "gtest/gtest.h"
 
+#include "EncryptedMultiEndpointHandler.hpp"
 #include "LogHandler.hpp"
 #include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
@@ -22,8 +23,6 @@ class FlakyRpcTest : public testing::Test {
  protected:
   void SetUp() override {
     srand(time(NULL));
-    CryptoHandler::init();
-    TimeHandler::init();
     netEngine.reset(
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
   }
@@ -77,9 +76,10 @@ class FlakyRpcTest : public testing::Test {
         }
         auto remoteEndpoint =
             netEngine->resolve("127.0.0.1", std::to_string(20000 + b));
-        shared_ptr<MultiEndpointHandler> endpointHandler(
-            new MultiEndpointHandler(servers[a]->getLocalSocket(), netEngine,
-                                     cryptoHandlers[a][b], {remoteEndpoint}));
+        shared_ptr<EncryptedMultiEndpointHandler> endpointHandler(
+            new EncryptedMultiEndpointHandler(servers[a]->getLocalSocket(),
+                                              netEngine, cryptoHandlers[a][b],
+                                              {remoteEndpoint}));
         endpointHandler->setFlaky(true);
         servers[a]->addEndpoint(
             endpointHandler->getCryptoHandler()->getOtherPublicKey(),

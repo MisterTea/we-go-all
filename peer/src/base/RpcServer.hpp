@@ -1,8 +1,8 @@
 #ifndef __RPC_SERVER_H__
 #define __RPC_SERVER_H__
 
+#include "EncryptedMultiEndpointHandler.hpp"
 #include "Headers.hpp"
-#include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
 #include "PortMultiplexer.hpp"
 
@@ -26,7 +26,8 @@ class RpcServer : public PortMultiplexer {
             shared_ptr<udp::socket> _localSocket)
       : PortMultiplexer(_netEngine, _localSocket) {}
 
-  void addEndpoint(PublicKey key, shared_ptr<MultiEndpointHandler> endpoint) {
+  void addEndpoint(PublicKey key,
+                   shared_ptr<EncryptedMultiEndpointHandler> endpoint) {
     endpoints.insert(make_pair(key, endpoint));
     addRecipient(endpoint);
   }
@@ -141,7 +142,8 @@ class RpcServer : public PortMultiplexer {
     endpoints[key]->updateEndpoints(newEndpoints);
   }
 
-  shared_ptr<MultiEndpointHandler> getEndpointHandler(const PublicKey& key) {
+  shared_ptr<EncryptedMultiEndpointHandler> getEndpointHandler(
+      const PublicKey& key) {
     auto it = endpoints.find(key);
     if (it == endpoints.end()) {
       LOG(FATAL) << "Invalid endpoint handler: "
@@ -151,7 +153,7 @@ class RpcServer : public PortMultiplexer {
   }
 
  protected:
-  map<PublicKey, shared_ptr<MultiEndpointHandler>> endpoints;
+  map<PublicKey, shared_ptr<EncryptedMultiEndpointHandler>> endpoints;
 };
 }  // namespace wga
 

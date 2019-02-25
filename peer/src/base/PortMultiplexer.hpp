@@ -4,7 +4,6 @@
 #include "Headers.hpp"
 #include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
-#include "UdpRecipient.hpp"
 
 namespace wga {
 class PortMultiplexer {
@@ -14,7 +13,7 @@ class PortMultiplexer {
 
   shared_ptr<udp::socket> getLocalSocket() { return localSocket; }
 
-  void addRecipient(shared_ptr<UdpRecipient> recipient) {
+  void addRecipient(shared_ptr<MultiEndpointHandler> recipient) {
     recipients.push_back(recipient);
   }
 
@@ -24,7 +23,7 @@ class PortMultiplexer {
 
   shared_ptr<NetEngine> netEngine;
   shared_ptr<udp::socket> localSocket;
-  vector<shared_ptr<UdpRecipient>> recipients;
+  vector<shared_ptr<MultiEndpointHandler>> recipients;
 
   udp::endpoint receiveEndpoint;
   std::array<char, 1024 * 1024> receiveBuffer;

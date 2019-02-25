@@ -16,8 +16,6 @@ class PeerTest : public testing::Test {
 
   void SetUp() override {
     srand(time(NULL));
-    CryptoHandler::init();
-    TimeHandler::init();
     netEngine.reset(
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
   }

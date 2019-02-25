@@ -79,9 +79,11 @@ add_library(
   STATIC
 
   src/base/BiDirectionalRpc.cpp
+  src/base/UdpBiDirectionalRpc.cpp
   src/base/CryptoHandler.cpp
   src/base/LogHandler.cpp
   src/base/MultiEndpointHandler.cpp
+  src/base/EncryptedMultiEndpointHandler.cpp
   src/base/PortMultiplexer.cpp
   src/base/TimeHandler.cpp
   src/base/EasyLoggingWrapper.cpp
