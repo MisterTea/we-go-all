@@ -164,4 +164,40 @@ TEST_F(PeerTest, TwoPeers) {
     it->shutdown();
   }
 }
+
+TEST_F(PeerTest, ThreePeers) {
+  LOG(INFO) << "STARTING GAME SERVER";
+  initGameServer(3);
+  LOG(INFO) << "CREATING PEERS";
+  vector<shared_ptr<MyPeer>> peers = {
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, true, 11000)),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, false, 11001)),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[2].second, false, 11002)),
+  };
+  LOG(INFO) << "STARTING PEERS";
+  for (auto it : peers) {
+    it->start();
+  }
+  for (int a = 0; a < peers.size(); a++) {
+    while (!peers[a]->initialized()) {
+      LOG(INFO) << "Waiting for initialization for peer " << a << " ...";
+      sleep(1);
+    }
+  }
+  peers[0]->updateState(200, {{"button0", "0"}});
+  peers[1]->updateState(200, {{"button1", "1"}});
+  peers[2]->updateState(200, {{"button2", "2"}});
+  for (int a = 0; a < peers.size(); a++) {
+    unordered_map<string, string> state = peers[a]->getFullState(199);
+    EXPECT_NE(state.find("button0"), state.end());
+    EXPECT_EQ(state.find("button0")->second, "0");
+    EXPECT_NE(state.find("button1"), state.end());
+    EXPECT_EQ(state.find("button1")->second, "1");
+    EXPECT_NE(state.find("button2"), state.end());
+    EXPECT_EQ(state.find("button2")->second, "2");
+  }
+  for (auto it : peers) {
+    it->shutdown();
+  }
+}
 }  // namespace wga

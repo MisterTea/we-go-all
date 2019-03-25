@@ -23,7 +23,6 @@ include(CheckIncludeFileCXX)
 SET(CMAKE_REQUIRED_INCLUDES "${CMAKE_SOURCE_DIR}/external/asio/asio/include")
 SET(CMAKE_REQUIRED_DEFINITIONS "-DASIO_STANDALONE -D_WIN32_WINNT=_WIN32_WINNT_WIN7")
 SET(USE_STANDALONE_ASIO ON CACHE BOOL "set ON to use standalone Asio instead of Boost.Asio")
-add_subdirectory(${CMAKE_SOURCE_DIR}/external/SimpleWebServer)
 
 IF(BUILD_TEST)
   add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
