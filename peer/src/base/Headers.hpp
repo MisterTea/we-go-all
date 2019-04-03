@@ -18,13 +18,13 @@
 // Require win7 or higher
 #define _WIN32_WINNT _WIN32_WINNT_WIN7
 
-#if __FreeBSD__
+#ifdef __FreeBSD__
 #define _WITH_GETLINE
 #endif
 
 #include "asio.hpp"
 
-#if __NetBSD__
+#ifdef __NetBSD__
 #include <util.h>
 #endif
 
