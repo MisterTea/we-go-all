@@ -71,7 +71,7 @@
 #include "client_http.hpp"
 #include "server_http.hpp"
 
-#ifndef _LIBCPP_OPTIONAL
+#if !defined(_LIBCPP_OPTIONAL) || defined(__APPLE__)
 #include "optional.hpp"
 using namespace std::experimental;
 #endif

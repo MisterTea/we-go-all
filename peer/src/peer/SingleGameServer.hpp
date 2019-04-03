@@ -67,7 +67,7 @@ class SingleGameServer {
           if (sole::rebuild(content["gameId"].get<string>()) != gameId) {
             LOG(FATAL) << "Game ID does not match";
           }
-          gameName = content["gameName"];
+          gameName = content["gameName"].get<string>();
 
           json retval = {{"status", "OK"}};
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));

@@ -93,18 +93,20 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
   if (host) {
-    if (result["gameName"] != "Starwars") {
+    if (result["gameName"].get<string>() != "Starwars") {
       LOG(FATAL) << "Game Name does not match what I should be hosting: "
-                 << result["gameName"] << " != "
+                 << result["gameName"].get<string>() << " != "
                  << "Starwars";
     }
-    if (result["hostKey"] != publicKeyString) {
-      LOG(FATAL) << "Game host should be me but it isn't " << result["hostKey"]
+    if (result["hostKey"].get<string>() != publicKeyString) {
+      LOG(FATAL) << "Game host should be me but it isn't "
+                 << result["hostKey"].get<string>()
                  << " != " << publicKeyString;
     }
   } else {
-    gameName = result["gameName"];
-    hostKey = CryptoHandler::stringToKey<PublicKey>(result["hostKey"]);
+    gameName = result["gameName"].get<string>();
+    hostKey =
+        CryptoHandler::stringToKey<PublicKey>(result["hostKey"].get<string>());
   }
   auto peerDataObject = result["peerData"];
   for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
