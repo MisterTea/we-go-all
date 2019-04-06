@@ -92,6 +92,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
+  LOG(INFO) << "GOT RESULT: " << result;
   if (host) {
     if (result["gameName"].get<string>() != "Starwars") {
       LOG(FATAL) << "Game Name does not match what I should be hosting: "
@@ -207,8 +208,10 @@ void MyPeer::update(const asio::error_code& error) {
       int64_t startTime = reader.readPrimitive<int64_t>();
       int64_t endTime = reader.readPrimitive<int64_t>();
       map<string, string> m = reader.readMap<string, string>();
+      LOG(INFO) << "GOT INPUTS: " << startTime << " " << endTime;
       unordered_map<string, string> mHashed(m.begin(), m.end());
       peerData[peerKey]->playerInputData.put(startTime, endTime, mHashed);
+      endpointHandler->reply(idPayload.id, "OK");
     }
   }
 
@@ -242,11 +245,13 @@ bool MyPeer::initialized() {
 
 void MyPeer::updateState(int64_t timestamp,
                          unordered_map<string, string> data) {
-  int64_t startTime = myData->playerInputData.getCurrentTime();
-  myData->playerInputData.put(startTime, timestamp, data);
+  int64_t lastExpirationTime = myData->playerInputData.getExpirationTime();
+  myData->playerInputData.put(lastExpirationTime, timestamp, data);
+  LOG(INFO) << "CREATING CHRONOMAP FOR TIME: " << lastExpirationTime << " -> "
+            << timestamp;
   MessageWriter writer;
   writer.start();
-  writer.writePrimitive(startTime);
+  writer.writePrimitive(lastExpirationTime);
   writer.writePrimitive(timestamp);
   map<string, string> m(data.begin(), data.end());
   writer.writeMap(m);

@@ -1,5 +1,5 @@
-#ifndef __ET_HEADERS__
-#define __ET_HEADERS__
+#ifndef __WGA_HEADERS__
+#define __WGA_HEADERS__
 
 // For easylogging, disable default log file, enable crash log, ensure thread
 // safe, and catch c++ exceptions This is duplicated here to make linters happy,

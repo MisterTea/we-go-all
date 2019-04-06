@@ -27,7 +27,7 @@ class PeerConnectionServer {
             string s(data.data(), bytes_recvd);
             LOG(INFO) << "GOT ENDPOINT DATA: " << s;
             auto tokens = split(s, '_');
-            string peerKey = tokens[0];
+            auto peerKey = CryptoHandler::stringToKey<PublicKey>(tokens[0]);
             string udpSendEndpoint = sender_endpoint.address().to_string() +
                                      ":" + to_string(sender_endpoint.port());
             vector<string> allEndpoints = {udpSendEndpoint};

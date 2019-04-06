@@ -7,40 +7,35 @@ namespace wga {
 template <typename K, typename V>
 class ChronoMap {
  public:
-  ChronoMap() : currentTime(0), startTime(0) {}
+  ChronoMap() : expirationTime(0) {}
 
-  ChronoMap(int64_t _startTime)
-      : currentTime(_startTime), startTime(_startTime) {}
-
-  void put(int64_t putStartTime, int64_t endTime, unordered_map<K, V> data) {
-    if (putStartTime < startTime) {
+  void put(int64_t lastExpirationTime, int64_t newExpirationTime,
+           unordered_map<K, V> data) {
+    if (lastExpirationTime < 0) {
       LOG(FATAL) << "Tried to put before start time";
     }
-    if (putStartTime < currentTime) {
+    if (lastExpirationTime < expirationTime) {
       VLOG(1) << "Tried to add a time interval that overlaps";
       return;
     }
-    if (putStartTime >= endTime) {
-      LOG(FATAL) << "Invalid start/end time: " << putStartTime << " "
-                 << endTime;
+    if (lastExpirationTime >= newExpirationTime) {
+      LOG(FATAL) << "Invalid start/end time: " << lastExpirationTime << " "
+                 << newExpirationTime;
     }
-    if (putStartTime != currentTime) {
+    if (lastExpirationTime != expirationTime) {
       futureData.insert(
-          make_pair(putStartTime, make_tuple(putStartTime, endTime, data)));
+          make_pair(lastExpirationTime,
+                    make_tuple(lastExpirationTime, newExpirationTime, data)));
     } else {
-      addNextTimeBlock(putStartTime, endTime, data);
+      addNextTimeBlock(lastExpirationTime, newExpirationTime, data);
     }
   }
 
   optional<V> get(int64_t timestamp, const K& key) const {
-    if (timestamp < startTime) {
-      LOG(FATAL) << "Tried to put before start time: " << timestamp << " < "
-                 << startTime;
-    }
     if (timestamp < 0) {
       LOG(FATAL) << "Invalid time stamp";
     }
-    if (timestamp >= currentTime) {
+    if (timestamp >= expirationTime) {
       LOG(INFO) << "Tried to get a key from the future";
       return nullopt;
     }
@@ -83,42 +78,39 @@ class ChronoMap {
     return *v;
   }
 
-  int64_t getCurrentTime() const { return currentTime; }
+  int64_t getExpirationTime() const { return expirationTime; }
 
-  int64_t getStartTime() const { return startTime; }
-
-  bool empty() const { return currentTime == startTime; }
+  bool empty() const { return expirationTime == 0; }
 
   void blockUntilTime(int64_t timestamp) {
-    while (currentTime < timestamp) {
-      LOG(INFO) << "Waiting for time: " << currentTime << " < " << timestamp;
+    while (expirationTime < timestamp) {
+      LOG(INFO) << "Waiting for time: " << expirationTime << " < " << timestamp;
       usleep(100 * 1000);
     }
   }
 
  protected:
   unordered_map<K, map<int64_t, V>> data;
-  int64_t currentTime;
-  int64_t startTime;
+  int64_t expirationTime;
   map<int64_t, tuple<int64_t, int64_t, unordered_map<K, V>>> futureData;
 
-  void addNextTimeBlock(int64_t putStartTime, int64_t endTime,
+  void addNextTimeBlock(int64_t lastExpirationTime, int64_t newExpirationTime,
                         unordered_map<K, V> newData) {
-    if (currentTime != putStartTime) {
+    if (expirationTime != lastExpirationTime) {
       LOG(FATAL) << "Tried to add an invalid time block";
     }
-    if (data.empty() && putStartTime != startTime) {
-      LOG(FATAL) << "Inserting into an empty map should always use startTime";
+    if (data.empty() && lastExpirationTime != 0) {
+      LOG(FATAL) << "Inserting into an empty map should always use 0";
     }
 
-    currentTime = endTime;
+    expirationTime = newExpirationTime;
     for (auto& it : newData) {
       if (data.find(it.first) == data.end()) {
         // New key.
-        data[it.first] = {{putStartTime, it.second}};
+        data[it.first] = {{lastExpirationTime, it.second}};
       } else if (!(data[it.first].rbegin()->second == it.second)) {
         // Updated data.  Add new information.
-        data[it.first][putStartTime] = it.second;
+        data[it.first][lastExpirationTime] = it.second;
       }
     }
 
@@ -126,7 +118,7 @@ class ChronoMap {
       return;
     }
 
-    if (std::get<0>(*(futureData.begin())) == currentTime) {
+    if (std::get<0>(*(futureData.begin())) == expirationTime) {
       auto newData = futureData.begin()->second;
       futureData.erase(futureData.begin());
       addNextTimeBlock(std::get<0>(newData), std::get<1>(newData),

@@ -25,9 +25,9 @@ class PeerTest : public testing::Test {
       keys.push_back(CryptoHandler::generateKey());
     }
     server.reset(new SingleGameServer(
-        20000, CryptoHandler::keyToString(keys[0].first), names[0]));
+        20000, keys[0].first, names[0]));
     for (int a = 1; a < numPlayers; a++) {
-      server->addPeer(CryptoHandler::keyToString(keys[a].first), names[a]);
+      server->addPeer(keys[a].first, names[a]);
     }
 
     peerConnectionServer.reset(

@@ -1,5 +1,5 @@
-#ifndef __ET_CRYPTO_HANDLER__
-#define __ET_CRYPTO_HANDLER__
+#ifndef __WGA_CRYPTO_HANDLER__
+#define __WGA_CRYPTO_HANDLER__
 
 #include "Headers.hpp"
 
@@ -101,4 +101,4 @@ class CryptoHandler {
 };
 }  // namespace wga
 
-#endif  // __ET_CRYPTO_HANDLER__
+#endif  // __WGA_CRYPTO_HANDLER__

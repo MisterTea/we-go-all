@@ -1,5 +1,5 @@
-#ifndef __ET_LOG_HANDLER__
-#define __ET_LOG_HANDLER__
+#ifndef __WGA_LOG_HANDLER__
+#define __WGA_LOG_HANDLER__
 
 #include "Headers.hpp"
 
@@ -11,5 +11,5 @@ class LogHandler {
                            string maxlogsize = "20971520");
   static void rolloutHandler(const char *filename, std::size_t size);
 };
-}  // namespace et
-#endif  // __ET_LOG_HANDLER__
+}  // namespace wga
+#endif  // __WGA_LOG_HANDLER__

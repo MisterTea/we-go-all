@@ -9,6 +9,9 @@ if(UNIX)
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 endif()
 
+# Enable debug info
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
 IF(APPLE)
 SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
 
@@ -91,13 +94,13 @@ add_library(
   )
 
 add_executable (
-  peer
+  examplepeer
 
-  src/peer/Main.cpp
+  src/example/ExamplePeer.cpp
   )
 
 target_link_libraries (
-  peer
+  examplepeer
   LINK_PUBLIC
   wga-lib
   ${sodium_LIBRARY_RELEASE}
@@ -105,6 +108,21 @@ target_link_libraries (
   ${CORE_LIBRARIES}
   )
 
+add_executable (
+  exampleserver
+
+  src/example/ExampleServer.cpp
+  )
+
+target_link_libraries (
+  exampleserver
+  LINK_PUBLIC
+  wga-lib
+  ${sodium_LIBRARY_RELEASE}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${CORE_LIBRARIES}
+  )
+  
 if(BUILD_TEST) # Build unit tests.
   message(STATUS "Enabling test for ${PROJECT_NAME}")
   enable_testing()
