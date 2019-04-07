@@ -71,7 +71,8 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     return;
   }
   IdPayload decryptedIdPayload = IdPayload(idPayload.id, *decryptedString);
-  VLOG(1) << "GOT REQUEST WITH PAYLOAD: " << decryptedIdPayload.payload;
+  VLOG(1) << "GOT REQUEST WITH PAYLOAD SIZE: "
+          << decryptedIdPayload.payload.length();
   MultiEndpointHandler::addIncomingRequest(decryptedIdPayload);
 }
 
@@ -85,7 +86,7 @@ void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
     LOG(ERROR) << "Got corrupt packet";
     return;
   }
-  VLOG(1) << "GOT REPLY WITH PAYLOAD: " << *decryptedPayload;
+  VLOG(1) << "GOT REPLY WITH PAYLOAD SIZE: " << decryptedPayload->length();
   MultiEndpointHandler::addIncomingReply(uid, *decryptedPayload);
 }
 

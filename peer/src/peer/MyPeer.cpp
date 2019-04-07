@@ -85,6 +85,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   if (error == asio::error::operation_aborted) {
     return;
   }
+  lock_guard<recursive_mutex> guard(peerDataMutex);
 
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
@@ -176,31 +177,54 @@ void MyPeer::update(const asio::error_code& error) {
   if (error == asio::error::operation_aborted) {
     return;
   }
+  lock_guard<recursive_mutex> guard(peerDataMutex);
 
-  LOG(INFO) << "UPDATING";
-  string path = string("/get_game_info/") + gameId.str();
-  auto response = client->request("GET", path);
-  auto result = json::parse(response->content.string());
-  // Iterate over peer data and update peers
-  auto peerDataObject = result["peerData"];
-  for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
-       ++it) {
-    // std::cout << it.key() << " : " << it.value() << "\n";
-    PublicKey peerKey = CryptoHandler::stringToKey<PublicKey>(it.key());
+  static int counter = 0;
+
+  if (counter % 1000 == 0) {
+    // Per-second update
+    LOG(INFO) << "UPDATING";
+    string path = string("/get_game_info/") + gameId.str();
+    auto response = client->request("GET", path);
+    auto result = json::parse(response->content.string());
+    // Iterate over peer data and update peers
+    auto peerDataObject = result["peerData"];
+    for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
+         ++it) {
+      // std::cout << it.key() << " : " << it.value() << "\n";
+      PublicKey peerKey = CryptoHandler::stringToKey<PublicKey>(it.key());
+      if (peerKey == publicKey) {
+        continue;
+      }
+      vector<udp::endpoint> endpoints;
+      for (json::iterator it2 = it.value()["endpoints"].begin();
+           it2 != it.value()["endpoints"].end(); ++it2) {
+        string endpointString = *it2;
+        vector<string> tokens = split(endpointString, ':');
+        endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
+      }
+
+      auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
+      endpointHandler->updateEndpoints(endpoints);
+    }
+
+    LOG(INFO) << "CALLING HEARTBEAT: "
+              << std::chrono::duration_cast<std::chrono::seconds>(
+                     updateTimer->expires_at().time_since_epoch())
+                     .count()
+              << " VS "
+              << std::chrono::duration_cast<std::chrono::seconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count();
+    rpcServer->heartbeat();
+  }
+
+  for (const auto& it : peerData) {
+    auto peerKey = it.first;
     if (peerKey == publicKey) {
       continue;
     }
-    vector<udp::endpoint> endpoints;
-    for (json::iterator it2 = it.value()["endpoints"].begin();
-         it2 != it.value()["endpoints"].end(); ++it2) {
-      string endpointString = *it2;
-      vector<string> tokens = split(endpointString, ':');
-      endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
-    }
-
     auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
-    endpointHandler->updateEndpoints(endpoints);
-
     if (endpointHandler->hasIncomingRequest()) {
       auto idPayload = endpointHandler->getFirstIncomingRequest();
       MessageReader reader;
@@ -210,23 +234,18 @@ void MyPeer::update(const asio::error_code& error) {
       map<string, string> m = reader.readMap<string, string>();
       LOG(INFO) << "GOT INPUTS: " << startTime << " " << endTime;
       unordered_map<string, string> mHashed(m.begin(), m.end());
-      peerData[peerKey]->playerInputData.put(startTime, endTime, mHashed);
+      {
+        lock_guard<recursive_mutex> guard(peerDataMutex);
+        peerData[peerKey]->playerInputData.put(startTime, endTime, mHashed);
+      }
       endpointHandler->reply(idPayload.id, "OK");
     }
   }
 
-  LOG(INFO) << "CALLING HEARTBEAT: "
-            << std::chrono::duration_cast<std::chrono::seconds>(
-                   updateTimer->expires_at().time_since_epoch())
-                   .count()
-            << " VS "
-            << std::chrono::duration_cast<std::chrono::seconds>(
-                   std::chrono::steady_clock::now().time_since_epoch())
-                   .count();
-  rpcServer->heartbeat();
+  counter++;
 
   updateTimer->expires_at(updateTimer->expires_at() +
-                          asio::chrono::milliseconds(1000));
+                          asio::chrono::milliseconds(1));
   updateTimer->async_wait(
       std::bind(&MyPeer::update, this, std::placeholders::_1));
 }
@@ -245,6 +264,7 @@ bool MyPeer::initialized() {
 
 void MyPeer::updateState(int64_t timestamp,
                          unordered_map<string, string> data) {
+  lock_guard<recursive_mutex> guard(peerDataMutex);
   int64_t lastExpirationTime = myData->playerInputData.getExpirationTime();
   myData->playerInputData.put(lastExpirationTime, timestamp, data);
   LOG(INFO) << "CREATING CHRONOMAP FOR TIME: " << lastExpirationTime << " -> "
@@ -260,11 +280,10 @@ void MyPeer::updateState(int64_t timestamp,
 }
 
 unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
-  myData->playerInputData.blockUntilTime(timestamp);
-  unordered_map<string, string> state =
-      myData->playerInputData.getAll(timestamp);
+  unordered_map<string, string> state;
   for (auto& it : peerData) {
     it.second->playerInputData.blockUntilTime(timestamp);
+    lock_guard<recursive_mutex> guard(peerDataMutex);
     unordered_map<string, string> peerState =
         it.second->playerInputData.getAll(timestamp);
     state.insert(peerState.begin(), peerState.end());

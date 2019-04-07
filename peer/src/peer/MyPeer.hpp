@@ -40,6 +40,7 @@ class MyPeer {
   PublicKey hostKey;
   shared_ptr<RpcServer> rpcServer;
   map<PublicKey, shared_ptr<PlayerData>> peerData;
+  recursive_mutex peerDataMutex;
   shared_ptr<PlayerData> myData;
   shared_ptr<udp::socket> localSocket;
   shared_ptr<asio::steady_timer> updateTimer;
