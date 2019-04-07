@@ -1,15 +1,45 @@
 import { observable } from 'mobx';
 import axios from 'axios';
+import * as Cookies from 'js-cookie';
+import ApolloClient, { gql } from 'apollo-boost';
 
 class AppState {
   @observable timer: number = 0;
   @observable userId: string | null = null;
   @observable errorMessages: string[] = [];
+  @observable publicKey: string = "";
+  @observable name: string = "Player";
   errorClearTime: number | null = null;
+  client = new ApolloClient();
 
   static readonly ALERT_SHOW_TIME: number = 5;
 
   constructor() {
+    let outerThis = this;
+    let user_id = Cookies.get('user_id');
+    if (user_id) {
+      this.client.query({
+        query: gql`
+        {
+          me {
+            id
+            name
+            publicKey
+            endpoints
+          }
+        }`
+      }).then(({ data }) => {
+        console.log("GOT DATA:");
+        console.log(data.me);
+        outerThis.userId = data.me.id;
+        outerThis.name = data.me.name;
+        outerThis.publicKey = data.me.publicKey;
+        console.log(outerThis.publicKey);
+      })
+
+      setInterval(() => {
+      }, 5000);
+    }
     setInterval(() => {
       this.timer += 1;
       if (this.errorClearTime !== null && this.timer >= this.errorClearTime) {
@@ -46,15 +76,26 @@ class AppState {
         } else {
           this.addErrorMessage("Invalid Login Attempt: " + error);
         }
-      })
+      });
   }
 
   loginGithub() {
+    console.log("LOGIN GITHUB");
     window.location.href = "/login/github";
   }
 
   loginDiscord() {
     window.location.href = "/login/discord";
+  }
+
+  setPublicKey(publicKey: string) {
+    axios.post(`/api/set_user_info`, { publicKey })
+      .then(res => {
+        this.publicKey = publicKey;
+      }).catch((error: Error) => {
+        // handle error
+        console.log(error);
+      });
   }
 }
 

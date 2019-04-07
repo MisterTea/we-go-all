@@ -1,17 +1,30 @@
+type Query {
+  activeGames: [Game]
+  getUser(id: ID!): User
+  me: User!
+}
+
+type Mutation {
+  hostGame(gameName: String!): Game!
+  joinGame(gameId: ID!): Game
+}
+
 type User {
-  email: String
+  id: ID!
   name: String
   publicKey: String
   endpoints: [String]
 }
 
+type UserPrivate {
+  id: ID!
+  email: String
+}
+
 type Game {
+  id: ID!
   gameName: String!
   host: String
   peers: [User]
   active: Boolean
-}
-
-type Query {
-  activeGames: [Game]
 }

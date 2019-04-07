@@ -5,10 +5,8 @@ var cookieParser = require('cookie-parser');
 
 var indexRouter = require('../routes/index');
 var loginRouter = require('../routes/login');
-var hostRouter = require('../routes/host');
-var joinRouter = require('../routes/join');
-var gameRouter = require('../routes/gameinfo');
-var graphlHTTP = require('express-graphql');
+var apiRouter = require('../routes/api');
+var graphqlHTTP = require('express-graphql');
 var schema = require('../model/schema').default;
 
 var passport = require('./passport_handler');
@@ -60,13 +58,11 @@ app.use(express.static('./public'));
 app.use(express.static('./react_build'));
 
 //app.use(['/', '/index.html'], indexRouter);
-app.use('/api', graphlHTTP({
+app.use('/graphql', graphqlHTTP({
   schema: schema,
   graphiql: true,
 }));
-app.use('/host', hostRouter);
-app.use('/join', joinRouter);
-app.use('/game', gameRouter);
+app.use('/api', apiRouter);
 app.use('/login', loginRouter);
 app.post('/logout',
   function (req: any, res: any) {

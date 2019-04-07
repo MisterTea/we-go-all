@@ -39,7 +39,7 @@ if ("discord" in config.login) {
       const email = profile.email;
       db.users.findOneAndUpdate(
         { email: email },
-        { $set: { discordId: profile.id, email: email } },
+        { $set: { discordId: profile.id, email: email }, $setOnInsert: { name: "Player" } },
         { new: true, upsert: true },
         function (err, user) {
           return cb(err, user);
@@ -56,7 +56,7 @@ if ("github" in config.login) {
       const email = profile.emails[0].value;
       db.users.findOneAndUpdate(
         { email: email },
-        { $set: { githubId: profile.id, email: email } },
+        { $set: { githubId: profile.id, email: email }, $setOnInsert: { name: "Player" } },
         { new: true, upsert: true },
         function (err, user) {
           return cb(err, user);

@@ -1,5 +1,4 @@
 import * as React from 'react';
-//import axios from 'axios';
 import './App.css';
 import { observer } from 'mobx-react';
 import DevTools from 'mobx-react-devtools';
@@ -8,6 +7,8 @@ import AppState from './AppState';
 import { Alert } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDiscord, faGithub } from '@fortawesome/free-brands-svg-icons'
+import KeyDetails from './KeyDetails';
+import Lobby from './Lobby';
 
 @observer
 class App extends React.Component<{ appState: AppState }, { [username: string]: string, password: string }> {
@@ -54,12 +55,6 @@ class App extends React.Component<{ appState: AppState }, { [username: string]: 
     if (this.props.appState.userId === null) {
       body = (
         <form role="form" className="form" onSubmit={this.handleLoginSubmit} ref={el => this.form = el}>
-          <div className="form-group">
-            <label htmlFor="data">Username</label>
-            <input type="text" name="username" value={this.state.username} onChange={this.handleChange}></input>
-            <label htmlFor="data">Password</label>
-            <input type="password" name="password" value={this.state.password} onChange={this.handleChange}></input>
-          </div>
           <a className="btn btn-social btn-twitter" onClick={() => {
             this.loginType = "discord";
             this.form.dispatchEvent(new Event('submit'))
@@ -76,9 +71,10 @@ class App extends React.Component<{ appState: AppState }, { [username: string]: 
       );
     } else {
       body = (
-        <p className="App-intro">
-          To get started, eddddddit <code>src/App.tsx</code> and save to reload.
-        </p>
+        <div>
+          <KeyDetails appState={this.props.appState}></KeyDetails>
+          <Lobby appState={this.props.appState}></Lobby>
+        </div>
       );
     }
 

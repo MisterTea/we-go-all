@@ -15,6 +15,9 @@ var authCb = function (req, res) {
   console.log("AUTH COMPLETE");
   console.log(req);
   console.log(res);
+  console.log(req.user);
+  console.log(req.user._id);
+  res.cookie("user_id", req.user._id.toString());
   res.redirect('/');
 }
 
