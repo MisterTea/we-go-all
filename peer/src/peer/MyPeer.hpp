@@ -28,6 +28,7 @@ class MyPeer {
   unordered_map<string, string> getFullState(int64_t timestamp);
 
  protected:
+  bool shuttingDown;
   shared_ptr<NetEngine> netEngine;
   PrivateKey privateKey;
   PublicKey publicKey;

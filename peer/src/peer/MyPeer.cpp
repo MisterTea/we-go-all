@@ -6,7 +6,8 @@
 namespace wga {
 MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
                bool _host, int _serverPort)
-    : netEngine(_netEngine),
+    : shuttingDown(false),
+      netEngine(_netEngine),
       privateKey(_privateKey),
       host(_host),
       serverPort(_serverPort) {
@@ -23,11 +24,8 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
 
 void MyPeer::shutdown() {
   LOG(INFO) << "SHUTTING DOWN";
-  {
-    lock_guard<recursive_mutex> guard(*(netEngine->getMutex()));
-    updateTimer->cancel();
-    updateTimer.reset();
-  }
+  shuttingDown = true;
+  updateTimer->cancel();
   // Wait 1s for the updates to flush
   sleep(1);
   lock_guard<recursive_mutex> guard(*(netEngine->getMutex()));
@@ -208,14 +206,7 @@ void MyPeer::update(const asio::error_code& error) {
       endpointHandler->updateEndpoints(endpoints);
     }
 
-    LOG(INFO) << "CALLING HEARTBEAT: "
-              << std::chrono::duration_cast<std::chrono::seconds>(
-                     updateTimer->expires_at().time_since_epoch())
-                     .count()
-              << " VS "
-              << std::chrono::duration_cast<std::chrono::seconds>(
-                     std::chrono::steady_clock::now().time_since_epoch())
-                     .count();
+    LOG(INFO) << "CALLING HEARTBEAT";
     rpcServer->heartbeat();
   }
 
@@ -244,10 +235,12 @@ void MyPeer::update(const asio::error_code& error) {
 
   counter++;
 
-  updateTimer->expires_at(updateTimer->expires_at() +
-                          asio::chrono::milliseconds(1));
-  updateTimer->async_wait(
-      std::bind(&MyPeer::update, this, std::placeholders::_1));
+  if (!shuttingDown) {
+    updateTimer->expires_at(updateTimer->expires_at() +
+                            asio::chrono::milliseconds(1));
+    updateTimer->async_wait(
+        std::bind(&MyPeer::update, this, std::placeholders::_1));
+  }
 }
 
 bool MyPeer::initialized() {
