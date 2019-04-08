@@ -49,6 +49,7 @@ class BiDirectionalRpc {
   void requestNoReply(const string& payload);
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
+  inline void replyOneWay(const RpcId& rpcId) { reply(rpcId, "OK"); }
 
   bool hasIncomingRequest() { return !incomingRequests.empty(); }
   bool hasIncomingRequestWithId(const RpcId& rpcId) {

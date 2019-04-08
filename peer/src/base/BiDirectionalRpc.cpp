@@ -10,6 +10,8 @@ BiDirectionalRpc::~BiDirectionalRpc() {}
 void BiDirectionalRpc::shutdown() {}
 
 void BiDirectionalRpc::heartbeat() {
+  // TODO: If the outgoingReplies/requests is high, and we have recently
+  // received data, flush a lot of data out
   VLOG(1) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
     resendRandomOutgoingMessage();
@@ -73,9 +75,6 @@ void BiDirectionalRpc::receive(const string& message) {
           VLOG(1) << "REPLY UID " << it->id.str();
           if (it->id == uid) {
             outgoingReplies.erase(it);
-
-            // When we complete an RPC, try to send a new message
-            resendRandomOutgoingMessage();
             break;
           }
         }
@@ -88,14 +87,7 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
                                      const string& payload) {
   VLOG(1) << "GOT REQUEST: " << rpcId.str();
 
-  bool skip = false;
-  for (auto it : incomingRequests) {
-    if (it.first == rpcId) {
-      // We already received this request.  Skip
-      skip = true;
-      break;
-    }
-  }
+  bool skip = (incomingRequests.find(rpcId) != incomingRequests.end());
   if (!skip) {
     for (const IdPayload& it : outgoingReplies) {
       if (it.id == rpcId) {
@@ -154,9 +146,6 @@ void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload) {
       // acknowledge again.
       sendAcknowledge(rpcId);
     }
-
-    // When we complete an reply, try to send a new message
-    resendRandomOutgoingMessage();
   }
 }
 
@@ -263,7 +252,7 @@ void BiDirectionalRpc::sendReply(const IdPayload& idPayload) {
   writer.writePrimitive<unsigned char>(REPLY);
   writer.writeClass<RpcId>(idPayload.id);
   writer.writePrimitive<string>(idPayload.payload);
-  // Try to attach more requests to this packet
+  // Try to attach more replies to this packet
   int i = 0;
   while (!outgoingReplies.empty() && rpcsSent.size() < outgoingReplies.size()) {
     DRAW_FROM_UNORDERED(it, outgoingReplies);

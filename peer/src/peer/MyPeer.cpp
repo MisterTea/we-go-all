@@ -229,7 +229,7 @@ void MyPeer::update(const asio::error_code& error) {
         lock_guard<recursive_mutex> guard(peerDataMutex);
         peerData[peerKey]->playerInputData.put(startTime, endTime, mHashed);
       }
-      endpointHandler->reply(idPayload.id, "OK");
+      endpointHandler->replyOneWay(idPayload.id);
     }
   }
 

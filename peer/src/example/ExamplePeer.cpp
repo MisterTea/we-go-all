@@ -62,7 +62,7 @@ class ExamplePeer {
     }
     sleep(1);
 
-    for (int expirationTime = 200; expirationTime < 10 * 60 * 10;
+    for (int expirationTime = 200; expirationTime < 1000 * 60 * 10;
          expirationTime += 200) {
       if (host) {
         LOG(INFO) << "UPDATING STATE " << expirationTime;
