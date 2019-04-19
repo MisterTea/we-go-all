@@ -23,8 +23,12 @@ class ExamplePeer {
         ("host", "True if hosting",
          cxxopts::value<bool>()->default_value("false"))  //
         ("v,verbose", "Log verbosity",
-         cxxopts::value<int>()->default_value("0")  //
-        );
+         cxxopts::value<int>()->default_value("0"))  //
+        ("lobbyhost", "Hostname of lobby server",
+         cxxopts::value<string>()->default_value("localhost"))  //
+        ("lobbyport", "Port of lobby server",
+         cxxopts::value<int>()->default_value("20000"))  //
+        ;
     auto params = options.parse(argc, argv);
 
     // Setup easylogging configurations
@@ -44,18 +48,17 @@ class ExamplePeer {
       privateKey = CryptoHandler::stringToKey<PrivateKey>(
           "ZFhRa1dVWGhiQzc5UGt2YWkySFQ0RHZyQXpSYkxEdmg=");
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
-      myPeer.reset(new MyPeer(netEngine, privateKey, true,
-                              params["localport"].as<int>()));
     } else {
       privateKey = CryptoHandler::stringToKey<PrivateKey>(
           "M0JVZTd4aTN0M3dyUXdYQnlMNTdmQU1pRHZnaU9ITU8=");
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
-      myPeer.reset(new MyPeer(netEngine, privateKey, false,
-                              params["localport"].as<int>()));
     }
+    myPeer.reset(
+        new MyPeer(netEngine, privateKey, host, params["localport"].as<int>()));
 
     netEngine->start();
-    myPeer->start();
+    myPeer->start(params["lobbyhost"].as<string>(),
+                  params["lobbyport"].as<int>());
     while (!myPeer->initialized()) {
       LOG(INFO) << "Waiting for initialization for peer...";
       sleep(1);
@@ -94,9 +97,9 @@ class ExamplePeer {
       }
     }
 
+    netEngine->shutdown();
     myPeer->shutdown();
     myPeer.reset();
-    netEngine->shutdown();
     netEngine.reset();
 
     return 0;

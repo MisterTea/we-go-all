@@ -24,8 +24,7 @@ class PeerTest : public testing::Test {
     for (int a = 0; a < numPlayers; a++) {
       keys.push_back(CryptoHandler::generateKey());
     }
-    server.reset(new SingleGameServer(
-        20000, keys[0].first, names[0]));
+    server.reset(new SingleGameServer(20000, keys[0].first, names[0]));
     for (int a = 1; a < numPlayers; a++) {
       server->addPeer(keys[a].first, names[a]);
     }
@@ -117,7 +116,7 @@ TEST_F(PeerTest, SinglePeer) {
   initGameServer(1);
   shared_ptr<MyPeer> firstPeer(
       new MyPeer(netEngine, keys[0].second, true, 12345));
-  firstPeer->start();
+  firstPeer->start("localhost", 20000);
   while (!firstPeer->initialized()) {
     LOG(INFO) << "Waiting for initialization...";
     sleep(1);
@@ -140,7 +139,7 @@ TEST_F(PeerTest, TwoPeers) {
   };
   LOG(INFO) << "STARTING PEERS";
   for (auto it : peers) {
-    it->start();
+    it->start("localhost", 20000);
   }
   for (int a = 0; a < peers.size(); a++) {
     while (!peers[a]->initialized()) {
@@ -176,7 +175,7 @@ TEST_F(PeerTest, ThreePeers) {
   };
   LOG(INFO) << "STARTING PEERS";
   for (auto it : peers) {
-    it->start();
+    it->start("localhost", 20000);
   }
   for (int a = 0; a < peers.size(); a++) {
     while (!peers[a]->initialized()) {

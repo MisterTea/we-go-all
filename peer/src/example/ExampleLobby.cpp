@@ -11,18 +11,17 @@
 #include <cxxopts.hpp>
 
 namespace wga {
-class ExampleServer {
+class ExampleLobby {
  public:
-  ExampleServer() {}
+  ExampleLobby() {}
 
   int run(int argc, char **argv) {
     srand(time(NULL));
 
     cxxopts::Options options("Peer", "Peer Program for WGA");
-    options.add_options()                                               //
-        ("serverport", "Port to run server on", cxxopts::value<int>())  //
-        ("host", "True if hosting",
-         cxxopts::value<bool>()->default_value("false"))  //
+    options.add_options()  //
+        ("port", "Port to run lobby on",
+         cxxopts::value<int>()->default_value("20000"))  //
         ("v,verbose", "Log verbosity",
          cxxopts::value<int>()->default_value("0")  //
         );
@@ -40,7 +39,7 @@ class ExampleServer {
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
 
     server.reset(new SingleGameServer(
-        20000,
+        params["port"].as<int>(),
         CryptoHandler::makePublicFromPrivate(
             CryptoHandler::stringToKey<PrivateKey>(
                 "ZFhRa1dVWGhiQzc5UGt2YWkySFQ0RHZyQXpSYkxEdmg=")),
@@ -51,7 +50,7 @@ class ExampleServer {
                     "Client");
 
     peerConnectionServer.reset(
-        new PeerConnectionServer(netEngine, 20000, server));
+        new PeerConnectionServer(netEngine, params["port"].as<int>(), server));
 
     netEngine->start();
 
@@ -68,6 +67,6 @@ class ExampleServer {
 }  // namespace wga
 
 int main(int argc, char **argv) {
-  wga::ExampleServer exampleServer;
-  return exampleServer.run(argc, argv);
+  wga::ExampleLobby ExampleLobby;
+  return ExampleLobby.run(argc, argv);
 }

@@ -2,6 +2,7 @@
 
 #include "CryptoHandler.hpp"
 #include "EncryptedMultiEndpointHandler.hpp"
+#include "LocalIpFetcher.hpp"
 
 namespace wga {
 MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
@@ -26,14 +27,14 @@ void MyPeer::shutdown() {
   LOG(INFO) << "SHUTTING DOWN";
   shuttingDown = true;
   updateTimer->cancel();
-  // Wait 1s for the updates to flush
+  // Wait for the updates to flush
   sleep(1);
   lock_guard<recursive_mutex> guard(*(netEngine->getMutex()));
   rpcServer.reset();
 }
 
-void MyPeer::start() {
-  client.reset(new HttpClient("localhost:20000"));
+void MyPeer::start(const string& lobbyHost, int lobbyPort) {
+  client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
 
   string path = string("/get_current_game_id/") + publicKeyString;
   auto response = client->request("GET", path);
@@ -50,11 +51,15 @@ void MyPeer::start() {
     FATAL_FAIL_HTTP(response);
   }
 
-  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000");
-  string ipAddressPacket =
-      publicKeyString + "_" + "127.0.0.1:" + to_string(serverPort);
+  udp::endpoint serverEndpoint =
+      netEngine->resolve(lobbyHost, to_string(lobbyPort));
+  auto localIps = LocalIpFetcher::fetch(serverPort, true);
+  string ipAddressPacket = publicKeyString;
+  for (auto it : localIps) {
+    ipAddressPacket += "_" + it + ":" + to_string(serverPort);
+  }
   auto localSocketStack = localSocket;
-  LOG(INFO) << "SENDING ENDPOINT";
+  LOG(INFO) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
   netEngine->getIoService()->post(
       [localSocketStack, serverEndpoint, ipAddressPacket]() {
         // TODO: Need mutex here

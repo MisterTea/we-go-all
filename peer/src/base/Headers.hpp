@@ -110,6 +110,10 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
   if (((X) == false))     \
     LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
 
+#define FATAL_IF_NULL(X) \
+  if (((X) == NULL))     \
+    LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);
+
 #define FATAL_FAIL_HTTP(RESPONSE)        \
   if (RESPONSE->status_code != "200 OK") \
     LOG(FATAL) << "Error making http request: " << RESPONSE->status_code;

@@ -17,7 +17,7 @@ class MyPeer {
 
   void shutdown();
 
-  void start();
+  void start(const string& lobbyHost, int lobbyPort);
   void checkForEndpoints(const asio::error_code& error);
   void update(const asio::error_code& error);
 

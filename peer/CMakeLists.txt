@@ -80,6 +80,7 @@ add_library(
   wga-lib
   STATIC
 
+  src/base/LocalIpFetcher.cpp
   src/base/BiDirectionalRpc.cpp
   src/base/UdpBiDirectionalRpc.cpp
   src/base/CryptoHandler.cpp
@@ -109,13 +110,13 @@ target_link_libraries (
   )
 
 add_executable (
-  exampleserver
+  examplelobby
 
-  src/example/ExampleServer.cpp
+  src/example/ExampleLobby.cpp
   )
 
 target_link_libraries (
-  exampleserver
+  examplelobby
   LINK_PUBLIC
   wga-lib
   ${sodium_LIBRARY_RELEASE}

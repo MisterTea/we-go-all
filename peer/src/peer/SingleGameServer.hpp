@@ -105,8 +105,9 @@ class SingleGameServer {
     if (it == peerData.end()) {
       LOG(FATAL) << "Could not find peer";
     }
-    LOG(INFO) << "SETTING ENDPOINTS: " << endpoints[0] << " " << endpoints[1];
+    LOG(INFO) << "SETTING ENDPOINTS";
     for (auto& endpoint : endpoints) {
+      LOG(INFO) << "SETTING ENDPOINT: " << endpoint;
       it->second.endpoints.insert(endpoint);
     }
   }
