@@ -27,6 +27,13 @@ class MyPeer {
 
   unordered_map<string, string> getFullState(int64_t timestamp);
 
+  void finish() {
+    while (rpcServer->hasWork()) {
+      LOG(INFO) << "WAITING FOR WORK TO FINISH";
+      usleep(1000 * 1000);
+    }
+  }
+
  protected:
   bool shuttingDown;
   shared_ptr<NetEngine> netEngine;

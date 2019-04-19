@@ -97,6 +97,7 @@ class ExamplePeer {
       }
     }
 
+    myPeer->finish();
     netEngine->shutdown();
     myPeer->shutdown();
     myPeer.reset();

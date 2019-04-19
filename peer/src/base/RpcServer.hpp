@@ -103,7 +103,7 @@ class RpcServer : public PortMultiplexer {
   }
 
   void finish() {
-    while (!hasWork()) {
+    while (hasWork()) {
       {
         lock_guard<recursive_mutex> guard(*netEngine->getMutex());
         heartbeat();

@@ -30,6 +30,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
