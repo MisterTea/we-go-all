@@ -54,7 +54,7 @@ find_package(Threads REQUIRED)
 find_package(Sodium REQUIRED)
 
 IF(MINGW)
-set(CORE_LIBRARIES Ws2_32)
+  set(CORE_LIBRARIES Ws2_32 iphlpapi)
 ELSEIF(FREEBSD)
   set(CORE_LIBRARIES util execinfo)
 ELSEIF(NETBSD)
