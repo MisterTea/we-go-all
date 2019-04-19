@@ -24,6 +24,7 @@ void MultiEndpointHandler::send(const string& message) {
   }
 
   if (time(NULL) != lastUpdateTime) {
+    lastUpdateTime = time(NULL);
     LOG(INFO) << "UPDATING ENDPOINT HANDLER";
     update();
   }
@@ -75,10 +76,12 @@ void MultiEndpointHandler::updateEndpoints(
 void MultiEndpointHandler::update() {
   if (lastUnrepliedSendTime == 0) {
     // Nothing to do
+    LOG(INFO) << "Connection seems to be working";
     return;
   }
 
   if (lastUnrepliedSendTime + 5 < time(NULL)) {
+    auto previousEndpoint = activeEndpoint;
     // We haven't got anything back for 5 seconds
     deadEndpoints.insert(activeEndpoint);
     if (!alternativeEndpoints.empty()) {
@@ -91,10 +94,14 @@ void MultiEndpointHandler::update() {
       activeEndpoint = *it;
       deadEndpoints.erase(it);
     }
+    LOG(INFO) << "Trying new endpoint: "
+              << previousEndpoint.address().to_string() << " -> "
+              << activeEndpoint.address().to_string();
+    lastUnrepliedSendTime = time(NULL);
+  } else {
+    LOG(INFO) << "Connection hasn't been dead long enough: "
+              << (lastUnrepliedSendTime + 5) << " < " << time(NULL);
   }
-
-  lastUnrepliedSendTime = 0;
-  lastUpdateTime = time(NULL);
 }
 
 }  // namespace wga

@@ -15,7 +15,11 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
 
   virtual ~MultiEndpointHandler() {}
 
-  void gotMessage() { lastUnrepliedSendTime = 0; }
+  virtual void receive(const string& message) {
+    lastUnrepliedSendTime = 0;
+    BiDirectionalRpc::receive(message);
+  }
+
   virtual bool hasEndpointAndResurrectIfFound(const udp::endpoint& endpoint);
   void updateEndpoints(const vector<udp::endpoint>& newEndpoints);
 

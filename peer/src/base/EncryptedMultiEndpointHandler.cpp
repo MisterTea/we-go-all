@@ -79,7 +79,8 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
 void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
                                                      const string& payload) {
   if (!readyToSend()) {
-    LOG(FATAL) << "Got reply before we were ready, something went wrong";
+    LOG(ERROR) << "Got reply before we were ready, something went wrong";
+    return;
   }
   auto decryptedPayload = cryptoHandler->decrypt(payload);
   if (!decryptedPayload) {
