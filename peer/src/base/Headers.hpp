@@ -6,7 +6,11 @@
 // but actually set in CMakeLists.txt
 #ifndef ELPP_NO_DEFAULT_LOG_FILE
 #define ELPP_NO_DEFAULT_LOG_FILE (1)
+
+#ifndef _WIN32
 #define ELPP_FEATURE_CRASH_LOG (1)
+#endif
+
 #define ELPP_THREAD_SAFE (1)
 #define ELPP_HANDLE_SIGABRT (1)
 #endif
@@ -28,9 +32,13 @@
 #include <util.h>
 #endif
 
+#ifdef _WIN32
+#else
+#include <ifaddrs.h>
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
-#include <ifaddrs.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
