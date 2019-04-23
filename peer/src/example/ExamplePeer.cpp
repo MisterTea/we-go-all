@@ -5,6 +5,7 @@
 #include "MyPeer.hpp"
 #include "NetEngine.hpp"
 #include "PlayerData.hpp"
+#include "PortMappingHandler.hpp"
 #include "TimeHandler.hpp"
 
 #include <cxxopts.hpp>
@@ -39,6 +40,10 @@ class ExamplePeer {
     // Reconfigure default logger to apply settings above
     el::Loggers::reconfigureLogger("default", defaultConf);
 
+    auto portMappingHandler = make_shared<PortMappingHandler>();
+    portMappingHandler->mapPort(params["localport"].as<int>(),
+                                "WGA Example Peer");
+
     shared_ptr<NetEngine> netEngine(
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
 
@@ -53,12 +58,12 @@ class ExamplePeer {
           "M0JVZTd4aTN0M3dyUXdYQnlMNTdmQU1pRHZnaU9ITU8=");
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
     }
-    myPeer.reset(
-        new MyPeer(netEngine, privateKey, host, params["localport"].as<int>()));
+    myPeer.reset(new MyPeer(
+        netEngine, privateKey, host, params["localport"].as<int>(),
+        params["lobbyhost"].as<string>(), params["lobbyport"].as<int>()));
 
     netEngine->start();
-    myPeer->start(params["lobbyhost"].as<string>(),
-                  params["lobbyport"].as<int>());
+    myPeer->start();
     while (!myPeer->initialized()) {
       LOG(INFO) << "Waiting for initialization for peer...";
       sleep(1);

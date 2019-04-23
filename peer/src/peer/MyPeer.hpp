@@ -13,11 +13,11 @@ namespace wga {
 class MyPeer {
  public:
   MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
-         bool _host, int _serverPort);
+         bool _host, int _serverPort, const string& _lobbyHost, int _lobbyPort);
 
   void shutdown();
 
-  void start(const string& lobbyHost, int lobbyPort);
+  void start();
   void checkForEndpoints(const asio::error_code& error);
   void update(const asio::error_code& error);
 
@@ -52,6 +52,10 @@ class MyPeer {
   shared_ptr<PlayerData> myData;
   shared_ptr<udp::socket> localSocket;
   shared_ptr<asio::steady_timer> updateTimer;
+  string lobbyHost;
+  int lobbyPort;
+
+  void updateEndpointServer();
 };
 }  // namespace wga
 

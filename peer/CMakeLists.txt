@@ -9,6 +9,15 @@ if(UNIX)
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 endif()
 
+# Flags for miniupnpc
+if(UNIX)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMINIUPNPC_SET_SOCKET_TIMEOUT -DMINIUPNPC_GET_SRC_ADDR -DMINIUPNP_STATICLIB")
+else(UNIX)
+endif()
+
+# Flags for libnat-pmp
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_STRNATPMPERR")
+
 # Enable debug info
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
@@ -67,6 +76,8 @@ include_directories(
   src/base
   src/peer
   external
+  external/miniupnpc-2.1.20190408
+  external/libnatpmp-20150609
   external/cxxopts/include
   external/Optional
   external/asio/asio/include
@@ -80,6 +91,50 @@ add_library(
   wga-lib
   STATIC
 
+  external/libnatpmp-20150609/declspec.h
+  external/libnatpmp-20150609/getgateway.c
+  external/libnatpmp-20150609/getgateway.h
+  external/libnatpmp-20150609/natpmp.c
+  external/libnatpmp-20150609/natpmp.h
+  external/libnatpmp-20150609/natpmpc.c
+  external/libnatpmp-20150609/wingettimeofday.c
+  external/libnatpmp-20150609/wingettimeofday.h
+
+  external/miniupnpc-2.1.20190408/miniwget_private.h
+  external/miniupnpc-2.1.20190408/miniupnpc_declspec.h
+  external/miniupnpc-2.1.20190408/upnpcommands.h
+  external/miniupnpc-2.1.20190408/minixml.h
+  external/miniupnpc-2.1.20190408/miniupnpc_socketdef.h
+  external/miniupnpc-2.1.20190408/upnperrors.h
+  external/miniupnpc-2.1.20190408/igd_desc_parse.h
+  external/miniupnpc-2.1.20190408/minissdpc.h
+  external/miniupnpc-2.1.20190408/miniupnpc.h
+  external/miniupnpc-2.1.20190408/miniupnpctypes.h
+  external/miniupnpc-2.1.20190408/minisoap.h
+  external/miniupnpc-2.1.20190408/portlistingparse.h
+  external/miniupnpc-2.1.20190408/connecthostport.h
+  external/miniupnpc-2.1.20190408/miniwget.h
+  external/miniupnpc-2.1.20190408/codelength.h
+  external/miniupnpc-2.1.20190408/receivedata.h
+  external/miniupnpc-2.1.20190408/upnpreplyparse.h
+  external/miniupnpc-2.1.20190408/upnpdev.h
+  external/miniupnpc-2.1.20190408/minisoap.c
+  external/miniupnpc-2.1.20190408/portlistingparse.c
+  external/miniupnpc-2.1.20190408/connecthostport.c
+  external/miniupnpc-2.1.20190408/listdevices.c
+  external/miniupnpc-2.1.20190408/upnpreplyparse.c
+  external/miniupnpc-2.1.20190408/receivedata.c
+  external/miniupnpc-2.1.20190408/miniwget.c
+  external/miniupnpc-2.1.20190408/upnpdev.c
+  external/miniupnpc-2.1.20190408/upnpcommands.c
+  external/miniupnpc-2.1.20190408/upnpc.c
+  external/miniupnpc-2.1.20190408/minixmlvalid.c
+  external/miniupnpc-2.1.20190408/upnperrors.c
+  external/miniupnpc-2.1.20190408/minixml.c
+  external/miniupnpc-2.1.20190408/minissdpc.c
+  external/miniupnpc-2.1.20190408/miniupnpc.c
+  external/miniupnpc-2.1.20190408/igd_desc_parse.c
+
   src/base/LocalIpFetcher.cpp
   src/base/BiDirectionalRpc.cpp
   src/base/UdpBiDirectionalRpc.cpp
@@ -88,6 +143,7 @@ add_library(
   src/base/MultiEndpointHandler.cpp
   src/base/EncryptedMultiEndpointHandler.cpp
   src/base/PortMultiplexer.cpp
+  src/base/PortMappingHandler.cpp
   src/base/TimeHandler.cpp
   src/base/EasyLoggingWrapper.cpp
 

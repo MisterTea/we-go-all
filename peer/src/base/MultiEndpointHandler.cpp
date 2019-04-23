@@ -26,10 +26,20 @@ void MultiEndpointHandler::send(const string& message) {
   if (time(NULL) != lastUpdateTime) {
     lastUpdateTime = time(NULL);
     LOG(INFO) << "UPDATING ENDPOINT HANDLER";
-    update();
+    // update();
   }
 
-  UdpBiDirectionalRpc::send(message);
+  if (lastUnrepliedSendTime + 5 < time(NULL)) {
+    // Send on all channels
+    LOG(INFO) << "SENDING ON ALL CHANNELS";
+    UdpBiDirectionalRpc::send(message);
+    for (auto it : alternativeEndpoints) {
+      auto tmp = activeEndpoint;
+      activeEndpoint = it;
+      UdpBiDirectionalRpc::send(message);
+      activeEndpoint = tmp;
+    }
+  }
 
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);

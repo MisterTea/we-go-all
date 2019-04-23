@@ -6,12 +6,15 @@
 
 namespace wga {
 MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
-               bool _host, int _serverPort)
+               bool _host, int _serverPort, const string& _lobbyHost,
+               int _lobbyPort)
     : shuttingDown(false),
       netEngine(_netEngine),
       privateKey(_privateKey),
       host(_host),
-      serverPort(_serverPort) {
+      serverPort(_serverPort),
+      lobbyHost(_lobbyHost),
+      lobbyPort(_lobbyPort) {
   publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
   publicKeyString = CryptoHandler::keyToString(publicKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
@@ -33,7 +36,7 @@ void MyPeer::shutdown() {
   rpcServer.reset();
 }
 
-void MyPeer::start(const string& lobbyHost, int lobbyPort) {
+void MyPeer::start() {
   client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
 
   string path = string("/get_current_game_id/") + publicKeyString;
@@ -51,6 +54,24 @@ void MyPeer::start(const string& lobbyHost, int lobbyPort) {
     FATAL_FAIL_HTTP(response);
   }
 
+  updateEndpointServer();
+
+  updateTimer.reset(new asio::steady_timer(
+      *(netEngine->getIoService()),
+      std::chrono::steady_clock::now() + std::chrono::seconds(1)));
+  updateTimer->async_wait(
+      std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
+  LOG(INFO) << "CALLING HEARTBEAT: "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                   updateTimer->expires_at().time_since_epoch())
+                   .count()
+            << " VS "
+            << std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count();
+}
+
+void MyPeer::updateEndpointServer() {
   udp::endpoint serverEndpoint =
       netEngine->resolve(lobbyHost, to_string(lobbyPort));
   auto localIps = LocalIpFetcher::fetch(serverPort, true);
@@ -68,20 +89,6 @@ void MyPeer::start(const string& lobbyHost, int lobbyPort) {
                                                   serverEndpoint);
         LOG(INFO) << bytesSent << " bytes sent";
       });
-
-  updateTimer.reset(new asio::steady_timer(
-      *(netEngine->getIoService()),
-      std::chrono::steady_clock::now() + std::chrono::seconds(1)));
-  updateTimer->async_wait(
-      std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
-  LOG(INFO) << "CALLING HEARTBEAT: "
-            << std::chrono::duration_cast<std::chrono::seconds>(
-                   updateTimer->expires_at().time_since_epoch())
-                   .count()
-            << " VS "
-            << std::chrono::duration_cast<std::chrono::seconds>(
-                   std::chrono::steady_clock::now().time_since_epoch())
-                   .count();
 }
 
 void MyPeer::checkForEndpoints(const asio::error_code& error) {
@@ -89,6 +96,8 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     return;
   }
   lock_guard<recursive_mutex> guard(peerDataMutex);
+
+  updateEndpointServer();
 
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
@@ -186,6 +195,7 @@ void MyPeer::update(const asio::error_code& error) {
 
   if (counter % 1000 == 0) {
     // Per-second update
+    updateEndpointServer();
     LOG(INFO) << "UPDATING";
     string path = string("/get_game_info/") + gameId.str();
     auto response = client->request("GET", path);
