@@ -218,7 +218,7 @@ void MyPeer::update(const asio::error_code& error) {
       }
 
       auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
-      endpointHandler->updateEndpoints(endpoints);
+      endpointHandler->addEndpoints(endpoints);
     }
 
     LOG(INFO) << "CALLING HEARTBEAT";

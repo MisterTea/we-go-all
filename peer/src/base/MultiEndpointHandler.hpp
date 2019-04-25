@@ -15,13 +15,42 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
 
   virtual ~MultiEndpointHandler() {}
 
-  virtual void receive(const string& message) {
+  virtual void handleReply(const RpcId& rpcId, const string& payload) {
     lastUnrepliedSendTime = 0;
-    BiDirectionalRpc::receive(message);
+    BiDirectionalRpc::handleReply(rpcId, payload);
   }
 
   virtual bool hasEndpointAndResurrectIfFound(const udp::endpoint& endpoint);
-  void updateEndpoints(const vector<udp::endpoint>& newEndpoints);
+  void addEndpoints(const vector<udp::endpoint>& newEndpoints);
+  void addEndpoint(const udp::endpoint& newEndpoint) {
+    if (activeEndpoint == newEndpoint) {
+      return;
+    }
+    if (alternativeEndpoints.find(newEndpoint) != alternativeEndpoints.end()) {
+      return;
+    }
+    if (deadEndpoints.find(newEndpoint) != deadEndpoints.end()) {
+      return;
+    }
+    alternativeEndpoints.insert(newEndpoint);
+  }
+
+  bool hasEndpointWithIp(const asio::ip::address& addressToCheck) {
+    if (activeEndpoint.address() == addressToCheck) {
+      return true;
+    }
+    for (const auto& it : alternativeEndpoints) {
+      if (it.address() == addressToCheck) {
+        return true;
+      }
+    }
+    for (const auto& it : deadEndpoints) {
+      if (it.address() == addressToCheck) {
+        return true;
+      }
+    }
+    return false;
+  }
 
  protected:
   time_t lastUpdateTime;

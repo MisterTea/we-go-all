@@ -137,9 +137,9 @@ class RpcServer : public PortMultiplexer {
     return endpoints.begin()->second->getCryptoHandler()->getMyPublicKey();
   }
 
-  void updateEndpoints(const PublicKey& key,
-                       const vector<udp::endpoint>& newEndpoints) {
-    endpoints[key]->updateEndpoints(newEndpoints);
+  void addEndpoints(const PublicKey& key,
+                    const vector<udp::endpoint>& newEndpoints) {
+    endpoints[key]->addEndpoints(newEndpoints);
   }
 
   shared_ptr<EncryptedMultiEndpointHandler> getEndpointHandler(

@@ -22,11 +22,23 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
       recipient = it;
     }
   }
+  string packetString(receiveBuffer.data(), bytesTransferred);
   if (recipient.get() == NULL) {
     // We don't have any endpoint to receive this, so drop it.
-    LOG(INFO) << "DO NOT KNOW WHO SHOULD GET PACKET";
+    LOG(INFO) << "Do not know who should get packet, will check IP addresses";
+    for (auto& it : recipients) {
+      if (it->hasEndpointWithIp(receiveEndpoint.address())) {
+        recipient = it;
+        recipient->addEndpoint(receiveEndpoint);
+        break;
+      }
+    }
+    recipient = recipients[0];
+    recipient->addEndpoint(receiveEndpoint);
+  }
+  if (recipient.get() == NULL) {
+    LOG(ERROR) << "Could not find receipient";
   } else {
-    string packetString(receiveBuffer.data(), bytesTransferred);
     recipient->receive(packetString);
   }
 

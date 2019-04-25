@@ -26,13 +26,13 @@ void MultiEndpointHandler::send(const string& message) {
   if (time(NULL) != lastUpdateTime) {
     lastUpdateTime = time(NULL);
     LOG(INFO) << "UPDATING ENDPOINT HANDLER";
-    // update();
+    update();
   }
 
+  UdpBiDirectionalRpc::send(message);
   if (lastUnrepliedSendTime + 5 < time(NULL)) {
     // Send on all channels
     LOG(INFO) << "SENDING ON ALL CHANNELS";
-    UdpBiDirectionalRpc::send(message);
     for (auto it : alternativeEndpoints) {
       auto tmp = activeEndpoint;
       activeEndpoint = it;
@@ -67,19 +67,10 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
   return false;
 }
 
-void MultiEndpointHandler::updateEndpoints(
+void MultiEndpointHandler::addEndpoints(
     const vector<udp::endpoint>& newEndpoints) {
   for (auto& it : newEndpoints) {
-    if (it == activeEndpoint) {
-      continue;
-    }
-    if (alternativeEndpoints.find(it) != alternativeEndpoints.end()) {
-      continue;
-    }
-    if (deadEndpoints.find(it) != deadEndpoints.end()) {
-      continue;
-    }
-    alternativeEndpoints.insert(it);
+    addEndpoint(it);
   }
 }
 
