@@ -72,8 +72,9 @@ class CryptoHandler {
   template <typename T>
   static T stringToKey(const string& s) {
     T key;
-    FATAL_IF_FALSE(
-        Base64::Decode(&s[0], s.length(), (char*)key.data(), key.size()));
+    if (!Base64::Decode(&s[0], s.length(), (char*)key.data(), key.size())) {
+      throw std::runtime_error("Tried to deserialize an invalid key string");
+    }
     return key;
   }
 

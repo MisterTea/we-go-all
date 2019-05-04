@@ -2,7 +2,6 @@
 
 namespace wga {
 void UdpBiDirectionalRpc::send(const string& message) {
-  LOG(INFO) << "IN SEND";
   auto localSocket_ = localSocket;
   auto activeEndpoint_ = activeEndpoint;
   netEngine->getIoService()->post([localSocket_, activeEndpoint_, message]() {

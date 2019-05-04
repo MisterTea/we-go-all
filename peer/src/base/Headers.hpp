@@ -16,11 +16,17 @@
 #endif
 
 // Enable standalone asio
+#ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE (1)
+#endif
+#ifndef USE_STANDALONE_ASIO
 #define USE_STANDALONE_ASIO (1)
+#endif
 
+#ifdef _WIN32
 // Require win7 or higher
 #define _WIN32_WINNT _WIN32_WINNT_WIN7
+#endif
 
 #ifdef __FreeBSD__
 #define _WITH_GETLINE

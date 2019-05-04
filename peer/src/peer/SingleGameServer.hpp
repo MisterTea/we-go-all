@@ -103,7 +103,7 @@ class SingleGameServer {
   void setPeerEndpoints(const PublicKey& key, const vector<string>& endpoints) {
     auto it = peerData.find(key);
     if (it == peerData.end()) {
-      LOG(FATAL) << "Could not find peer";
+      LOG(FATAL) << "Could not find peer: " << CryptoHandler::keyToString(key);
     }
     LOG(INFO) << "SETTING ENDPOINTS";
     for (auto& endpoint : endpoints) {

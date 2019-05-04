@@ -33,8 +33,6 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
         break;
       }
     }
-    recipient = recipients[0];
-    recipient->addEndpoint(receiveEndpoint);
   }
   if (recipient.get() == NULL) {
     LOG(ERROR) << "Could not find receipient";

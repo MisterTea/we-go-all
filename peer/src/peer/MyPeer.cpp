@@ -270,6 +270,17 @@ bool MyPeer::initialized() {
   return true;
 }
 
+vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
+  vector<string> values;
+  for (auto& it : peerData) {
+    it.second->playerInputData.blockUntilTime(timestamp);
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    values.push_back(it.second->playerInputData.getOrDie(timestamp, key));
+  }
+  return values;
+}
+
+
 void MyPeer::updateState(int64_t timestamp,
                          unordered_map<string, string> data) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
@@ -297,6 +308,14 @@ unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
     state.insert(peerState.begin(), peerState.end());
   }
   return state;
+}
+
+int64_t MyPeer::getNearestExpirationTime() {
+  int64_t retval=peerData.begin()->second->playerInputData.getExpirationTime();
+  for (auto& it : peerData) {
+    retval = min(retval, it.second->playerInputData.getExpirationTime());
+  }
+  return retval;
 }
 
 }  // namespace wga
