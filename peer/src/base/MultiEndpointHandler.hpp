@@ -35,23 +35,6 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
     alternativeEndpoints.insert(newEndpoint);
   }
 
-  bool hasEndpointWithIp(const asio::ip::address& addressToCheck) {
-    if (activeEndpoint.address() == addressToCheck) {
-      return true;
-    }
-    for (const auto& it : alternativeEndpoints) {
-      if (it.address() == addressToCheck) {
-        return true;
-      }
-    }
-    for (const auto& it : deadEndpoints) {
-      if (it.address() == addressToCheck) {
-        return true;
-      }
-    }
-    return false;
-  }
-
  protected:
   time_t lastUpdateTime;
   time_t lastUnrepliedSendTime;

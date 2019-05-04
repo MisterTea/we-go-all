@@ -11,6 +11,7 @@ class RpcId {
   bool operator==(const RpcId& other) const {
     return barrier == other.barrier && id == other.id;
   }
+  bool operator!=(const RpcId& other) const { return !(*this == other); }
   bool operator<(const RpcId& other) const {
     return barrier < other.barrier ||
            (barrier == other.barrier && id < other.id);
@@ -21,6 +22,8 @@ class RpcId {
   uint64_t barrier;
   uint64_t id;
 };
+
+#define SESSION_KEY_RPCID RpcId(0, 1)
 
 }  // namespace wga
 

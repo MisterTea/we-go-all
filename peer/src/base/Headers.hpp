@@ -113,6 +113,8 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 #define WGA_VERSION "UNKNOWN"
 #endif
 
+#define WGA_MAGIC std::string("WGAMAGIC")
+
 #define FATAL_FAIL(X) \
   if (((X) == -1))    \
     LOG(FATAL) << "Error: (" << errno << "): " << strerror(errno);

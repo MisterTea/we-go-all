@@ -79,6 +79,10 @@ void BiDirectionalRpc::receive(const string& message) {
           }
         }
       } break;
+      default: {
+        LOG(FATAL) << "Got invalid header: " << header << " in message "
+                   << message;
+      }
     }
   }
 }

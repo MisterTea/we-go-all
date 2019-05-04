@@ -15,29 +15,40 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
   lock_guard<recursive_mutex> guard(*netEngine->getMutex());
   VLOG(1) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
-  // We need to find out where this needs to go
-  shared_ptr<MultiEndpointHandler> recipient;
-  for (auto& it : recipients) {
-    if (it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
-      recipient = it;
-    }
-  }
-  string packetString(receiveBuffer.data(), bytesTransferred);
-  if (recipient.get() == NULL) {
-    // We don't have any endpoint to receive this, so drop it.
-    LOG(INFO) << "Do not know who should get packet, will check IP addresses";
-    for (auto& it : recipients) {
-      if (it->hasEndpointWithIp(receiveEndpoint.address())) {
-        recipient = it;
-        recipient->addEndpoint(receiveEndpoint);
-        break;
+  if (bytesTransferred <= WGA_MAGIC.length()) {
+    LOG(ERROR) << "Packet is too small to contain header";
+  } else {
+    string packetString(receiveBuffer.data(), bytesTransferred);
+
+    string magicHeader = packetString.substr(0, WGA_MAGIC.length());
+    if (magicHeader != WGA_MAGIC) {
+      LOG(ERROR) << "Invalid packet header";
+    } else {
+      string packetContents = packetString.substr(WGA_MAGIC.length());
+      // We need to find out where this needs to go
+      shared_ptr<EncryptedMultiEndpointHandler> recipient;
+      for (auto& it : recipients) {
+        if (it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
+          recipient = it;
+        }
+      }
+      if (recipient.get() == NULL) {
+        // We don't have any endpoint to receive this, so check the header
+        LOG(INFO) << "Do not know who should get packet, will check header";
+        for (auto& it : recipients) {
+          if (it->canDecodeMagicHeader(magicHeader, packetContents)) {
+            recipient = it;
+            recipient->addEndpoint(receiveEndpoint);
+            break;
+          }
+        }
+      }
+      if (recipient.get() == NULL) {
+        LOG(ERROR) << "Could not find receipient";
+      } else {
+        recipient->receive(packetContents);
       }
     }
-  }
-  if (recipient.get() == NULL) {
-    LOG(ERROR) << "Could not find receipient";
-  } else {
-    recipient->receive(packetString);
   }
 
   localSocket->async_receive_from(

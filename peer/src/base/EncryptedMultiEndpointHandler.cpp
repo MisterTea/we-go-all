@@ -14,14 +14,15 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
   // Send session key as a one-way rpc
   {
     IdPayload idPayload;
-    EncryptedSessionKey encryptedSessionKey =
-        cryptoHandler->generateOutgoingSessionKey();
-    FATAL_IF_FALSE(
-        Base64::Encode(string((const char*)encryptedSessionKey.data(),
-                              encryptedSessionKey.size()),
-                       &idPayload.payload));
+    MessageWriter writer;
+    writer.start();
+    writer.writePrimitive(
+        CryptoHandler::keyToString(cryptoHandler->getMyPublicKey()));
+    writer.writePrimitive(CryptoHandler::keyToString(
+        cryptoHandler->generateOutgoingSessionKey()));
+    idPayload.payload = writer.finish();
     VLOG(1) << idPayload.payload;
-    idPayload.id = RpcId(0, 1);
+    idPayload.id = SESSION_KEY_RPCID;
     oneWayRequests.insert(idPayload.id);
     MultiEndpointHandler::requestWithId(idPayload);
   }
@@ -47,11 +48,20 @@ void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
 
 void EncryptedMultiEndpointHandler::addIncomingRequest(
     const IdPayload& idPayload) {
-  if (idPayload.id == RpcId(0, 1)) {
+  if (idPayload.id == SESSION_KEY_RPCID) {
     // Handshaking
     LOG(INFO) << "GOT HANDSHAKE";
-    bool result = cryptoHandler->recieveIncomingSessionKey(
-        CryptoHandler::stringToKey<EncryptedSessionKey>(idPayload.payload));
+    MessageReader reader;
+    reader.load(idPayload.payload);
+    PublicKey publicKey =
+        CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
+    if (publicKey != cryptoHandler->getOtherPublicKey()) {
+      LOG(FATAL) << "Somehow got the wrong public key!";
+    }
+    EncryptedSessionKey encryptedSessionKey =
+        CryptoHandler::stringToKey<EncryptedSessionKey>(
+            reader.readPrimitive<string>());
+    bool result = cryptoHandler->recieveIncomingSessionKey(encryptedSessionKey);
     if (!result) {
       LOG(ERROR) << "Invalid session key";
       return;
@@ -91,4 +101,30 @@ void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
   MultiEndpointHandler::addIncomingReply(uid, *decryptedPayload);
 }
 
+void EncryptedMultiEndpointHandler::send(const string& message) {
+  string messageWithHeader = WGA_MAGIC + message;
+  MultiEndpointHandler::send(messageWithHeader);
+}
+
+bool EncryptedMultiEndpointHandler::hasPublicKeyMatchInPayload(
+    const string& remainder) {
+  LOG(INFO) << "Checking public key match";
+  MessageReader reader;
+  reader.load(remainder);
+  RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
+  if (header != REQUEST) {
+    LOG(INFO) << "Header isn't request";
+    return false;
+  }
+  RpcId rpcId = reader.readClass<RpcId>();
+  if (rpcId != SESSION_KEY_RPCID) {
+    return false;
+  }
+  string payload = reader.readPrimitive<string>();
+  MessageReader innerReader;
+  innerReader.load(payload);
+  PublicKey publicKey = CryptoHandler::stringToKey<PublicKey>(
+      innerReader.readPrimitive<string>());
+  return publicKey == cryptoHandler->getOtherPublicKey();
+}
 }  // namespace wga
