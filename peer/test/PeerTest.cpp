@@ -38,9 +38,9 @@ class PeerTest : public testing::Test {
   }
 
   void TearDown() override {
+    netEngine->shutdown();
     server.reset();
     peerConnectionServer.reset();
-    netEngine->shutdown();
     netEngine.reset();
   }
 
