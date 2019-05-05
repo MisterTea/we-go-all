@@ -59,8 +59,11 @@ class ExamplePeer {
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
     }
     myPeer.reset(new MyPeer(
-        netEngine, privateKey, host, params["localport"].as<int>(),
+        netEngine, privateKey, params["localport"].as<int>(),
         params["lobbyhost"].as<string>(), params["lobbyport"].as<int>()));
+    if (host) {
+      myPeer->host("Starwars");
+    }
 
     netEngine->start();
     myPeer->start();

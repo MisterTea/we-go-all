@@ -115,7 +115,8 @@ TEST_F(PeerTest, ProtocolTest) {
 TEST_F(PeerTest, SinglePeer) {
   initGameServer(1);
   shared_ptr<MyPeer> firstPeer(
-      new MyPeer(netEngine, keys[0].second, true, 12345, "localhost", 20000));
+      new MyPeer(netEngine, keys[0].second, 12345, "localhost", 20000));
+  firstPeer->host("Starwars");
   firstPeer->start();
   while (!firstPeer->initialized()) {
     LOG(INFO) << "Waiting for initialization...";
@@ -134,11 +135,12 @@ TEST_F(PeerTest, TwoPeers) {
   initGameServer(2);
   LOG(INFO) << "CREATING PEERS";
   vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, true, 11000,
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, 11000,
                                     "localhost", 20000)),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, false, 11001,
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, 11001,
                                     "localhost", 20000)),
   };
+  peers[0]->host("Starwars");
   LOG(INFO) << "STARTING PEERS";
   for (auto it : peers) {
     it->start();
@@ -171,13 +173,14 @@ TEST_F(PeerTest, ThreePeers) {
   initGameServer(3);
   LOG(INFO) << "CREATING PEERS";
   vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, true, 11000,
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, 11000,
                                     "localhost", 20000)),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, false, 11001,
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, 11001,
                                     "localhost", 20000)),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[2].second, false, 11002,
+      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[2].second, 11002,
                                     "localhost", 20000)),
   };
+  peers[0]->host("Starwars");
   LOG(INFO) << "STARTING PEERS";
   for (auto it : peers) {
     it->start();

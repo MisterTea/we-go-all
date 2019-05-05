@@ -6,12 +6,10 @@
 
 namespace wga {
 MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
-               bool _host, int _serverPort, const string& _lobbyHost,
-               int _lobbyPort)
+               int _serverPort, const string& _lobbyHost, int _lobbyPort)
     : shuttingDown(false),
       netEngine(_netEngine),
       privateKey(_privateKey),
-      host(_host),
       serverPort(_serverPort),
       lobbyHost(_lobbyHost),
       lobbyPort(_lobbyPort) {
@@ -24,6 +22,14 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
   localSocket->set_option(option);
   rpcServer.reset(new RpcServer(netEngine, localSocket));
   LOG(INFO) << "STARTED SERVER ON PORT: " << serverPort;
+
+  client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
+
+  string path = string("/get_current_game_id/") + publicKeyString;
+  auto response = client->request("GET", path);
+  FATAL_FAIL_HTTP(response);
+  json result = json::parse(response->content.string());
+  gameId = sole::rebuild(result["gameId"]);
 }
 
 void MyPeer::shutdown() {
@@ -36,24 +42,16 @@ void MyPeer::shutdown() {
   rpcServer.reset();
 }
 
-void MyPeer::start() {
-  client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
-
-  string path = string("/get_current_game_id/") + publicKeyString;
-  auto response = client->request("GET", path);
+void MyPeer::host(const string& gameName) {
+  string path = string("/host");
+  json request = {{"hostKey", publicKeyString},
+                  {"gameId", gameId.str()},
+                  {"gameName", gameName}};
+  auto response = client->request("POST", path, request.dump(2));
   FATAL_FAIL_HTTP(response);
-  json result = json::parse(response->content.string());
-  gameId = sole::rebuild(result["gameId"]);
+}
 
-  if (host) {
-    path = string("/host");
-    json request = {{"hostKey", publicKeyString},
-                    {"gameId", gameId.str()},
-                    {"gameName", "Starwars"}};
-    response = client->request("POST", path, request.dump(2));
-    FATAL_FAIL_HTTP(response);
-  }
-
+void MyPeer::start() {
   updateEndpointServer();
 
   updateTimer.reset(new asio::steady_timer(
@@ -106,11 +104,10 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
   LOG(INFO) << "GOT RESULT: " << result;
-  if (host) {
-    if (result["gameName"].get<string>() != "Starwars") {
+  if (gameName.length()) {
+    if (result["gameName"].get<string>() != gameName) {
       LOG(FATAL) << "Game Name does not match what I should be hosting: "
-                 << result["gameName"].get<string>() << " != "
-                 << "Starwars";
+                 << result["gameName"].get<string>() << " != " << gameName;
     }
     if (result["hostKey"].get<string>() != publicKeyString) {
       LOG(FATAL) << "Game host should be me but it isn't "
@@ -280,7 +277,6 @@ vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
   return values;
 }
 
-
 void MyPeer::updateState(int64_t timestamp,
                          unordered_map<string, string> data) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
@@ -311,7 +307,8 @@ unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
 }
 
 int64_t MyPeer::getNearestExpirationTime() {
-  int64_t retval=peerData.begin()->second->playerInputData.getExpirationTime();
+  int64_t retval =
+      peerData.begin()->second->playerInputData.getExpirationTime();
   for (auto& it : peerData) {
     retval = min(retval, it.second->playerInputData.getExpirationTime());
   }
