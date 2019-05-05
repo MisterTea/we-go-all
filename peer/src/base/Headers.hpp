@@ -9,10 +9,10 @@
 
 #ifndef _WIN32
 #define ELPP_FEATURE_CRASH_LOG (1)
+#define ELPP_HANDLE_SIGABRT (1)
 #endif
 
 #define ELPP_THREAD_SAFE (1)
-#define ELPP_HANDLE_SIGABRT (1)
 #endif
 
 // Enable standalone asio
