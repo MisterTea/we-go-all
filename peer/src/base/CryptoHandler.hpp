@@ -63,18 +63,19 @@ class CryptoHandler {
 
   template <typename T>
   static string keyToString(const T& key) {
-    string s;
-    FATAL_IF_FALSE(
-        Base64::Encode(string((const char*)key.data(), key.size()), &s));
+    string s = base64::encode((const char*)key.data(), key.size());
     return s;
   }
 
   template <typename T>
   static T stringToKey(const string& s) {
     T key;
-    if (!Base64::Decode(&s[0], s.length(), (char*)key.data(), key.size())) {
-      throw std::runtime_error("Tried to deserialize an invalid key string");
+    std::vector<uint8_t> v = base64::decode(s);
+    if (v.size() != key.size()) {
+      LOG(FATAL) << "Decoded string is of the wrong size: " << v.size()
+                 << " != " << key.size();
     }
+    std::copy_n(v.begin(), key.size(), key.begin());
     return key;
   }
 

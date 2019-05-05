@@ -74,20 +74,20 @@
 #include <unordered_set>
 #include <vector>
 
-#include "easylogging++.h"
+#include "easyloggingpp/src/easylogging++.h"
 
-#include "base64.hpp"
-#include "catch2/catch.hpp"
-#include "ctpl_stl.h"
-#include "json.hpp"
+#include "CTPL/ctpl_stl.h"
+#include "Catch2/single_include/catch2/catch.hpp"
+#include "cppcodec/cppcodec/base64_default_rfc4648.hpp"
 #include "msgpack.hpp"
-#include "sole.hpp"
+#include "nlohmann/json.hpp"
+#include "sole/sole.hpp"
 
-#include "client_http.hpp"
-#include "server_http.hpp"
+#include "SimpleWebServer/client_http.hpp"
+#include "SimpleWebServer/server_http.hpp"
 
 #if !defined(_LIBCPP_OPTIONAL) || defined(__APPLE__)
-#include "optional.hpp"
+#include "Optional/optional.hpp"
 using namespace std::experimental;
 #endif
 
@@ -99,7 +99,7 @@ using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 using namespace std;
 using namespace std::chrono;
 
-using namespace base64;
+using base64 = cppcodec::base64_rfc4648;
 
 using asio::ip::udp;
 using nlohmann::json;

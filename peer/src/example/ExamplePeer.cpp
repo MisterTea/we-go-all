@@ -8,7 +8,7 @@
 #include "PortMappingHandler.hpp"
 #include "TimeHandler.hpp"
 
-#include <cxxopts.hpp>
+#include <cxxopts/include/cxxopts.hpp>
 
 namespace wga {
 class ExamplePeer {

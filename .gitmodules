@@ -25,3 +25,18 @@
 [submodule "peer/external/fmt"]
 	path = peer/external/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "peer/external/easyloggingpp"]
+	path = peer/external/easyloggingpp
+	url = https://github.com/zuhd-org/easyloggingpp.git
+[submodule "peer/external/CTPL"]
+	path = peer/external/CTPL
+	url = https://github.com/vit-vit/CTPL.git
+[submodule "peer/external/cppcodec"]
+	path = peer/external/cppcodec
+	url = https://github.com/tplgy/cppcodec.git
+[submodule "peer/external/json"]
+	path = peer/external/json
+	url = https://github.com/nlohmann/json.git
+[submodule "peer/external/sole"]
+	path = peer/external/sole
+	url = https://github.com/r-lyeh-archived/sole.git

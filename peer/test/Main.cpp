@@ -2,7 +2,7 @@
 
 #include "LogHandler.hpp"
 
-#include <cxxopts.hpp>
+#include <cxxopts/include/cxxopts.hpp>
 #include "gtest/gtest.h"
 
 using namespace wga;
