@@ -2,8 +2,8 @@
 
 #include "Headers.hpp"
 
-#include <miniupnpc.h>
-#include <upnpcommands.h>
+#include <miniupnpc-2.1.20190408/miniupnpc.h>
+#include <miniupnpc-2.1.20190408/upnpcommands.h>
 
 namespace wga {
 class PortMappingHandler {

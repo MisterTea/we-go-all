@@ -2,4 +2,4 @@
 #include "Headers.hpp"
 
 // Now include easylogging++.cc
-#include "easylogging++.cc"
+#include "easyloggingpp/src/easylogging++.cc"

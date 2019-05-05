@@ -39,10 +39,8 @@ class FlakyRpcTest : public testing::Test {
     for (int a = 0; a < numNodes; a++) {
       keys.push_back(CryptoHandler::generateKey());
     }
-    string secretKeyString;
-    FATAL_IF_FALSE(Base64::Encode(
-        string((const char*)keys[0].second.data(), keys[0].second.size()),
-        &secretKeyString));
+    string secretKeyString = base64::encode((const char*)keys[0].second.data(),
+                                            keys[0].second.size());
     LOG(INFO) << secretKeyString;
 
     // Create port multiplexers

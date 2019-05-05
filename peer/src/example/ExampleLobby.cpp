@@ -8,7 +8,7 @@
 #include "PlayerData.hpp"
 #include "SingleGameServer.hpp"
 
-#include <cxxopts.hpp>
+#include <cxxopts/include/cxxopts.hpp>
 
 namespace wga {
 class ExampleLobby {

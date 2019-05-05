@@ -74,14 +74,9 @@ include_directories(
   src/base
   src/peer
   external
-  external/miniupnpc-2.1.20190408
-  external/libnatpmp-20150609
-  external/cxxopts/include
-  external/Optional
   external/asio/asio/include
+  external/json/include
   external/msgpack-c/include
-  external/Catch2/single_include
-  external/SimpleWebServer
   ${sodium_INCLUDE_DIR}
   )
 
