@@ -38,8 +38,9 @@ class SingleGameServer {
           auto peerKey = CryptoHandler::stringToKey<PublicKey>(
               request->path_match[1].str());
           if (peerData.find(peerKey) == peerData.end()) {
-            LOG(FATAL) << "Invalid peer key: "
-                       << CryptoHandler::keyToString(peerKey);
+            // LOG(FATAL) << "Invalid peer key: "
+            //            << CryptoHandler::keyToString(peerKey);
+            addPeer(peerKey, CryptoHandler::keyToString(peerKey).substr(8));
           }
           json retval;
           retval["gameId"] = gameId.str();
