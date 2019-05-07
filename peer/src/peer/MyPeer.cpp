@@ -38,7 +38,6 @@ void MyPeer::shutdown() {
   updateTimer->cancel();
   // Wait for the updates to flush
   sleep(1);
-  lock_guard<recursive_mutex> guard(*(netEngine->getMutex()));
   rpcServer.reset();
 }
 
@@ -106,13 +105,12 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   LOG(INFO) << "GOT RESULT: " << result;
   if (gameName.length()) {
     if (result["gameName"].get<string>() != gameName) {
-      LOG(FATAL) << "Game Name does not match what I should be hosting: "
-                 << result["gameName"].get<string>() << " != " << gameName;
+      LOGFATAL << "Game Name does not match what I should be hosting: "
+               << result["gameName"].get<string>() << " != " << gameName;
     }
     if (result["hostKey"].get<string>() != publicKeyString) {
-      LOG(FATAL) << "Game host should be me but it isn't "
-                 << result["hostKey"].get<string>()
-                 << " != " << publicKeyString;
+      LOGFATAL << "Game host should be me but it isn't "
+               << result["hostKey"].get<string>() << " != " << publicKeyString;
     }
   } else {
     gameName = result["gameName"].get<string>();

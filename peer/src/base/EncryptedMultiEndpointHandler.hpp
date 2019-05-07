@@ -22,8 +22,8 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
   bool readyToSend() {
     // Make sure rpc(0,1) is finished
-    for (auto& it : outgoingRequests) {
-      if (it.id == SESSION_KEY_RPCID) {
+    for (const auto& it : outgoingRequests) {
+      if (it.first == SESSION_KEY_RPCID) {
         return false;
       }
     }

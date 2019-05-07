@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
   if (params["stress"].as<bool>()) {
     for (int a = 0; a < 99; a++) {
       if (RUN_ALL_TESTS()) {
-        LOG(FATAL) << "Tests failed";
+        LOGFATAL << "Tests failed";
       }
     }
   }

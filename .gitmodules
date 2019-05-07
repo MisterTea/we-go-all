@@ -40,3 +40,6 @@
 [submodule "peer/external/sole"]
 	path = peer/external/sole
 	url = https://github.com/r-lyeh-archived/sole.git
+[submodule "peer/external/stats"]
+	path = peer/external/stats
+	url = https://github.com/kthohr/stats.git

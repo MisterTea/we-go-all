@@ -7,7 +7,7 @@ namespace wga {
 class RpcId {
  public:
   RpcId() : barrier(0), id(0) {}
-  RpcId(uint64_t _barrier, uint64_t _id) : barrier(_barrier), id(_id) {}
+  RpcId(int64_t _barrier, uint64_t _id) : barrier(_barrier), id(_id) {}
   bool operator==(const RpcId& other) const {
     return barrier == other.barrier && id == other.id;
   }
@@ -19,7 +19,7 @@ class RpcId {
   string str() const { return to_string(barrier) + "/" + to_string(id); }
   bool empty() { return barrier == 0 && id == 0; }
 
-  uint64_t barrier;
+  int64_t barrier;
   uint64_t id;
 };
 

@@ -96,7 +96,6 @@ class FlakyRpcTest : public testing::Test {
     EXPECT_EQ(peerKeys.size(), numTotal - 1);
     map<RpcId, RpcDetails> allRpcDetails;
     {
-      lock_guard<recursive_mutex> guard(*netEngine->getMutex());
       for (int trials = 0; trials < numTrials; trials++) {
         RpcDetails rpcDetails;
         rpcDetails.destinationKey = peerKeys[rand() % peerKeys.size()];
@@ -127,7 +126,6 @@ class FlakyRpcTest : public testing::Test {
           duration_cast<milliseconds>(system_clock::now().time_since_epoch()) /
           100;
       {
-        lock_guard<recursive_mutex> guard(*netEngine->getMutex());
         auto request = server->getIncomingRequest();
         if (request) {
           string payload = request->payload;
@@ -145,12 +143,12 @@ class FlakyRpcTest : public testing::Test {
             for (auto it : allRpcDetails) {
               LOG(INFO) << it.first.id;
             }
-            LOG(FATAL) << "Got invalid rpc id: " << reply->id.id;
+            LOGFATAL << "Got invalid rpc id: " << reply->id.id;
           }
           RpcDetails& rpcDetails = allRpcDetails.find(reply->id)->second;
           if (reply->payload != rpcDetails.reply) {
-            LOG(FATAL) << "Reply doesn't match expectation: " << reply->payload
-                       << " != " << rpcDetails.reply;
+            LOGFATAL << "Reply doesn't match expectation: " << reply->payload
+                     << " != " << rpcDetails.reply;
           }
           numAcks++;
           VLOG(1) << "GOT REPLY: " << numAcks;

@@ -16,7 +16,7 @@ PortMappingHandler::PortMappingHandler()
       &error);  // error output
 
   if (error) {
-    LOG(FATAL) << "Error discovering UPNP devices: " << error;
+    LOGFATAL << "Error discovering UPNP devices: " << error;
   }
 
   if (upnpDevice == NULL) {
@@ -108,7 +108,7 @@ int PortMappingHandler::mapPort(int destinationPort,
     }
 
     if (error) {
-      LOG(FATAL) << "Error fetching port mappings: " << error;
+      LOGFATAL << "Error fetching port mappings: " << error;
     }
 
     printf("%s\t%s -> %s\t%s\t%s\t%s\t%s\t%s\n", map_lanAddress, map_wan_port,
@@ -126,7 +126,7 @@ int PortMappingHandler::mapPort(int destinationPort,
                                          map_wan_port, "UDP", NULL);
 
       if (error) {
-        LOG(FATAL) << "Failed to unmap ports: " << error;
+        LOGFATAL << "Failed to unmap ports: " << error;
       }
     }
   }
@@ -150,7 +150,7 @@ int PortMappingHandler::mapPort(int destinationPort,
     }
 
     if (error) {
-      LOG(FATAL) << "Failed to map ports: " << error;
+      LOGFATAL << "Failed to map ports: " << error;
     }
     LOG(INFO) << "Successfully mapped " << wanAddress << ":" << sourcePort
               << " to " << lanAddress << ":" << destinationPort;

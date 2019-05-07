@@ -5,10 +5,10 @@
 
 #include <sodium.h>
 
-#define SODIUM_FAIL(X)                                           \
-  {                                                              \
-    int rc = (X);                                                \
-    if ((rc) != 0) LOG(FATAL) << "Crypto Error: (" << rc << ")"; \
+#define SODIUM_FAIL(X)                                         \
+  {                                                            \
+    int rc = (X);                                              \
+    if ((rc) != 0) LOGFATAL << "Crypto Error: (" << rc << ")"; \
   }
 
 namespace wga {
@@ -72,8 +72,8 @@ class CryptoHandler {
     T key;
     std::vector<uint8_t> v = base64::decode(s);
     if (v.size() != key.size()) {
-      LOG(FATAL) << "Decoded string is of the wrong size: " << v.size()
-                 << " != " << key.size();
+      LOGFATAL << "Decoded string is of the wrong size: " << v.size()
+               << " != " << key.size();
     }
     std::copy_n(v.begin(), key.size(), key.begin());
     return key;

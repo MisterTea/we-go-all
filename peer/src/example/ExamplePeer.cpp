@@ -35,7 +35,7 @@ class ExamplePeer {
     // Setup easylogging configurations
     el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
     defaultConf.setGlobally(el::ConfigurationType::ToFile, "false");
-    el::Loggers::setVerboseLevel(9);  // params["v"].as<int>());
+    el::Loggers::setVerboseLevel(params["v"].as<int>());
 
     // Reconfigure default logger to apply settings above
     el::Loggers::reconfigureLogger("default", defaultConf);
@@ -89,19 +89,19 @@ class ExamplePeer {
           myPeer->getFullState(expirationTime - 1);
       auto it = state.find("button0");
       if (it == state.end()) {
-        LOG(FATAL) << "MISSING BUTTON";
+        LOGFATAL << "MISSING BUTTON";
       }
       if (it->second != expirationTimeString) {
-        LOG(FATAL) << "Button is the wrong state: " << it->second
-                   << " != " << expirationTimeString;
+        LOGFATAL << "Button is the wrong state: " << it->second
+                 << " != " << expirationTimeString;
       }
       it = state.find("button1");
       if (it == state.end()) {
-        LOG(FATAL) << "MISSING BUTTON";
+        LOGFATAL << "MISSING BUTTON";
       }
       if (it->second != expirationTimeString) {
-        LOG(FATAL) << "Button is the wrong state: " << it->second
-                   << " != " << expirationTimeString;
+        LOGFATAL << "Button is the wrong state: " << it->second
+                 << " != " << expirationTimeString;
       }
     }
 

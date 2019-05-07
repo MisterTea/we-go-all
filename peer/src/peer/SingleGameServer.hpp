@@ -38,7 +38,7 @@ class SingleGameServer {
           auto peerKey = CryptoHandler::stringToKey<PublicKey>(
               request->path_match[1].str());
           if (peerData.find(peerKey) == peerData.end()) {
-            // LOG(FATAL) << "Invalid peer key: "
+            // LOGFATAL << "Invalid peer key: "
             //            << CryptoHandler::keyToString(peerKey);
             addPeer(peerKey, CryptoHandler::keyToString(peerKey).substr(8));
           }
@@ -52,7 +52,7 @@ class SingleGameServer {
                shared_ptr<HttpServer::Request> request) {
           auto _gameId = sole::rebuild(request->path_match[1].str());
           if (gameId != _gameId) {
-            LOG(FATAL) << "Invalid game id: " << _gameId.str();
+            LOGFATAL << "Invalid game id: " << _gameId.str();
           }
           string hostKeyB64 = CryptoHandler::keyToString(hostKey);
           json retval;
@@ -74,10 +74,10 @@ class SingleGameServer {
 
           string hostKeyB64 = CryptoHandler::keyToString(hostKey);
           if (content["hostKey"].get<string>() != hostKeyB64) {
-            LOG(FATAL) << "Host key does not match";
+            LOGFATAL << "Host key does not match";
           }
           if (sole::rebuild(content["gameId"].get<string>()) != gameId) {
-            LOG(FATAL) << "Game ID does not match";
+            LOGFATAL << "Game ID does not match";
           }
           gameName = content["gameName"].get<string>();
 
@@ -104,7 +104,7 @@ class SingleGameServer {
   void setPeerEndpoints(const PublicKey& key, const vector<string>& endpoints) {
     auto it = peerData.find(key);
     if (it == peerData.end()) {
-      LOG(FATAL) << "Could not find peer: " << CryptoHandler::keyToString(key);
+      LOGFATAL << "Could not find peer: " << CryptoHandler::keyToString(key);
     }
     LOG(INFO) << "SETTING ENDPOINTS";
     for (auto& endpoint : endpoints) {

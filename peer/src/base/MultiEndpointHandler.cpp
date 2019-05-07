@@ -8,7 +8,7 @@ MultiEndpointHandler::MultiEndpointHandler(
       lastUpdateTime(time(NULL)),
       lastUnrepliedSendTime(0) {
   if (endpoints.empty()) {
-    LOG(FATAL) << "Passed an empty endpoints array";
+    LOGFATAL << "Passed an empty endpoints array";
   }
 
   activeEndpoint = endpoints[0];

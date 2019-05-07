@@ -128,6 +128,7 @@ add_library(
   external/miniupnpc-2.1.20190408/miniupnpc.c
   external/miniupnpc-2.1.20190408/igd_desc_parse.c
 
+  src/base/PidController.cpp
   src/base/LocalIpFetcher.cpp
   src/base/BiDirectionalRpc.cpp
   src/base/UdpBiDirectionalRpc.cpp

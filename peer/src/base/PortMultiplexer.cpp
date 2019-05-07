@@ -13,10 +13,10 @@ PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
 void PortMultiplexer::handleRecieve(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
   if (error.value()) {
-    LOG(ERROR) << "Got error when trying to receive packet: " << error.value() << ": " << error.message();
+    LOG(ERROR) << "Got error when trying to receive packet: " << error.value()
+               << ": " << error.message();
     return;
   }
-  lock_guard<recursive_mutex> guard(*netEngine->getMutex());
   VLOG(1) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
   if (bytesTransferred <= WGA_MAGIC.length()) {

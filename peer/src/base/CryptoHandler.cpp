@@ -8,7 +8,7 @@ CryptoHandler::CryptoHandler(const PrivateKey& _myPrivateKey,
   static bool calledInit = false;
   if (!calledInit) {
     if (-1 == sodium_init()) {
-      LOG(FATAL) << "libsodium init failed";
+      LOGFATAL << "libsodium init failed";
     }
   }
   calledInit = true;
@@ -22,7 +22,7 @@ CryptoHandler::~CryptoHandler() {}
 
 EncryptedSessionKey CryptoHandler::generateOutgoingSessionKey() {
   if (outgoingSessionKey != emptySessionKey) {
-    LOG(FATAL) << "Tried to generate a session key when one already exists!";
+    LOGFATAL << "Tried to generate a session key when one already exists!";
   }
   randombytes_buf(outgoingSessionKey.data(), sizeof(SessionKey));
 
@@ -42,7 +42,7 @@ EncryptedSessionKey CryptoHandler::generateOutgoingSessionKey() {
 bool CryptoHandler::recieveIncomingSessionKey(
     const EncryptedSessionKey& otherSessionKey) {
   if (incomingSessionKey != emptySessionKey) {
-    LOG(FATAL) << "Tried to receive a session key when one already exists!";
+    LOGFATAL << "Tried to receive a session key when one already exists!";
   }
 
   Nonce nonce;
@@ -58,7 +58,7 @@ bool CryptoHandler::recieveIncomingSessionKey(
 
 string CryptoHandler::encrypt(const string& buffer) {
   if (outgoingSessionKey == emptySessionKey) {
-    LOG(FATAL) << "Tried to use a session key when one doesn't exist!";
+    LOGFATAL << "Tried to use a session key when one doesn't exist!";
   }
   string retval(
       crypto_secretbox_NONCEBYTES + buffer.length() + crypto_secretbox_MACBYTES,
@@ -76,7 +76,7 @@ string CryptoHandler::encrypt(const string& buffer) {
 
 optional<string> CryptoHandler::decrypt(const string& buffer) {
   if (incomingSessionKey == emptySessionKey) {
-    LOG(FATAL) << "Tried to use a session key when one doesn't exist!";
+    LOGFATAL << "Tried to use a session key when one doesn't exist!";
   }
   if (buffer.length() <=
       (crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES)) {

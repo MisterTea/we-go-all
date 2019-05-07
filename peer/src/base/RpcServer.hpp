@@ -41,7 +41,7 @@ class RpcServer : public PortMultiplexer {
   RpcId request(const PublicKey& publicKey, const string& payload) {
     auto it = endpoints.find(publicKey);
     if (it == endpoints.end()) {
-      LOG(FATAL) << "Tried to send to an invalid endpoint";
+      LOGFATAL << "Tried to send to an invalid endpoint";
     }
     return it->second->request(payload);
   }
@@ -59,7 +59,7 @@ class RpcServer : public PortMultiplexer {
              const string& payload) {
     auto it = endpoints.find(publicKey);
     if (it == endpoints.end()) {
-      LOG(FATAL) << "Could not find endpoint";
+      LOGFATAL << "Could not find endpoint";
     }
     it->second->reply(rpcId, payload);
   }
@@ -91,7 +91,6 @@ class RpcServer : public PortMultiplexer {
   void runUntilInitialized() {
     while (true) {
       {
-        lock_guard<recursive_mutex> guard(*netEngine->getMutex());
         if (readyToSend()) {
           break;
         }
@@ -105,7 +104,6 @@ class RpcServer : public PortMultiplexer {
   void finish() {
     while (hasWork()) {
       {
-        lock_guard<recursive_mutex> guard(*netEngine->getMutex());
         heartbeat();
       }
       LOG(INFO) << "WAITING FOR FINISH";
@@ -132,7 +130,7 @@ class RpcServer : public PortMultiplexer {
 
   PublicKey getMyPublicKey() {
     if (endpoints.empty()) {
-      LOG(FATAL) << "Tried to get key without endpoints";
+      LOGFATAL << "Tried to get key without endpoints";
     }
     return endpoints.begin()->second->getCryptoHandler()->getMyPublicKey();
   }
@@ -146,8 +144,8 @@ class RpcServer : public PortMultiplexer {
       const PublicKey& key) {
     auto it = endpoints.find(key);
     if (it == endpoints.end()) {
-      LOG(FATAL) << "Invalid endpoint handler: "
-                 << CryptoHandler::keyToString(key);
+      LOGFATAL << "Invalid endpoint handler: "
+               << CryptoHandler::keyToString(key);
     }
     return it->second;
   }

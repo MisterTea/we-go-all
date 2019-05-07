@@ -167,7 +167,7 @@ vector<string> LocalIpFetcher::fetch(int port, bool udp) {
   freeifaddrs(myaddrs);
 #endif
   if (localIps.empty()) {
-    LOG(FATAL) << "No ip addresses";
+    LOGFATAL << "No ip addresses";
   }
   // return vector<string>(localIps.begin(), localIps.end());
   return vector<string>();

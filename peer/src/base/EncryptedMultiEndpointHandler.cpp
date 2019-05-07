@@ -8,7 +8,7 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
     : MultiEndpointHandler(_netEngine, _localSocket, endpoints),
       cryptoHandler(_cryptoHandler) {
   if (cryptoHandler->canDecrypt() || cryptoHandler->canEncrypt()) {
-    LOG(FATAL) << "Created endpoint handler with session key";
+    LOGFATAL << "Created endpoint handler with session key";
   }
 
   // Send session key as a one-way rpc
@@ -30,7 +30,7 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
 
 void EncryptedMultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
   if (!readyToSend()) {
-    LOG(FATAL) << "Tried to send data before we were ready";
+    LOGFATAL << "Tried to send data before we were ready";
   }
   IdPayload encryptedIdPayload =
       IdPayload(idPayload.id, cryptoHandler->encrypt(idPayload.payload));
@@ -39,8 +39,9 @@ void EncryptedMultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
 
 void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
                                           const string& payload) {
+  lock_guard<recursive_mutex> guard(mutex);
   if (!readyToSend()) {
-    LOG(FATAL) << "Got reply before we were ready, something went wrong";
+    LOGFATAL << "Got reply before we were ready, something went wrong";
   }
   string encryptedPayload = cryptoHandler->encrypt(payload);
   MultiEndpointHandler::reply(rpcId, encryptedPayload);
@@ -48,6 +49,7 @@ void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
 
 void EncryptedMultiEndpointHandler::addIncomingRequest(
     const IdPayload& idPayload) {
+  lock_guard<recursive_mutex> guard(mutex);
   if (idPayload.id == SESSION_KEY_RPCID) {
     // Handshaking
     LOG(INFO) << "GOT HANDSHAKE";
@@ -56,7 +58,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     PublicKey publicKey =
         CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
     if (publicKey != cryptoHandler->getOtherPublicKey()) {
-      LOG(FATAL) << "Somehow got the wrong public key!";
+      LOGFATAL << "Somehow got the wrong public key!";
     }
     EncryptedSessionKey encryptedSessionKey =
         CryptoHandler::stringToKey<EncryptedSessionKey>(
@@ -88,6 +90,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
 
 void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
                                                      const string& payload) {
+  lock_guard<recursive_mutex> guard(mutex);
   if (!readyToSend()) {
     LOG(ERROR) << "Got reply before we were ready, something went wrong";
     return;

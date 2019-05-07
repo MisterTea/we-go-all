@@ -12,15 +12,15 @@ class ChronoMap {
   void put(int64_t lastExpirationTime, int64_t newExpirationTime,
            unordered_map<K, V> data) {
     if (lastExpirationTime < 0) {
-      LOG(FATAL) << "Tried to put before start time";
+      LOGFATAL << "Tried to put before start time";
     }
     if (lastExpirationTime < expirationTime) {
       VLOG(1) << "Tried to add a time interval that overlaps";
       return;
     }
     if (lastExpirationTime >= newExpirationTime) {
-      LOG(FATAL) << "Invalid start/end time: " << lastExpirationTime << " "
-                 << newExpirationTime;
+      LOGFATAL << "Invalid start/end time: " << lastExpirationTime << " "
+               << newExpirationTime;
     }
     if (lastExpirationTime != expirationTime) {
       futureData.insert(
@@ -33,7 +33,7 @@ class ChronoMap {
 
   optional<V> get(int64_t timestamp, const K& key) const {
     if (timestamp < 0) {
-      LOG(FATAL) << "Invalid time stamp";
+      LOGFATAL << "Invalid time stamp";
     }
     if (timestamp >= expirationTime) {
       LOG(INFO) << "Tried to get a key from the future";
@@ -73,7 +73,7 @@ class ChronoMap {
   V getOrDie(int64_t timestamp, const K& key) const {
     auto v = get(timestamp, key);
     if (v == nullopt) {
-      LOG(FATAL) << "Tried to get a null value: " << timestamp << " " << key;
+      LOGFATAL << "Tried to get a null value: " << timestamp << " " << key;
     }
     return *v;
   }
@@ -83,10 +83,13 @@ class ChronoMap {
   bool empty() const { return expirationTime == 0; }
 
   void blockUntilTime(int64_t timestamp) {
+    LOG(INFO) << "Waiting for time: " << expirationTime << " < " << timestamp;
     while (expirationTime <= timestamp) {
-      LOG(INFO) << "Waiting for time: " << expirationTime << " < " << timestamp;
-      usleep(100 * 1000);
+      // Yield the processor
+      usleep(0);
     }
+    LOG(INFO) << "Done waiting for time: " << expirationTime << " < "
+              << timestamp;
   }
 
  protected:
@@ -97,10 +100,10 @@ class ChronoMap {
   void addNextTimeBlock(int64_t lastExpirationTime, int64_t newExpirationTime,
                         unordered_map<K, V> newData) {
     if (expirationTime != lastExpirationTime) {
-      LOG(FATAL) << "Tried to add an invalid time block";
+      LOGFATAL << "Tried to add an invalid time block";
     }
     if (data.empty() && lastExpirationTime != 0) {
-      LOG(FATAL) << "Inserting into an empty map should always use 0";
+      LOGFATAL << "Inserting into an empty map should always use 0";
     }
 
     expirationTime = newExpirationTime;

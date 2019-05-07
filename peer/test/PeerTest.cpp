@@ -135,10 +135,10 @@ TEST_F(PeerTest, TwoPeers) {
   initGameServer(2);
   LOG(INFO) << "CREATING PEERS";
   vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, 11000,
-                                    "localhost", 20000)),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, 11001,
-                                    "localhost", 20000)),
+      shared_ptr<MyPeer>(
+          new MyPeer(netEngine, keys[0].second, 11000, "localhost", 20000)),
+      shared_ptr<MyPeer>(
+          new MyPeer(netEngine, keys[1].second, 11001, "localhost", 20000)),
   };
   peers[0]->host("Starwars");
   LOG(INFO) << "STARTING PEERS";
@@ -173,12 +173,12 @@ TEST_F(PeerTest, ThreePeers) {
   initGameServer(3);
   LOG(INFO) << "CREATING PEERS";
   vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[0].second, 11000,
-                                    "localhost", 20000)),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[1].second, 11001,
-                                    "localhost", 20000)),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, keys[2].second, 11002,
-                                    "localhost", 20000)),
+      shared_ptr<MyPeer>(
+          new MyPeer(netEngine, keys[0].second, 11000, "localhost", 20000)),
+      shared_ptr<MyPeer>(
+          new MyPeer(netEngine, keys[1].second, 11001, "localhost", 20000)),
+      shared_ptr<MyPeer>(
+          new MyPeer(netEngine, keys[2].second, 11002, "localhost", 20000)),
   };
   peers[0]->host("Starwars");
   LOG(INFO) << "STARTING PEERS";

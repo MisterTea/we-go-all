@@ -2,13 +2,12 @@
 
 namespace wga {
 void UdpBiDirectionalRpc::send(const string& message) {
-  auto localSocket_ = localSocket;
-  auto activeEndpoint_ = activeEndpoint;
-  netEngine->getIoService()->post([localSocket_, activeEndpoint_, message]() {
+  netEngine->getIoService()->post([this, message]() {
+    lock_guard<recursive_mutex> guard(this->mutex);
     VLOG(1) << "IN SEND LAMBDA: " << message.length() << " TO "
-            << activeEndpoint_;
+            << this->activeEndpoint;
     int bytesSent =
-        localSocket_->send_to(asio::buffer(message), activeEndpoint_);
+        this->localSocket->send_to(asio::buffer(message), this->activeEndpoint);
     VLOG(1) << bytesSent << " bytes sent";
   });
 }
