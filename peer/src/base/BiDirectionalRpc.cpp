@@ -349,8 +349,8 @@ void BiDirectionalRpc::updateDrift(int64_t requestSendTime,
           << (replySendTime - requestReceiptTime);
   if (rand() % 100 < 3) {  // hack to do something about 1/100 times
     VLOG(2) << "Time Sync Info: " << timeOffset << " " << ping << " "
-              << (replyRecieveTime - requestSendTime) << " "
-              << (replySendTime - requestReceiptTime);
+            << (replyRecieveTime - requestSendTime) << " "
+            << (replySendTime - requestReceiptTime);
     int64_t sumShift = 0;
     int64_t shiftCount = 0;
     for (int i = max(0, int(networkStatsQueue.size()) - 100);
