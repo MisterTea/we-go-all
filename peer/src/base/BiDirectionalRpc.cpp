@@ -100,7 +100,7 @@ void BiDirectionalRpc::receive(const string& message) {
                           "didn't have: "
                        << it->first.str();
             }
-            LOG(INFO) << "Erasing receieve time for " << it->first.str();
+            VLOG(2) << "Erasing receieve time for " << it->first.str();
             requestRecieveTimeMap.erase(it->first);
             outgoingReplies.erase(it);
             break;
@@ -330,7 +330,7 @@ void BiDirectionalRpc::addIncomingRequest(const IdPayload& idPayload) {
   if (requestRecieveTimeMap.find(idPayload.id) != requestRecieveTimeMap.end()) {
     LOGFATAL << "Already created receive time for id: " << idPayload.id.str();
   }
-  LOG(INFO) << "Setting receive time: " << idPayload.id.str();
+  VLOG(2) << "Setting receive time: " << idPayload.id.str();
   requestRecieveTimeMap[idPayload.id] = TimeHandler::currentTimeMicros();
   incomingRequests.insert(make_pair(idPayload.id, idPayload.payload));
 }

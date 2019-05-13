@@ -4,9 +4,9 @@ project (WeGoAll VERSION 0.0.1)
 option(BUILD_TEST "Build all unit test" ON)
 option(CODE_COVERAGE "Enable code coverage" OFF)
 
-# Enable C++-11
+# Enable C++-17
 if(UNIX)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
 endif()
 
 # Flags for miniupnpc
@@ -28,11 +28,6 @@ SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-pie")
 ENDIF()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWGA_VERSION='\"${PROJECT_VERSION}\"'")
-
-include(CheckIncludeFileCXX)
-SET(CMAKE_REQUIRED_INCLUDES "${CMAKE_SOURCE_DIR}/external/asio/asio/include")
-SET(CMAKE_REQUIRED_DEFINITIONS "-DASIO_STANDALONE -D_WIN32_WINNT=_WIN32_WINNT_WIN7")
-SET(USE_STANDALONE_ASIO ON CACHE BOOL "set ON to use standalone Asio instead of Boost.Asio")
 
 IF(BUILD_TEST)
   add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)

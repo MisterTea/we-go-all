@@ -84,7 +84,7 @@
 
 #include "stats/include/stats.hpp"
 
-#if !defined(_LIBCPP_OPTIONAL) || defined(__APPLE__)
+#if !defined(_LIBCPP_OPTIONAL)
 #include "Optional/optional.hpp"
 using namespace std::experimental;
 #endif
