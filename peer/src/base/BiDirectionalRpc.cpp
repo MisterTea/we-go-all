@@ -3,11 +3,7 @@
 #include "TimeHandler.hpp"
 
 namespace wga {
-BiDirectionalRpc::BiDirectionalRpc()
-    : onBarrier(0),
-      onId(0),
-      flaky(false),
-      timeOffsetController(1.0, 1000000, -1000000, 0.6, 1.2, 1.0) {}
+BiDirectionalRpc::BiDirectionalRpc() : onBarrier(0), onId(0), flaky(false) {}
 
 BiDirectionalRpc::~BiDirectionalRpc() {}
 
@@ -339,41 +335,36 @@ void BiDirectionalRpc::updateDrift(int64_t requestSendTime,
                                    int64_t requestReceiptTime,
                                    int64_t replySendTime,
                                    int64_t replyRecieveTime) {
-  int64_t timeOffset = ((requestReceiptTime - requestSendTime) +
-                        (replySendTime - replyRecieveTime)) /
+  int64_t ping_2 = int64_t(pingEstimator.getMean() / 2.0);
+  int64_t timeOffset = ((requestReceiptTime - requestSendTime - ping_2) +
+                        (replySendTime - replyRecieveTime - ping_2)) /
                        2;
   int64_t ping = (replyRecieveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
-  VLOG(2) << "Time Sync Info: " << timeOffset << " " << ping << " "
-          << (replyRecieveTime - requestSendTime) << " "
-          << (replySendTime - requestReceiptTime);
-  if (rand() % 100 < 3) {  // hack to do something about 1/100 times
+  if (networkStatsQueue.size() >= 100) {
     VLOG(2) << "Time Sync Info: " << timeOffset << " " << ping << " "
-            << (replyRecieveTime - requestSendTime) << " "
-            << (replySendTime - requestReceiptTime);
+              << (replyRecieveTime - requestSendTime) << " "
+              << (replySendTime - requestReceiptTime);
     int64_t sumShift = 0;
     int64_t shiftCount = 0;
-    for (int i = max(0, int(networkStatsQueue.size()) - 100);
-         i < networkStatsQueue.size(); i++) {
+    for (int i = 0; i < networkStatsQueue.size(); i++) {
       sumShift += networkStatsQueue.at(i).offset;
       shiftCount++;
     }
-    if (shiftCount) {
-      VLOG(2) << "New shift: " << (sumShift / shiftCount);
-      auto shift =
-          std::chrono::microseconds{sumShift / shiftCount / int64_t(5)};
-      VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
-      TimeHandler::initialTime -= shift;
-      VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
-    }
+    VLOG(2) << "New shift: " << (sumShift / shiftCount);
+    auto shift = std::chrono::microseconds{sumShift / shiftCount / int64_t(-5)};
+    VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
+    TimeHandler::timeShift += shift;
+    VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
+    pingEstimator.addSample(ping);
+    VLOG(2) << "Ping Estimate: " << pingEstimator.getMean() << " +/- "
+              << sqrt(pingEstimator.getVariance());
+    networkStatsQueue.clear();
   }
   // auto shift = std::chrono::microseconds{
   //     int64_t(timeOffsetController.calculate(0, double(timeOffset)))};
   // TimeHandler::initialTime += shift;
   networkStatsQueue.push_back({timeOffset, ping});
-  while (networkStatsQueue.size() > 1000) {
-    networkStatsQueue.pop_front();
-  }
 }
 
 }  // namespace wga

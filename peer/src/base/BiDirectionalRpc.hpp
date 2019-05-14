@@ -6,6 +6,7 @@
 #include "MessageWriter.hpp"
 #include "PidController.hpp"
 #include "RpcId.hpp"
+#include "WelfordEstimator.hpp"
 
 namespace wga {
 class IdPayload {
@@ -135,8 +136,8 @@ class BiDirectionalRpc {
     int64_t offset;
     int64_t ping;
   };
-  deque<NetworkStats> networkStatsQueue;
-  PidController timeOffsetController;
+  vector<NetworkStats> networkStatsQueue;
+  WelfordEstimator pingEstimator;
 
   void handleRequest(const RpcId& rpcId, const string& payload);
   virtual void handleReply(const RpcId& rpcId, const string& payload);

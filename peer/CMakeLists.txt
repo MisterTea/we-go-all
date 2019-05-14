@@ -72,6 +72,7 @@ include_directories(
   external/asio/asio/include
   external/json/include
   external/msgpack-c/include
+  external/Eigen
   ${sodium_INCLUDE_DIR}
   )
 

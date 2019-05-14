@@ -43,3 +43,9 @@
 [submodule "peer/external/stats"]
 	path = peer/external/stats
 	url = https://github.com/kthohr/stats.git
+[submodule "peer/external/kalman"]
+	path = peer/external/kalman
+	url = https://github.com/mherb/kalman.git
+[submodule "peer/external/eigen"]
+	path = peer/external/eigen
+	url = https://github.com/eigenteam/eigen-git-mirror.git
