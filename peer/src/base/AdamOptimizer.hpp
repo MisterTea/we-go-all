@@ -20,9 +20,7 @@ class AdamOptimizer {
     return currentValue;
   }
 
-  void force(double value) {
-    currentValue = value;
-  }
+  void force(double value) { currentValue = value; }
 
   double getCurrentValue() { return currentValue; }
 
