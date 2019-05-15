@@ -1,6 +1,8 @@
 var db = require('./db');
 var ObjectId = require('mongoose').Types.ObjectId;
+import { PubSub } from 'graphql-subscriptions';
 
+export const pubsub = new PubSub();
 export const resolvers = {
   User: {
   },
@@ -32,5 +34,15 @@ export const resolvers = {
         throw new Error('Not logged in');
       }
     }
+  },
+  Subscription: {
+    gameUpdated: {
+      subscribe: () => pubsub.asyncIterator('gameUpdated')
+    }
   }
 };
+
+setInterval(() => {
+  console.log("PUBLISHING");
+  pubsub.publish('gameUpdated', { gameUpdated: { id: "123", gameName: "foobar" } });
+}, 1000);

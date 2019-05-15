@@ -6,6 +6,10 @@
     "/graphql": {
       "target": "http://127.0.0.1:3000"
     },
+    "/subscriptions": {
+      "target": "http://127.0.0.1:3000",
+      "ws": true
+    },
     "/api": {
       "target": "http://127.0.0.1:3000"
     },
@@ -24,7 +28,9 @@
     "@types/graphql": "^14.0.7",
     "@types/js-cookie": "^2.2.1",
     "@types/react-bootstrap": "^0.32.15",
+    "@types/ws": "^6.0.1",
     "apollo-boost": "^0.3.1",
+    "apollo-link-ws": "^1.0.17",
     "axios": "^0.18.0",
     "bootstrap": "^3.4.0",
     "bootstrap-social": "^5.1.1",
@@ -41,7 +47,9 @@
     "react-bootstrap": "^0.32.4",
     "react-dom": "^16.7.0",
     "react-scripts-ts": "3.1.0",
-    "strip-json-comments": "^2.0.1"
+    "strip-json-comments": "^2.0.1",
+    "subscriptions-transport-ws": "^0.9.16",
+    "ws": "^7.0.0"
   },
   "scripts": {
     "start": "cross-env PORT=3006 react-scripts-ts start",

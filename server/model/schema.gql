@@ -9,6 +9,10 @@ type Mutation {
   joinGame(gameId: ID!): Game
 }
 
+type Subscription {
+  gameUpdated: Game!
+}
+
 type User {
   id: ID!
   name: String
