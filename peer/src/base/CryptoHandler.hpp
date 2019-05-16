@@ -37,7 +37,7 @@ class CryptoHandler {
 
   static PublicKey makePublicFromPrivate(const PrivateKey& privateKey) {
     PublicKey publicKey;
-    crypto_scalarmult_base(publicKey.data(), privateKey.data());
+    SODIUM_FAIL(crypto_scalarmult_base(publicKey.data(), privateKey.data()));
     return publicKey;
   }
 

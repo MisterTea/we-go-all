@@ -129,7 +129,8 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
       vector<string> tokens = split(endpointString, ':');
       endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
     }
-    if (endpoints.empty()) {
+    if (endpoints.empty() || peerDataObject.size() == 1) {
+      // Note: This blocks until there is a second player
       updateTimer->expires_at(updateTimer->expires_at() +
                               asio::chrono::milliseconds(1000));
       updateTimer->async_wait(

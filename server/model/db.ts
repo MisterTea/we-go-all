@@ -30,7 +30,6 @@ var UserSchema = new mongoose.Schema({
   name: {
     type: String,
     index: {
-      unique: true,
       partialFilterExpression: { name: { $type: 'string' } },
     },
   },
