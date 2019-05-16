@@ -27,6 +27,14 @@ class CryptoHandler {
                 const PublicKey& _otherPublicKey);
   ~CryptoHandler();
 
+  static PrivateKey makePrivateKeyFromPassword(const string& password) {
+    PrivateKey privateKey;
+    SODIUM_FAIL(crypto_hash_sha256(privateKey.data(),
+                                   (const unsigned char*)password.c_str(),
+                                   password.length()));
+    return privateKey;
+  }
+
   static PublicKey makePublicFromPrivate(const PrivateKey& privateKey) {
     PublicKey publicKey;
     crypto_scalarmult_base(publicKey.data(), privateKey.data());

@@ -22,7 +22,13 @@ class PeerTest : public testing::Test {
 
   void initGameServer(int numPlayers) {
     for (int a = 0; a < numPlayers; a++) {
-      keys.push_back(CryptoHandler::generateKey());
+      if (!a) {
+        auto privateKey = CryptoHandler::makePrivateKeyFromPassword("FooBar");
+        auto publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
+        keys.push_back(make_pair(publicKey, privateKey));
+      } else {
+        keys.push_back(CryptoHandler::generateKey());
+      }
     }
     server.reset(new SingleGameServer(20000, keys[0].first, names[0]));
     for (int a = 1; a < numPlayers; a++) {

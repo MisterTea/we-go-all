@@ -16,16 +16,19 @@ class AppState {
   @observable userId: string | null = null;
   @observable errorMessages: string[] = [];
   @observable publicKey: string = "";
-  @observable name: string = "Player";
+  @observable privateKey: string = "";
+  @observable name: string = "";
+  @observable activeGames: any[] = [];
   errorClearTime: number | null = null;
   client: any | null = null;
 
   static readonly ALERT_SHOW_TIME: number = 5;
 
-  constructor() {
+  constructor(fn: any) {
     // Create an http link:
     const httpLink = new HttpLink({
-      uri: '/graphql'
+      uri: '/graphql',
+      credentials: 'same-origin',
     });
 
     // Create a WebSocket link:
@@ -68,8 +71,33 @@ class AppState {
     });
 
     let outerThis = this;
+    this.client.query({
+      query: gql`
+      {
+        activeGames {
+          id,
+          gameName,
+          host {
+            id,
+            name
+          },
+          peers {
+            id,
+            name,
+          }
+        }
+      }
+      `
+    }).then((result: any) => {
+      let data: any = result.data;
+      console.log("GOT DATA:");
+      console.log(data);
+      outerThis.activeGames = data.activeGames;
+    });
+
     let user_id = Cookies.get('user_id');
     if (user_id) {
+      console.log("USER ID: " + user_id);
       this.client.query({
         query: gql`
         {
@@ -88,6 +116,7 @@ class AppState {
         outerThis.name = data.me.name;
         outerThis.publicKey = data.me.publicKey;
         console.log(outerThis.publicKey);
+        fn();
       })
     }
     setInterval(() => {
@@ -138,14 +167,57 @@ class AppState {
     window.location.href = "/login/discord";
   }
 
-  setPublicKey(publicKey: string) {
-    axios.post(`/api/set_user_info`, { publicKey })
-      .then(res => {
-        this.publicKey = publicKey;
-      }).catch((error: Error) => {
-        // handle error
-        console.log(error);
-      });
+  updateMe(publicKey: string, name: string) {
+    this.client.mutate({
+      variables: { publicKey, name },
+      mutation: gql`
+      mutation UpdateMe($name:String, $publicKey:String) {
+        updateMe(name:$name, publicKey:$publicKey) {
+          id,
+          name,
+          publicKey
+        }
+      }`
+    }).then((result: any) => {
+      let data: any = result.data;
+      console.log("GOT DATA:");
+      console.log(data);
+      this.userId = data.updateMe.id;
+      this.name = data.updateMe.name;
+      this.publicKey = data.updateMe.publicKey;
+      console.log(this.publicKey);
+    })
+  }
+
+  hostGame() {
+    this.client.mutate({
+      mutation: gql`
+      mutation HostGame {
+        hostGame {
+          id,
+        }
+      }`
+    }).then((result: any) => {
+      let data: any = result.data;
+      console.log("GOT RESULT:");
+      console.log(data);
+    })
+  }
+
+  joinGame(gameId: string) {
+    this.client.mutate({
+      variables: { gameId },
+      mutation: gql`
+      mutation JoinGame($gameId:ID!) {
+        joinGame(gameId:$gameId) {
+          id,
+        }
+      }`
+    }).then((result: any) => {
+      let data: any = result.data;
+      console.log("GOT RESULT:");
+      console.log(data);
+    })
   }
 }
 

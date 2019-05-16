@@ -5,8 +5,9 @@ type Query {
 }
 
 type Mutation {
-  hostGame(gameName: String!): Game!
+  hostGame: Game!
   joinGame(gameId: ID!): Game
+  updateMe(name: String, publicKey: String): User!
 }
 
 type Subscription {
@@ -28,7 +29,7 @@ type UserPrivate {
 type Game {
   id: ID!
   gameName: String!
-  host: String
+  host: User
   peers: [User]
   active: Boolean
 }

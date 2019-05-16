@@ -86,6 +86,7 @@ const apollo = new ApolloServer({
   // These will be defined for both new or existing servers
   typeDefs,
   resolvers,
+  context: ({ req }) => ({ req }),
   subscriptions: {
     path: '/subscriptions',
     onConnect: () => console.log('Connected to websocket'),

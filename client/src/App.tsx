@@ -1,14 +1,14 @@
 import * as React from 'react';
-import './App.css';
 import { observer } from 'mobx-react';
 import DevTools from 'mobx-react-devtools';
-import logo from './logo.svg';
 import AppState from './AppState';
 import { Alert } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDiscord, faGithub } from '@fortawesome/free-brands-svg-icons'
-import KeyDetails from './KeyDetails';
+import UserDetails from './UserDetails';
 import Lobby from './Lobby';
+import { ApolloProvider } from "react-apollo";
+import { Container, Row, Col } from 'react-bootstrap'
 
 @observer
 class App extends React.Component<{ appState: AppState }, { [username: string]: string, password: string }> {
@@ -71,31 +71,35 @@ class App extends React.Component<{ appState: AppState }, { [username: string]: 
       );
     } else {
       body = (
-        <div>
-          <KeyDetails appState={this.props.appState}></KeyDetails>
-          <Lobby appState={this.props.appState}></Lobby>
-        </div>
+        <Container>
+          <Row>
+            <Col>1 of 3</Col>
+            <Col xs={6}>
+              <UserDetails appState={this.props.appState}></UserDetails>
+              <Lobby appState={this.props.appState}></Lobby>
+            </Col>
+            <Col>3 of 3</Col>
+          </Row>
+        </Container>
       );
     }
 
     var alert = null;
     if (this.props.appState.errorMessages.length > 0) {
       alert = (
-        <Alert bsStyle="warning" className="alert-fixed">
+        <Alert variant="warning" className="alert-fixed">
           {this.props.appState.errorMessages[0]}
         </Alert>
       );
     }
     return (
-      <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <h1 className="App-title">Welcome to React: {this.props.appState.timer}</h1>
-        </header>
-        {alert}
-        {body}
-        <DevTools />
-      </div>
+      <ApolloProvider client={this.props.appState.client}>
+        <div className="App">
+          {alert}
+          {body}
+          <DevTools />
+        </div>
+      </ApolloProvider>
     );
   }
 }

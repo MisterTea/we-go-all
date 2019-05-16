@@ -5,14 +5,14 @@ import App from './App';
 import AppState from './AppState';
 
 import 'bootstrap/dist/css/bootstrap.css';
-import 'bootstrap/dist/css/bootstrap-theme.css';
 import 'bootstrap-social/bootstrap-social.css';
 import './index.css';
+import './App.css';
 
-let appState = new AppState();
-
-ReactDOM.render(
-  <App appState={appState} />,
-  document.getElementById('root') as HTMLElement
-);
-//registerServiceWorker();
+let appState = new AppState(() => {
+  ReactDOM.render(
+    <App appState={appState} />,
+    document.getElementById('root') as HTMLElement
+  );
+  //registerServiceWorker();
+});
