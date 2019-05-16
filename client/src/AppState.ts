@@ -118,6 +118,8 @@ class AppState {
         console.log(outerThis.publicKey);
         fn();
       })
+    } else {
+      setTimeout(fn, 1);
     }
     setInterval(() => {
       this.timer += 1;
