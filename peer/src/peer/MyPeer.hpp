@@ -42,6 +42,14 @@ class MyPeer {
     return rpcServer->getPeerLatency();
   }
 
+  string getGameName() {
+    return gameName;
+  }
+
+  void addPeerEndpoint(const PublicKey& peer, udp::endpoint endpoint) {
+    rpcServer->addPeerEndpoint(peer, endpoint);
+  }
+
  protected:
   bool shuttingDown;
   shared_ptr<NetEngine> netEngine;

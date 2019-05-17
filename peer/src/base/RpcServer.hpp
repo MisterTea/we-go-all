@@ -158,6 +158,10 @@ class RpcServer : public PortMultiplexer {
     return retval;
   }
 
+  void addPeerEndpoint(const PublicKey& peer, udp::endpoint endpoint) {
+    endpoints.at(peer)->addEndpoint(endpoint);
+  }
+
  protected:
   map<PublicKey, shared_ptr<EncryptedMultiEndpointHandler>> endpoints;
 };
