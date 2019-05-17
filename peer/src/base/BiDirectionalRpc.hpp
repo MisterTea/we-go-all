@@ -115,6 +115,10 @@ class BiDirectionalRpc {
            !incomingReplies.empty();
   }
 
+  pair<double, double> getLatency() {
+    return make_pair(pingEstimator.getMean(), offsetEstimator.getMean());
+  }
+
  protected:
   unordered_map<RpcId, string> delayedRequests;
   unordered_map<RpcId, string> outgoingRequests;

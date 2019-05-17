@@ -38,6 +38,10 @@ class MyPeer {
     }
   }
 
+  map<PublicKey, pair<double, double>> getPeerLatency() {
+    return rpcServer->getPeerLatency();
+  }
+
  protected:
   bool shuttingDown;
   shared_ptr<NetEngine> netEngine;

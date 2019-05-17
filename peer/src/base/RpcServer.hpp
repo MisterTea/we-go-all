@@ -150,6 +150,14 @@ class RpcServer : public PortMultiplexer {
     return it->second;
   }
 
+  map<PublicKey, pair<double, double>> getPeerLatency() {
+    map<PublicKey, pair<double, double>> retval;
+    for (const auto& it : endpoints) {
+      retval[it.first] = it.second->getLatency();
+    }
+    return retval;
+  }
+
  protected:
   map<PublicKey, shared_ptr<EncryptedMultiEndpointHandler>> endpoints;
 };
