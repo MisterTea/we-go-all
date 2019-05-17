@@ -137,6 +137,7 @@ class BiDirectionalRpc {
     int64_t ping;
   };
   vector<NetworkStats> networkStatsQueue;
+  WelfordEstimator offsetEstimator;
   WelfordEstimator pingEstimator;
 
   void handleRequest(const RpcId& rpcId, const string& payload);

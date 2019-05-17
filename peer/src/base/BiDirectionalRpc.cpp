@@ -341,10 +341,15 @@ void BiDirectionalRpc::updateDrift(int64_t requestSendTime,
                        2;
   int64_t ping = (replyRecieveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
+  pingEstimator.addSample(ping);
+  offsetEstimator.addSample(timeOffset);
+  TimeHandler::timeShift =
+      std::chrono::microseconds{-1 * int64_t(offsetEstimator.getMean())};
+#if 0
   if (networkStatsQueue.size() >= 100) {
     VLOG(2) << "Time Sync Info: " << timeOffset << " " << ping << " "
-              << (replyRecieveTime - requestSendTime) << " "
-              << (replySendTime - requestReceiptTime);
+            << (replyRecieveTime - requestSendTime) << " "
+            << (replySendTime - requestReceiptTime);
     int64_t sumShift = 0;
     int64_t shiftCount = 0;
     for (int i = 0; i < networkStatsQueue.size(); i++) {
@@ -358,13 +363,11 @@ void BiDirectionalRpc::updateDrift(int64_t requestSendTime,
     VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
     pingEstimator.addSample(ping);
     VLOG(2) << "Ping Estimate: " << pingEstimator.getMean() << " +/- "
-              << sqrt(pingEstimator.getVariance());
+            << sqrt(pingEstimator.getVariance());
     networkStatsQueue.clear();
   }
-  // auto shift = std::chrono::microseconds{
-  //     int64_t(timeOffsetController.calculate(0, double(timeOffset)))};
-  // TimeHandler::initialTime += shift;
   networkStatsQueue.push_back({timeOffset, ping});
+#endif
 }
 
 }  // namespace wga

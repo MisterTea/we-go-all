@@ -84,7 +84,9 @@
 
 #include "stats/include/stats.hpp"
 
-#if !defined(_LIBCPP_OPTIONAL)
+#if __cplusplus >= 201703L
+#include <optional>
+#else
 #include "Optional/optional.hpp"
 using namespace std::experimental;
 #endif
