@@ -32,7 +32,7 @@ class SingleGameServer {
     hostKey = _hostKey;
     addPeer(hostKey, hostName);
 
-    server.resource["^/get_current_game_id/(.+)$"]["GET"] =
+    server.resource["^/api/get_current_game_id/(.+)$"]["GET"] =
         [this](shared_ptr<HttpServer::Response> response,
                shared_ptr<HttpServer::Request> request) {
           auto peerKey = CryptoHandler::stringToKey<PublicKey>(
@@ -47,7 +47,7 @@ class SingleGameServer {
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
         };
 
-    server.resource["^/get_game_info/(.+)$"]["GET"] =
+    server.resource["^/api/get_game_info/(.+)$"]["GET"] =
         [this](shared_ptr<HttpServer::Response> response,
                shared_ptr<HttpServer::Request> request) {
           auto _gameId = sole::rebuild(request->path_match[1].str());
@@ -66,7 +66,7 @@ class SingleGameServer {
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
         };
 
-    server.resource["^/host$"]["POST"] =
+    server.resource["^/api/host$"]["POST"] =
         [this](shared_ptr<HttpServer::Response> response,
                shared_ptr<HttpServer::Request> request) {
           auto content = json::parse(request->content.string());

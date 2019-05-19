@@ -2,10 +2,9 @@ var dgram = require('dgram');
 var db = require('../model/db');
 var logger = require('./logger').logger;
 
-var PORT = 3000;
 var HOST = '127.0.0.1';
 
-exports.start = function () {
+exports.start = function (port: number) {
   var socket = dgram.createSocket('udp4');
 
   socket.on('listening', function () {
@@ -20,7 +19,7 @@ exports.start = function () {
       var replyMessage = "ERROR";
       socket.send(replyMessage, 0, replyMessage.length, remote.port, remote.address, function (err: any, bytes: any) {
         if (err) throw err;
-        logger.info('UDP message sent to ' + HOST + ':' + PORT + ' - ' + replyMessage);
+        logger.info('UDP message sent to ' + HOST + ':' + port + ' - ' + replyMessage);
       });
       return;
     }
@@ -45,7 +44,7 @@ exports.start = function () {
       // Update the endpoints
     }));
   });
-  socket.bind(PORT, HOST);
+  socket.bind(port, HOST);
 
   return socket;
 }

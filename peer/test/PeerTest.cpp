@@ -63,19 +63,19 @@ TEST_F(PeerTest, ProtocolTest) {
   HttpClient client("localhost:20000");
   string hostKey = CryptoHandler::keyToString(keys[0].first);
 
-  string path = string("/get_current_game_id/") + hostKey;
+  string path = string("/api/get_current_game_id/") + hostKey;
   auto response = client.request("GET", path);
   json result = json::parse(response->content.string());
   uuid gameId = sole::rebuild(result["gameId"]);
   EXPECT_EQ(gameId.str(), server->getGameId().str());
 
-  path = string("/host");
+  path = string("/api/host");
   json request = {
       {"hostKey", hostKey}, {"gameId", gameId.str()}, {"gameName", "Starwars"}};
   response = client.request("POST", path, request.dump(2));
   EXPECT_EQ(response->status_code, "200 OK");
 
-  path = string("/get_game_info/") + gameId.str();
+  path = string("/api/get_game_info/") + gameId.str();
   response = client.request("GET", path);
   result = json::parse(response->content.string());
   EXPECT_EQ(result["gameName"], "Starwars");
@@ -101,7 +101,7 @@ TEST_F(PeerTest, ProtocolTest) {
 
   this_thread::sleep_for(chrono::seconds(1));
 
-  path = string("/get_game_info/") + gameId.str();
+  path = string("/api/get_game_info/") + gameId.str();
   response = client.request("GET", path);
   result = json::parse(response->content.string());
   EXPECT_EQ(result["gameName"], "Starwars");

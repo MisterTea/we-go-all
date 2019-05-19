@@ -46,7 +46,12 @@ var UserSchema = new mongoose.Schema({
 exports.users = mongoose.model('User', UserSchema);
 
 var GameSchema = new mongoose.Schema({
-  gameName: String,
+  gameName: {
+    type: String,
+    index: {
+      partialFilterExpression: { publicKey: { $type: 'string' } },
+    },
+  },
   host: ObjectId,
   peers: [ObjectId],
   active: Boolean,

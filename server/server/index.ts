@@ -114,7 +114,7 @@ let currentApp = app;
  */
 
 var server = http.createServer(app);
-var udpServer = UdpServer.start();
+var udpServer = UdpServer.start(port);
 
 apollo.installSubscriptionHandlers(server)
 

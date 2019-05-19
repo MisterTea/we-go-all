@@ -2,113 +2,116 @@ var express = require('express');
 var router = express.Router();
 var db = require('../model/db');
 
-router.post('/host', function (req, res) {
-  var game = new db.Game({
-    gameName: "",
-    host: req.body.publicKey,
-    createTime: (new Date).getTime(),
-    active: true,
-    players: [
-      { publicKey: req.body.publicKey, name: req.body.playerName }
-    ]
-  });
-  game.save(db.errorHandlerWithResponse(res, (savedGame) => {
-    if (savedGame) {
-      res.status(200);
-      res.send(savedGame._id);
-    } else {
-      console.error("Could not save game");
-      res.status(500);
-      res.send("Error: Could not save game");
-    }
-  }));
-});
+const asyncMiddleware = fn =>
+  (req, res, next) => {
+    Promise.resolve(fn(req, res, next))
+      .catch(next);
+  };
 
-// Fetch the game state
-router.get('/gameinfo', function (req, res) {
-  var game_id = req.param('id');
-  db.Game.findById(game_id, db.errorHandlerWithResponse(res, (game) => {
-    if (game == null) {
-      res.status(400);
-      res.send(JSON.stringify({ error: "Invalid game id: " + game_id }));
+// Get game id for current user
+router.post('/get_current_game_id/:hostkey', asyncMiddleware(async (req, res, _next) => {
+  // TODO: authentication
+
+  // TODO: public keys are not unique, need to use id as well
+  var hostKey = req.params.hostKey;
+
+  var host = await db.users.findOne({ publicKey: hostKey });
+  if (!host) {
+    res.status(400);
+    res.json({ "error": "Could not find user with key: " + hostKey });
+    return;
+  }
+
+  var game = await db.games.find({ host: host._id, active: true });
+  if (!game) {
+    res.status(400);
+    res.json({ "error": "Could not find active game with host id: " + host._id });
+    return;
+  }
+
+  res.status(200);
+  res.json({ "gameId": "" + game[0]._id });
+}));
+
+router.post('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => {
+  var gameId = req.params.gameId;
+
+  var game = await db.games.findById(gameId);
+  if (!game) {
+    res.status(400);
+    res.json({ "error": "Could not find game with id: " + game._id });
+    return;
+  }
+
+  var host = await db.games.findById(game.host._id);
+  if (!host) {
+    res.status(500);
+    res.json({ "error": "Missing host for game " + gameId });
+    return;
+  }
+
+  var allPeerData = {};
+  for (var a = 0; a < game.peers.length; a++) {
+    var peerId = game.peers[a];
+    var peer = await db.users.findById(peerId);
+    if (!peer) {
+      res.status(500);
+      res.json({ "error": "Missing peer for game: " + gameId + " -> " + peerId });
       return;
     }
-    res.status(200);
-    res.send(JSON.stringify(game));
+    var peerData = {
+      "id": peerId,
+      "key": peer.publicKey,
+      "name": peer.name,
+      "endpoints": peer.endpoints,
+    };
+    allPeerData[peer.publicKey] = peerData;
+  }
+
+  res.status(200);
+  res.json({ "gameName": game.gameName, "hostKey": host.publicKey, "peerData": allPeerData });
+}));
+
+
+router.post('/host', asyncMiddleware(async (req, res, _next) => {
+  var gameId = req.body.gameId;
+  var hostKey = req.body.hostKey;
+  var gameName = req.body.gameName;
+
+  var game = await db.games.findById(gameId);
+  if (!game) {
+    res.status(400);
+    res.json({ "error": "Could not find game with id: " + gameId });
     return;
-  }))
-});
+  }
+  if (game.gameName) {
+    res.status(400);
+    res.json({ "error": "Game already has name: " + gameId + " -> " + game.gameName });
+    return;
+  }
 
-router.post('/get_game_id', function (req, res) {
-  db.Game.findOne({ players: req.body.publicKey, active: true }).sort('-createTime').exec(
-    db.errorHandlerWithResponse(res, (game) => {
-      if (game == null) {
-        res.status(400);
-        res.send("Invalid request: No games found");
-        return;
-      }
+  var host = await db.games.findById(game.host._id);
+  if (!host) {
+    res.status(500);
+    res.json({ "error": "Missing host for game " + gameId });
+    return;
+  }
 
-      res.status(200);
-      res.send(JSON.stringify({ gameId: game._id }));
-    }));
-});
+  if (hostKey != host.publicKey) {
+    res.status(400);
+    res.json({ "error": "provided key does not match host key: " + hostKey + " != " + host.publicKey });
+    return;
+  }
 
-router.post('/join', function (req, res) {
-  db.Game.findOne({ host: req.body.host, active: true }).sort('-createTime').exec(
-    db.errorHandlerWithResponse(res, (game) => {
-      if (game == null) {
-        res.status(400);
-        res.send("Invalid request: No games found");
-        return;
-      }
+  game = await db.games.findByIdAndUpdate({ gameName });
+  if (!game) {
+    res.status(500);
+    res.json({ "error": "Could not update game " + gameId });
+    return;
+  }
 
-      var newPlayer = {
-        publicKey: req.body.publicKey,
-        name: req.body.name,
-      };
-
-      var foundPlayer = null;
-      game.players.forEach(player => {
-        if (player.publicKey === newPlayer.publicKey) {
-          foundPlayer = player;
-        }
-      });
-      if (foundPlayer != null) {
-        res.status(400);
-        res.send(JSON.stringify({ error: "Tried to join a game that you already joined" }));
-        return;
-      }
-
-      game.players.push(newPlayer);
-      game.save(db.errorHandlerWithResponse(res, (savedGame) => {
-        if (savedGame) {
-          res.status(200);
-          res.send(JSON.stringify(savedGame));
-        } else {
-          console.error("Could not save game");
-          res.status(500);
-          res.send("Error: Could not save game");
-        }
-      }));
-    }));
-});
-
-router.post('/set_game_name', function (req, res) {
-  db.Game.findByIdAndUpdate(req.body.gameId, {
-    gameName: req.body.gameName
-  }, db.errorHandlerWithResponse(res, (savedGame) => {
-    res.status(200);
-    res.send(savedGame._id);
-  }));
-});
-
-router.post('/set_user_info', function (req, res) {
-  console.log("SETTING USER INFO");
-  db.users.findByIdAndUpdate(req.cookies["user_id"], { publicKey: req.body.publicKey }, db.errorHandlerWithResponse(res, (savedUser) => {
-    console.log("DONE");
-    res.status(200);
-    res.send(savedUser._id.toString());
-  }));
-});
+  res.status(200);
+  res.send({ "status": "OK" });
+}));
 
 module.exports = router;

@@ -25,7 +25,7 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
 
   client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
 
-  string path = string("/get_current_game_id/") + publicKeyString;
+  string path = string("/api/get_current_game_id/") + publicKeyString;
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
@@ -42,7 +42,7 @@ void MyPeer::shutdown() {
 }
 
 void MyPeer::host(const string& gameName) {
-  string path = string("/host");
+  string path = string("/api/host");
   json request = {{"hostKey", publicKeyString},
                   {"gameId", gameId.str()},
                   {"gameName", gameName}};
@@ -98,7 +98,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
 
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
-  string path = string("/get_game_info/") + gameId.str();
+  string path = string("/api/get_game_info/") + gameId.str();
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
@@ -193,7 +193,7 @@ void MyPeer::update(const asio::error_code& error) {
     // Per-second update
     updateEndpointServer();
     LOG(INFO) << "UPDATING";
-    string path = string("/get_game_info/") + gameId.str();
+    string path = string("/api/get_game_info/") + gameId.str();
     auto response = client->request("GET", path);
     auto result = json::parse(response->content.string());
     // Iterate over peer data and update peers
