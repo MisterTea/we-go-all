@@ -54,20 +54,18 @@ class App extends React.Component<{ appState: AppState }, { [username: string]: 
     var body;
     if (this.props.appState.userId === null) {
       body = (
-        <form role="form" className="form" onSubmit={this.handleLoginSubmit} ref={el => this.form = el}>
+        <div>
           <a className="btn btn-social btn-twitter" onClick={() => {
-            this.loginType = "discord";
-            this.form.dispatchEvent(new Event('submit'))
+            this.props.appState.loginDiscord();
           }} >
             <span><FontAwesomeIcon icon={faDiscord} /></span>Sign in with Discord
           </a>
           <a className="btn btn-social btn-github" onClick={() => {
-            this.loginType = "github";
-            this.form.dispatchEvent(new Event('submit'))
+            this.props.appState.loginGithub();
           }} >
             <span><FontAwesomeIcon icon={faGithub} /></span>Sign in with Github
           </a>
-        </form >
+        </div>
       );
     } else {
       body = (
