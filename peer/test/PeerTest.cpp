@@ -98,7 +98,7 @@ TEST_F(PeerTest, ProtocolTest) {
 
   shared_ptr<udp::socket> localSocket(new udp::socket(
       *netEngine->getIoService(), udp::endpoint(udp::v4(), 12345)));
-  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000");
+  udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000")[0];
   string ipAddressPacket = names[0] + "_" + "192.168.0.1:" + to_string(12345);
   netEngine->getIoService()->post(
       [localSocket, serverEndpoint, ipAddressPacket]() {

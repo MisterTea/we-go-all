@@ -56,7 +56,15 @@ class SingleGameServer {
           for (const auto& it : peerData) {
             stringPeerData[it.first] = it.second;
           }
-          retval["ready"] = (peerData.size() >= numPlayers);
+          bool ready = (peerData.size() >= numPlayers);
+          if (ready) {
+            for (const auto& it : peerData) {
+              if (it.second.endpoints.empty()) {
+                ready = false;
+              }
+            }
+          }
+          retval["ready"] = ready;
           retval["peerData"] = stringPeerData;
           retval["hostId"] = hostId;
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));

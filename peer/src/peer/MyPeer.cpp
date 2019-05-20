@@ -80,8 +80,8 @@ void MyPeer::start() {
 }
 
 void MyPeer::updateEndpointServer() {
-  udp::endpoint serverEndpoint =
-      netEngine->resolve(lobbyHost, to_string(lobbyPort));
+  auto serverEndpoints = netEngine->resolve(lobbyHost, to_string(lobbyPort));
+  auto serverEndpoint = serverEndpoints[rand() % serverEndpoints.size()];
   auto localIps = LocalIpFetcher::fetch(serverPort, true);
   string ipAddressPacket = id;
   for (auto it : localIps) {
@@ -156,7 +156,10 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
          it2 != it.value()["endpoints"].end(); ++it2) {
       string endpointString = *it2;
       vector<string> tokens = split(endpointString, ':');
-      endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
+      auto newEndpoints = netEngine->resolve(tokens.at(0), tokens.at(1));
+      for (auto newEndpoint : newEndpoints) {
+        endpoints.push_back(newEndpoint);
+      }
     }
     shared_ptr<CryptoHandler> peerCryptoHandler(
         new CryptoHandler(privateKey, peerKey));
@@ -203,7 +206,10 @@ void MyPeer::update(const asio::error_code& error) {
            it2 != it.value()["endpoints"].end(); ++it2) {
         string endpointString = *it2;
         vector<string> tokens = split(endpointString, ':');
-        endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
+        auto newEndpoints = netEngine->resolve(tokens.at(0), tokens.at(1));
+        for (auto newEndpoint : newEndpoints) {
+          endpoints.push_back(newEndpoint);
+        }
       }
 
       auto endpointHandler = rpcServer->getEndpointHandler(it.key());

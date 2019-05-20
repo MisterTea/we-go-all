@@ -23,19 +23,21 @@ class NetEngine {
 
   shared_ptr<asio::io_service> getIoService() { return ioService; }
 
-  udp::endpoint resolve(const string& hostname, const string& port) {
+  vector<udp::endpoint> resolve(const string& hostname, const string& port) {
     udp::resolver resolver(*ioService);
     udp::resolver::query query(udp::v4(), hostname, port);
     auto it = resolver.resolve(query);
     auto remoteEndpoint = it->endpoint();
+    vector<udp::endpoint> retval = {remoteEndpoint};
     it++;
     VLOG(1) << "GOT ENTRY: " << remoteEndpoint;
     VLOG(1) << "GOT ENTRY2: "
             << ((it) == asio::ip::basic_resolver_results<asio::ip::udp>());
-    if (it != asio::ip::basic_resolver_results<asio::ip::udp>()) {
-      LOGFATAL << "Ambiguous endpoint";
+    while (it != asio::ip::basic_resolver_results<asio::ip::udp>()) {
+      retval.push_back(it->endpoint());
+      it++;
     }
-    return remoteEndpoint;
+    return retval;
   }
 
  protected:
