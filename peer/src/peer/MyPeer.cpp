@@ -5,14 +5,17 @@
 #include "LocalIpFetcher.hpp"
 
 namespace wga {
-MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
-               int _serverPort, const string& _lobbyHost, int _lobbyPort)
-    : shuttingDown(false),
+MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _id,
+               const PrivateKey& _privateKey, int _serverPort,
+               const string& _lobbyHost, int _lobbyPort, const string& _name)
+    : id(_id),
+      shuttingDown(false),
       netEngine(_netEngine),
       privateKey(_privateKey),
       serverPort(_serverPort),
       lobbyHost(_lobbyHost),
-      lobbyPort(_lobbyPort) {
+      lobbyPort(_lobbyPort),
+      name(_name) {
   publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
   publicKeyString = CryptoHandler::keyToString(publicKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
@@ -25,11 +28,13 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
 
   client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
 
-  string path = string("/api/get_current_game_id/") + publicKeyString;
+  LOG(INFO) << "GETTING GAME ID";
+  string path = string("/api/get_current_game_id/") + id;
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
   gameId = sole::rebuild(result["gameId"]);
+  LOG(INFO) << "GOT GAME ID";
 }
 
 void MyPeer::shutdown() {
@@ -43,9 +48,15 @@ void MyPeer::shutdown() {
 
 void MyPeer::host(const string& gameName) {
   string path = string("/api/host");
-  json request = {{"hostKey", publicKeyString},
-                  {"gameId", gameId.str()},
-                  {"gameName", gameName}};
+  json request = {
+      {"hostId", id}, {"gameId", gameId.str()}, {"gameName", gameName}};
+  auto response = client->request("POST", path, request.dump(2));
+  FATAL_FAIL_HTTP(response);
+}
+
+void MyPeer::join() {
+  string path = string("/api/join");
+  json request = {{"peerId", id}, {"name", name}, {"peerKey", publicKeyString}};
   auto response = client->request("POST", path, request.dump(2));
   FATAL_FAIL_HTTP(response);
 }
@@ -72,7 +83,7 @@ void MyPeer::updateEndpointServer() {
   udp::endpoint serverEndpoint =
       netEngine->resolve(lobbyHost, to_string(lobbyPort));
   auto localIps = LocalIpFetcher::fetch(serverPort, true);
-  string ipAddressPacket = publicKeyString;
+  string ipAddressPacket = id;
   for (auto it : localIps) {
     ipAddressPacket += "_" + it + ":" + to_string(serverPort);
   }
@@ -103,58 +114,39 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
   LOG(INFO) << "GOT RESULT: " << result;
+  if (!result["ready"].get<bool>()) {
+    updateTimer->expires_at(updateTimer->expires_at() +
+                            asio::chrono::milliseconds(1000));
+    updateTimer->async_wait(
+        std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
+    LOG(INFO) << "Game is not ready, waiting...";
+    return;
+  }
+
   if (gameName.length()) {
     if (result["gameName"].get<string>() != gameName) {
       LOGFATAL << "Game Name does not match what I should be hosting: "
                << result["gameName"].get<string>() << " != " << gameName;
     }
-    if (result["hostKey"].get<string>() != publicKeyString) {
+    if (result["hostId"].get<string>() != id) {
       LOGFATAL << "Game host should be me but it isn't "
-               << result["hostKey"].get<string>() << " != " << publicKeyString;
+               << result["hostId"].get<string>() << " != " << id;
     }
   } else {
     gameName = result["gameName"].get<string>();
-    hostKey =
-        CryptoHandler::stringToKey<PublicKey>(result["hostKey"].get<string>());
-  }
-  auto peerDataObject = result["peerData"];
-  for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
-       ++it) {
-    // std::cout << it.key() << " : " << it.value() << "\n";
-    string peerKey = it.key();
-    vector<udp::endpoint> endpoints;
-    for (json::iterator it2 = it.value()["endpoints"].begin();
-         it2 != it.value()["endpoints"].end(); ++it2) {
-      string endpointString = *it2;
-      vector<string> tokens = split(endpointString, ':');
-      endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
-    }
-    if (endpoints.empty() || peerDataObject.size() == 1) {
-      // Note: This blocks until there is a second player
-      updateTimer->expires_at(updateTimer->expires_at() +
-                              asio::chrono::milliseconds(1000));
-      updateTimer->async_wait(
-          std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
-      LOG(INFO) << "CALLING HEARTBEAT: "
-                << std::chrono::duration_cast<std::chrono::seconds>(
-                       updateTimer->expires_at().time_since_epoch())
-                       .count()
-                << " VS "
-                << std::chrono::duration_cast<std::chrono::seconds>(
-                       std::chrono::steady_clock::now().time_since_epoch())
-                       .count();
-      return;
-    }
+    hostId = result["hostId"].get<string>();
   }
 
   // Iterate over peer data and set up peers
-  peerDataObject = result["peerData"];
+  auto peerDataObject = result["peerData"];
   for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
        ++it) {
-    std::cout << it.key() << " : " << it.value() << "\n";
-    PublicKey peerKey = CryptoHandler::stringToKey<PublicKey>(it.key());
+    VLOG(1) << it.key() << " : " << it.value();
+    string id = it.key();
+    PublicKey peerKey =
+        CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
     string name = it.value()["name"];
-    peerData[peerKey] = shared_ptr<PlayerData>(new PlayerData(peerKey, name));
+    peerData[id] = shared_ptr<PlayerData>(new PlayerData(peerKey, name));
     if (peerKey == publicKey) {
       // Don't need to set up endpoint for myself
       continue;
@@ -168,15 +160,15 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     }
     shared_ptr<CryptoHandler> peerCryptoHandler(
         new CryptoHandler(privateKey, peerKey));
-    rpcServer->addEndpoint(peerKey, shared_ptr<EncryptedMultiEndpointHandler>(
-                                        new EncryptedMultiEndpointHandler(
-                                            localSocket, netEngine,
-                                            peerCryptoHandler, endpoints)));
+    rpcServer->addEndpoint(
+        id, shared_ptr<EncryptedMultiEndpointHandler>(
+                new EncryptedMultiEndpointHandler(
+                    localSocket, netEngine, peerCryptoHandler, endpoints)));
   }
 
   this_thread::sleep_for(chrono::seconds(1));
 
-  myData = peerData[publicKey];
+  myData = peerData[id];
 
   update(asio::error_code());
 }
@@ -201,7 +193,8 @@ void MyPeer::update(const asio::error_code& error) {
     for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
          ++it) {
       // std::cout << it.key() << " : " << it.value() << "\n";
-      PublicKey peerKey = CryptoHandler::stringToKey<PublicKey>(it.key());
+      PublicKey peerKey =
+          CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
       if (peerKey == publicKey) {
         continue;
       }
@@ -213,7 +206,7 @@ void MyPeer::update(const asio::error_code& error) {
         endpoints.push_back(netEngine->resolve(tokens.at(0), tokens.at(1)));
       }
 
-      auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
+      auto endpointHandler = rpcServer->getEndpointHandler(it.key());
       endpointHandler->addEndpoints(endpoints);
     }
 
@@ -223,7 +216,7 @@ void MyPeer::update(const asio::error_code& error) {
 
   for (const auto& it : peerData) {
     auto peerKey = it.first;
-    if (peerKey == publicKey) {
+    if (peerKey == id) {
       continue;
     }
     auto endpointHandler = rpcServer->getEndpointHandler(peerKey);

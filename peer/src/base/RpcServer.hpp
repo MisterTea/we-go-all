@@ -7,15 +7,16 @@
 #include "PortMultiplexer.hpp"
 
 namespace wga {
-class KeyIdPayload {
+class UserIdIdPayload {
  public:
-  KeyIdPayload() {}
-  KeyIdPayload(const PublicKey& _key, const RpcId& _id, const string& _payload)
-      : key(_key), id(_id), payload(_payload) {}
-  KeyIdPayload(const PublicKey& _key, const IdPayload& idPayload)
-      : key(_key), id(idPayload.id), payload(idPayload.payload) {}
+  UserIdIdPayload() {}
+  UserIdIdPayload(const string& _userId, const RpcId& _id,
+                  const string& _payload)
+      : userId(_userId), id(_id), payload(_payload) {}
+  UserIdIdPayload(const string& _userId, const IdPayload& idPayload)
+      : userId(_userId), id(idPayload.id), payload(idPayload.payload) {}
 
-  PublicKey key;
+  string userId;
   RpcId id;
   string payload;
 };
@@ -26,9 +27,9 @@ class RpcServer : public PortMultiplexer {
             shared_ptr<udp::socket> _localSocket)
       : PortMultiplexer(_netEngine, _localSocket) {}
 
-  void addEndpoint(PublicKey key,
+  void addEndpoint(const string& id,
                    shared_ptr<EncryptedMultiEndpointHandler> endpoint) {
-    endpoints.insert(make_pair(key, endpoint));
+    endpoints.insert(make_pair(id, endpoint));
     addRecipient(endpoint);
   }
 
@@ -38,36 +39,35 @@ class RpcServer : public PortMultiplexer {
     }
   }
 
-  RpcId request(const PublicKey& publicKey, const string& payload) {
-    auto it = endpoints.find(publicKey);
+  RpcId request(const string& userId, const string& payload) {
+    auto it = endpoints.find(userId);
     if (it == endpoints.end()) {
-      LOGFATAL << "Tried to send to an invalid endpoint";
+      LOGFATAL << "Tried to send to an invalid endpoint: " << userId;
     }
     return it->second->request(payload);
   }
 
-  optional<KeyIdPayload> getIncomingRequest() {
+  optional<UserIdIdPayload> getIncomingRequest() {
     for (auto it : endpoints) {
       if (it.second->hasIncomingRequest()) {
-        return KeyIdPayload(it.first, it.second->getFirstIncomingRequest());
+        return UserIdIdPayload(it.first, it.second->getFirstIncomingRequest());
       }
     }
     return nullopt;
   }
 
-  void reply(const PublicKey& publicKey, const RpcId& rpcId,
-             const string& payload) {
-    auto it = endpoints.find(publicKey);
+  void reply(const string& id, const RpcId& rpcId, const string& payload) {
+    auto it = endpoints.find(id);
     if (it == endpoints.end()) {
       LOGFATAL << "Could not find endpoint";
     }
     it->second->reply(rpcId, payload);
   }
 
-  optional<KeyIdPayload> getIncomingReply() {
+  optional<UserIdIdPayload> getIncomingReply() {
     for (auto it : endpoints) {
       if (it.second->hasIncomingReply()) {
-        return KeyIdPayload(it.first, it.second->getFirstIncomingReply());
+        return UserIdIdPayload(it.first, it.second->getFirstIncomingReply());
       }
     }
     return nullopt;
@@ -120,28 +120,25 @@ class RpcServer : public PortMultiplexer {
     return false;
   }
 
-  vector<PublicKey> getPeerKeys() {
-    vector<PublicKey> retval;
+  vector<string> getPeerIds() {
+    vector<string> retval;
     for (auto it : endpoints) {
       retval.push_back(it.first);
     }
     return retval;
   }
 
-  PublicKey getMyPublicKey() {
-    if (endpoints.empty()) {
-      LOGFATAL << "Tried to get key without endpoints";
-    }
-    return endpoints.begin()->second->getCryptoHandler()->getMyPublicKey();
+  bool hasPeer(const string& id) {
+    return endpoints.find(id) != endpoints.end();
   }
 
-  void addEndpoints(const PublicKey& key,
+  void addEndpoints(const string& key,
                     const vector<udp::endpoint>& newEndpoints) {
     endpoints[key]->addEndpoints(newEndpoints);
   }
 
   shared_ptr<EncryptedMultiEndpointHandler> getEndpointHandler(
-      const PublicKey& key) {
+      const string& key) {
     auto it = endpoints.find(key);
     if (it == endpoints.end()) {
       LOGFATAL << "Invalid endpoint handler: "
@@ -150,20 +147,16 @@ class RpcServer : public PortMultiplexer {
     return it->second;
   }
 
-  map<PublicKey, pair<double, double>> getPeerLatency() {
-    map<PublicKey, pair<double, double>> retval;
+  map<string, pair<double, double>> getPeerLatency() {
+    map<string, pair<double, double>> retval;
     for (const auto& it : endpoints) {
       retval[it.first] = it.second->getLatency();
     }
     return retval;
   }
 
-  void addPeerEndpoint(const PublicKey& peer, udp::endpoint endpoint) {
-    endpoints.at(peer)->addEndpoint(endpoint);
-  }
-
  protected:
-  map<PublicKey, shared_ptr<EncryptedMultiEndpointHandler>> endpoints;
+  map<string, shared_ptr<EncryptedMultiEndpointHandler>> endpoints;
 };
 }  // namespace wga
 

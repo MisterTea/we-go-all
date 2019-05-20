@@ -12,12 +12,15 @@
 namespace wga {
 class MyPeer {
  public:
-  MyPeer(shared_ptr<NetEngine> _netEngine, const PrivateKey& _privateKey,
-         int _serverPort, const string& _lobbyHost, int _lobbyPort);
+  MyPeer(shared_ptr<NetEngine> _netEngine, const string& _id,
+         const PrivateKey& _privateKey, int _serverPort,
+         const string& _lobbyHost, int _lobbyPort, const string& _name);
 
   void shutdown();
 
   void host(const string& gameName);
+  void join();
+
   void start();
   void checkForEndpoints(const asio::error_code& error);
   void update(const asio::error_code& error);
@@ -38,19 +41,14 @@ class MyPeer {
     }
   }
 
-  map<PublicKey, pair<double, double>> getPeerLatency() {
+  map<string, pair<double, double>> getPeerLatency() {
     return rpcServer->getPeerLatency();
   }
 
-  string getGameName() {
-    return gameName;
-  }
-
-  void addPeerEndpoint(const PublicKey& peer, udp::endpoint endpoint) {
-    rpcServer->addPeerEndpoint(peer, endpoint);
-  }
+  string getGameName() { return gameName; }
 
  protected:
+  string id;
   bool shuttingDown;
   shared_ptr<NetEngine> netEngine;
   PrivateKey privateKey;
@@ -59,9 +57,9 @@ class MyPeer {
   shared_ptr<HttpClient> client;
   uuid gameId;
   int serverPort;
-  PublicKey hostKey;
+  string hostId;
   shared_ptr<RpcServer> rpcServer;
-  map<PublicKey, shared_ptr<PlayerData>> peerData;
+  map<string, shared_ptr<PlayerData>> peerData;
   recursive_mutex peerDataMutex;
   shared_ptr<PlayerData> myData;
   shared_ptr<udp::socket> localSocket;
@@ -69,6 +67,7 @@ class MyPeer {
   string lobbyHost;
   int lobbyPort;
   string gameName;
+  string name;
 
   void updateEndpointServer();
 };

@@ -27,19 +27,13 @@ class PeerConnectionServer {
             string s(data.data(), bytes_recvd);
             LOG(INFO) << "GOT ENDPOINT DATA: " << s;
             auto tokens = split(s, '_');
-            PublicKey peerKey;
-            try {
-              peerKey = CryptoHandler::stringToKey<PublicKey>(tokens[0]);
-            } catch(const std::runtime_error& ex) {
-              receive();
-              return;
-            }
+            string id = tokens[0];
             string udpSendEndpoint = sender_endpoint.address().to_string() +
                                      ":" + to_string(sender_endpoint.port());
             vector<string> allEndpoints = {udpSendEndpoint};
             allEndpoints.insert(allEndpoints.end(), tokens.begin() + 1,
                                 tokens.end());
-            singleGameServer->setPeerEndpoints(peerKey, allEndpoints);
+            singleGameServer->setPeerEndpoints(id, allEndpoints);
             socket.async_send_to(
                 asio::buffer(string("OK")), sender_endpoint,
                 [this](std::error_code /*ec*/, std::size_t /*bytes_sent*/) {

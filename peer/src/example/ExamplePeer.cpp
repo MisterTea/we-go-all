@@ -59,8 +59,9 @@ class ExamplePeer {
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
     }
     myPeer.reset(new MyPeer(
-        netEngine, privateKey, params["localport"].as<int>(),
-        params["lobbyhost"].as<string>(), params["lobbyport"].as<int>()));
+        netEngine, "Client", privateKey, params["localport"].as<int>(),
+        params["lobbyhost"].as<string>(), params["lobbyport"].as<int>(),
+        host ? "Host" : "Client"));
     if (host) {
       myPeer->host("Starwars");
     }
@@ -114,10 +115,8 @@ class ExamplePeer {
     return 0;
   }
 
-  shared_ptr<NetEngine> netEngine;
   PublicKey publicKey;
   PrivateKey privateKey;
-  map<PublicKey, PlayerData> allPlayerData;
   shared_ptr<MyPeer> myPeer;
 };
 }  // namespace wga

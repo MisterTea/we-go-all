@@ -5,43 +5,39 @@
 
 namespace wga {
 struct ServerPeerData {
+  string id;
   PublicKey key;
   string name;
   set<string> endpoints;
 
   ServerPeerData() {}
 
-  ServerPeerData(const PublicKey& _key, const string& _name) {
-    key = _key;
-    name = _name;
-  }
+  ServerPeerData(const string& _id, const PublicKey& _key, const string& _name)
+      : id(_id), key(_key), name(_name) {}
 };
 
 inline void to_json(json& j, const wga::ServerPeerData& p) {
-  j = json{{"key", CryptoHandler::keyToString(p.key)},
+  j = json{{"id", p.id},
+           {"key", CryptoHandler::keyToString(p.key)},
            {"name", p.name},
            {"endpoints", p.endpoints}};
 }
 
 class SingleGameServer {
  public:
-  SingleGameServer(int _port, const PublicKey& _hostKey,
-                   const string& hostName) {
+  SingleGameServer(int _port, const string& _hostId, const PublicKey& _hostKey,
+                   const string& hostName, int _numPlayers)
+      : numPlayers(_numPlayers) {
     server.config.port = _port;
     gameId = sole::uuid4();
+    hostId = _hostId;
     hostKey = _hostKey;
-    addPeer(hostKey, hostName);
+    addPeer(hostId, hostKey, hostName);
 
     server.resource["^/api/get_current_game_id/(.+)$"]["GET"] =
         [this](shared_ptr<HttpServer::Response> response,
                shared_ptr<HttpServer::Request> request) {
-          auto peerKey = CryptoHandler::stringToKey<PublicKey>(
-              request->path_match[1].str());
-          if (peerData.find(peerKey) == peerData.end()) {
-            // LOGFATAL << "Invalid peer key: "
-            //            << CryptoHandler::keyToString(peerKey);
-            addPeer(peerKey, CryptoHandler::keyToString(peerKey).substr(8));
-          }
+          auto peerId = request->path_match[1].str();
           json retval;
           retval["gameId"] = gameId.str();
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
@@ -54,15 +50,15 @@ class SingleGameServer {
           if (gameId != _gameId) {
             LOGFATAL << "Invalid game id: " << _gameId.str();
           }
-          string hostKeyB64 = CryptoHandler::keyToString(hostKey);
           json retval;
           retval["gameName"] = gameName;
           map<string, ServerPeerData> stringPeerData;
           for (const auto& it : peerData) {
-            stringPeerData[CryptoHandler::keyToString(it.first)] = it.second;
+            stringPeerData[it.first] = it.second;
           }
+          retval["ready"] = (peerData.size() >= numPlayers);
           retval["peerData"] = stringPeerData;
-          retval["hostKey"] = hostKeyB64;
+          retval["hostId"] = hostId;
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
         };
 
@@ -72,14 +68,31 @@ class SingleGameServer {
           auto content = json::parse(request->content.string());
           // Here we would use signing to make sure the message is legit
 
-          string hostKeyB64 = CryptoHandler::keyToString(hostKey);
-          if (content["hostKey"].get<string>() != hostKeyB64) {
+          if (content["hostId"].get<string>() != hostId) {
             LOGFATAL << "Host key does not match";
           }
           if (sole::rebuild(content["gameId"].get<string>()) != gameId) {
             LOGFATAL << "Game ID does not match";
           }
           gameName = content["gameName"].get<string>();
+
+          json retval = {{"status", "OK"}};
+          response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
+        };
+
+    server.resource["^/api/join$"]["POST"] =
+        [this](shared_ptr<HttpServer::Response> response,
+               shared_ptr<HttpServer::Request> request) {
+          auto content = json::parse(request->content.string());
+          auto peerId = content["peerId"].get<string>();
+          auto name = content["name"].get<string>();
+          auto peerKey = CryptoHandler::stringToKey<PublicKey>(
+              content["peerKey"].get<string>());
+
+          if (peerData.find(peerId) != peerData.end()) {
+            LOGFATAL << "Tried to add a peer that already exists";
+          }
+          addPeer(peerId, peerKey, name);
 
           json retval = {{"status", "OK"}};
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
@@ -97,14 +110,15 @@ class SingleGameServer {
     serverThread.reset();
   }
 
-  void addPeer(const PublicKey& key, const string& name) {
-    peerData[key] = ServerPeerData(key, name);
+  void addPeer(const string& id, const PublicKey& key, const string& name) {
+    peerData[id] = ServerPeerData(id, key, name);
   }
 
-  void setPeerEndpoints(const PublicKey& key, const vector<string>& endpoints) {
-    auto it = peerData.find(key);
+  void setPeerEndpoints(const string& id, const vector<string>& endpoints) {
+    auto it = peerData.find(id);
     if (it == peerData.end()) {
-      LOGFATAL << "Could not find peer: " << CryptoHandler::keyToString(key);
+      LOG(ERROR) << "Could not find peer: " << id;
+      return;
     }
     LOG(INFO) << "SETTING ENDPOINTS";
     for (auto& endpoint : endpoints) {
@@ -116,11 +130,13 @@ class SingleGameServer {
   uuid getGameId() { return gameId; }
 
  protected:
+  int numPlayers;
   HttpServer server;
   uuid gameId;
   string gameName;
+  string hostId;
   PublicKey hostKey;
-  map<PublicKey, ServerPeerData> peerData;
+  map<string, ServerPeerData> peerData;
   shared_ptr<thread> serverThread;
 };
 }  // namespace wga

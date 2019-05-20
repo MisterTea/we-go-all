@@ -16,7 +16,7 @@ struct RpcDetails {
   RpcId id;
   string request;
   string reply;
-  PublicKey destinationKey;
+  string destinationId;
 };
 
 class FlakyRpcTest : public testing::Test {
@@ -39,9 +39,6 @@ class FlakyRpcTest : public testing::Test {
     for (int a = 0; a < numNodes; a++) {
       keys.push_back(CryptoHandler::generateKey());
     }
-    string secretKeyString = base64::encode((const char*)keys[0].second.data(),
-                                            keys[0].second.size());
-    LOG(INFO) << secretKeyString;
 
     // Create port multiplexers
     for (int a = 0; a < numNodes; a++) {
@@ -79,9 +76,7 @@ class FlakyRpcTest : public testing::Test {
                                               netEngine, cryptoHandlers[a][b],
                                               {remoteEndpoint}));
         endpointHandler->setFlaky(true);
-        servers[a]->addEndpoint(
-            endpointHandler->getCryptoHandler()->getOtherPublicKey(),
-            endpointHandler);
+        servers[a]->addEndpoint(to_string(b), endpointHandler);
       }
     }
 
@@ -92,13 +87,13 @@ class FlakyRpcTest : public testing::Test {
                       int* numFinished) {
     server->runUntilInitialized();
 
-    vector<PublicKey> peerKeys = server->getPeerKeys();
-    EXPECT_EQ(peerKeys.size(), numTotal - 1);
+    vector<string> peerIds = server->getPeerIds();
+    EXPECT_EQ(peerIds.size(), numTotal - 1);
     map<RpcId, RpcDetails> allRpcDetails;
     {
       for (int trials = 0; trials < numTrials; trials++) {
         RpcDetails rpcDetails;
-        rpcDetails.destinationKey = peerKeys[rand() % peerKeys.size()];
+        rpcDetails.destinationId = peerIds[rand() % peerIds.size()];
         rpcDetails.request = string("AAAAAAAA");
         for (int a = 0; a < int(rpcDetails.request.length()); a++) {
           rpcDetails.request[a] += rand() % 26;
@@ -107,11 +102,9 @@ class FlakyRpcTest : public testing::Test {
         transform(rpcDetails.reply.begin(), rpcDetails.reply.end(),
                   rpcDetails.reply.begin(), ::tolower);
         rpcDetails.id =
-            server->request(rpcDetails.destinationKey, rpcDetails.request);
-        VLOG(1) << "SENDING " << rpcDetails.id.id << " FROM "
-                << CryptoHandler::keyToString(server->getMyPublicKey())
-                << " TO "
-                << CryptoHandler::keyToString(rpcDetails.destinationKey);
+            server->request(rpcDetails.destinationId, rpcDetails.request);
+        VLOG(1) << "SENDING " << rpcDetails.id.id << " TO "
+                << rpcDetails.destinationId;
         allRpcDetails[rpcDetails.id] = rpcDetails;
       }
     }
@@ -131,15 +124,13 @@ class FlakyRpcTest : public testing::Test {
           string payload = request->payload;
           transform(payload.begin(), payload.end(), payload.begin(), ::tolower);
           VLOG(1) << "GOT REQUEST, SENDING " << request->id.id << " TO "
-                  << CryptoHandler::keyToString(request->key) << " WITH "
-                  << payload;
-          server->reply(request->key, request->id, payload);
+                  << request->userId << " WITH " << payload;
+          server->reply(request->userId, request->id, payload);
         }
 
         auto reply = server->getIncomingReply();
         if (reply) {
           if (allRpcDetails.find(reply->id) == allRpcDetails.end()) {
-            LOG(INFO) << CryptoHandler::keyToString(server->getMyPublicKey());
             for (auto it : allRpcDetails) {
               LOG(INFO) << it.first.id;
             }

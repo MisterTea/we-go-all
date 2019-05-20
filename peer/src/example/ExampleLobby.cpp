@@ -39,12 +39,13 @@ class ExampleLobby {
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
 
     server.reset(new SingleGameServer(
-        params["port"].as<int>(),
+        params["port"].as<int>(), "Host",
         CryptoHandler::makePublicFromPrivate(
             CryptoHandler::stringToKey<PrivateKey>(
                 "ZFhRa1dVWGhiQzc5UGt2YWkySFQ0RHZyQXpSYkxEdmg=")),
-        "Host"));
-    server->addPeer(CryptoHandler::makePublicFromPrivate(
+        "Host", 2));
+    server->addPeer("Client",
+                    CryptoHandler::makePublicFromPrivate(
                         CryptoHandler::stringToKey<PrivateKey>(
                             "M0JVZTd4aTN0M3dyUXdYQnlMNTdmQU1pRHZnaU9ITU8=")),
                     "Client");

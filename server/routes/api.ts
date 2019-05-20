@@ -9,7 +9,7 @@ const asyncMiddleware = fn =>
   };
 
 // Get game id for current user
-router.post('/get_current_game_id/:hostkey', asyncMiddleware(async (req, res, _next) => {
+router.get('/get_current_game_id/:hostkey', asyncMiddleware(async (req, res, _next) => {
   // TODO: authentication
 
   // TODO: public keys are not unique, need to use id as well
@@ -33,7 +33,7 @@ router.post('/get_current_game_id/:hostkey', asyncMiddleware(async (req, res, _n
   res.json({ "gameId": "" + game[0]._id });
 }));
 
-router.post('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => {
+router.get('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => {
   var gameId = req.params.gameId;
 
   var game = await db.games.findById(gameId);

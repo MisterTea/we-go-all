@@ -30,10 +30,8 @@ class PeerTest : public testing::Test {
         keys.push_back(CryptoHandler::generateKey());
       }
     }
-    server.reset(new SingleGameServer(20000, keys[0].first, names[0]));
-    for (int a = 1; a < numPlayers; a++) {
-      server->addPeer(keys[a].first, names[a]);
-    }
+    server.reset(new SingleGameServer(20000, names[0], keys[0].first, names[0],
+                                      numPlayers));
 
     peerConnectionServer.reset(
         new PeerConnectionServer(netEngine, 20000, server));
@@ -63,7 +61,7 @@ TEST_F(PeerTest, ProtocolTest) {
   HttpClient client("localhost:20000");
   string hostKey = CryptoHandler::keyToString(keys[0].first);
 
-  string path = string("/api/get_current_game_id/") + hostKey;
+  string path = string("/api/get_current_game_id/") + names[0];
   auto response = client.request("GET", path);
   json result = json::parse(response->content.string());
   uuid gameId = sole::rebuild(result["gameId"]);
@@ -71,26 +69,37 @@ TEST_F(PeerTest, ProtocolTest) {
 
   path = string("/api/host");
   json request = {
-      {"hostKey", hostKey}, {"gameId", gameId.str()}, {"gameName", "Starwars"}};
+      {"hostId", names[0]}, {"gameId", gameId.str()}, {"gameName", "Starwars"}};
   response = client.request("POST", path, request.dump(2));
   EXPECT_EQ(response->status_code, "200 OK");
+
+  for (int a = 1; a < 4; a++) {
+    path = string("/api/join");
+    json request = {{"peerId", names[a]},
+                    {"name", names[a]},
+                    {"peerKey", CryptoHandler::keyToString(keys[a].first)}};
+    response = client.request("POST", path, request.dump(2));
+    EXPECT_EQ(response->status_code, "200 OK");
+  }
 
   path = string("/api/get_game_info/") + gameId.str();
   response = client.request("GET", path);
   result = json::parse(response->content.string());
   EXPECT_EQ(result["gameName"], "Starwars");
-  EXPECT_EQ(result["hostKey"], hostKey);
+  EXPECT_EQ(result["hostId"], names[0]);
   for (int a = 0; a < 4; a++) {
+    string id = names[a];
     string stringKey = CryptoHandler::keyToString(keys[a].first);
-    EXPECT_EQ(result["peerData"][stringKey]["key"].get<string>(), stringKey);
-    EXPECT_EQ(result["peerData"][stringKey]["name"].get<string>(), names[a]);
-    EXPECT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
+    EXPECT_EQ(result["peerData"][id]["id"].get<string>(), names[a]);
+    EXPECT_EQ(result["peerData"][id]["key"].get<string>(), stringKey);
+    EXPECT_EQ(result["peerData"][id]["name"].get<string>(), names[a]);
+    EXPECT_EQ(result["peerData"][id]["endpoints"].size(), 0);
   }
 
   shared_ptr<udp::socket> localSocket(new udp::socket(
       *netEngine->getIoService(), udp::endpoint(udp::v4(), 12345)));
   udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000");
-  string ipAddressPacket = hostKey + "_" + "192.168.0.1:" + to_string(12345);
+  string ipAddressPacket = names[0] + "_" + "192.168.0.1:" + to_string(12345);
   netEngine->getIoService()->post(
       [localSocket, serverEndpoint, ipAddressPacket]() {
         VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
@@ -105,15 +114,17 @@ TEST_F(PeerTest, ProtocolTest) {
   response = client.request("GET", path);
   result = json::parse(response->content.string());
   EXPECT_EQ(result["gameName"], "Starwars");
-  EXPECT_EQ(result["hostKey"], hostKey);
+  EXPECT_EQ(result["hostId"], names[0]);
   for (int a = 0; a < 4; a++) {
+    string id = names[a];
     string stringKey = CryptoHandler::keyToString(keys[a].first);
-    EXPECT_EQ(result["peerData"][stringKey]["key"].get<string>(), stringKey);
-    EXPECT_EQ(result["peerData"][stringKey]["name"].get<string>(), names[a]);
+    EXPECT_EQ(result["peerData"][id]["id"].get<string>(), id);
+    EXPECT_EQ(result["peerData"][id]["key"].get<string>(), stringKey);
+    EXPECT_EQ(result["peerData"][id]["name"].get<string>(), names[a]);
     if (a == 0) {
-      EXPECT_EQ(result["peerData"][stringKey]["endpoints"].size(), 2);
+      EXPECT_EQ(result["peerData"][id]["endpoints"].size(), 2);
     } else {
-      EXPECT_EQ(result["peerData"][stringKey]["endpoints"].size(), 0);
+      EXPECT_EQ(result["peerData"][id]["endpoints"].size(), 0);
     }
   }
 }
@@ -123,12 +134,18 @@ TEST_F(PeerTest, TwoPeers) {
   initGameServer(2);
   LOG(INFO) << "CREATING PEERS";
   vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(
-          new MyPeer(netEngine, keys[0].second, 11000, "localhost", 20000)),
-      shared_ptr<MyPeer>(
-          new MyPeer(netEngine, keys[1].second, 11001, "localhost", 20000)),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, names[0], keys[0].second, 11000,
+                                    "localhost", 20000, names[0])),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, names[1], keys[1].second, 11001,
+                                    "localhost", 20000, names[1])),
   };
-  peers[0]->host("Starwars");
+  for (int a = 0; a < peers.size(); a++) {
+    if (!a) {
+      peers[a]->host("Starwars");
+    } else {
+      peers[a]->join();
+    }
+  }
   LOG(INFO) << "STARTING PEERS";
   for (auto it : peers) {
     it->start();
@@ -161,14 +178,20 @@ TEST_F(PeerTest, ThreePeers) {
   initGameServer(3);
   LOG(INFO) << "CREATING PEERS";
   vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(
-          new MyPeer(netEngine, keys[0].second, 11000, "localhost", 20000)),
-      shared_ptr<MyPeer>(
-          new MyPeer(netEngine, keys[1].second, 11001, "localhost", 20000)),
-      shared_ptr<MyPeer>(
-          new MyPeer(netEngine, keys[2].second, 11002, "localhost", 20000)),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, names[0], keys[0].second, 11000,
+                                    "localhost", 20000, names[0])),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, names[1], keys[1].second, 11001,
+                                    "localhost", 20000, names[1])),
+      shared_ptr<MyPeer>(new MyPeer(netEngine, names[2], keys[2].second, 11002,
+                                    "localhost", 20000, names[2])),
   };
-  peers[0]->host("Starwars");
+  for (int a = 0; a < peers.size(); a++) {
+    if (!a) {
+      peers[a]->host("Starwars");
+    } else {
+      peers[a]->join();
+    }
+  }
   LOG(INFO) << "STARTING PEERS";
   for (auto it : peers) {
     it->start();
