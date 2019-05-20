@@ -82,11 +82,15 @@ class UserDetails extends React.Component<{ appState: AppState }, { [newKey: str
           this.props.appState.updateMe(this.state.publicKey, this.state.name);
         }}>
           <Form.Group>
-            <Form.Label>Secret (DO NOT SHARE)</Form.Label>
+            <Form.Label>User ID (put this in your mame.ini)</Form.Label>
+            <Form.Control as="textarea" rows="3" name="userId" value={this.props.appState.userId ? this.props.appState.userId : ""} readOnly={true}></Form.Control>
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Secret (put this in your mame.ini, DO NOT SHARE)</Form.Label>
             <Form.Control type="text" name="privateKey" placeholder="Enter a new secret to update" value={this.state.privateKey} onChange={this.privateKeyChange.bind(this)} autoComplete="off"></Form.Control>
           </Form.Group>
           <Form.Group>
-            <Form.Label>Public ID</Form.Label>
+            <Form.Label>Public Key (you may need this for debugging, but otherwise ignore)</Form.Label>
             <Form.Control as="textarea" rows="3" name="publicKey" value={this.state.publicKey} readOnly={true}></Form.Control>
           </Form.Group>
           <Form.Group>
