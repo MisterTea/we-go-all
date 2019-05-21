@@ -19,8 +19,7 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _id,
   publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
   publicKeyString = CryptoHandler::keyToString(publicKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
-  localSocket.reset(new udp::socket(*netEngine->getIoService(),
-                                    udp::endpoint(udp::v4(), serverPort)));
+  localSocket.reset(netEngine->startUdpServer(serverPort));
   asio::socket_base::reuse_address option(true);
   localSocket->set_option(option);
   rpcServer.reset(new RpcServer(netEngine, localSocket));
@@ -64,9 +63,8 @@ void MyPeer::join() {
 void MyPeer::start() {
   updateEndpointServer();
 
-  updateTimer.reset(new asio::steady_timer(
-      *(netEngine->getIoService()),
-      std::chrono::steady_clock::now() + std::chrono::seconds(1)));
+  updateTimer.reset(netEngine->createTimer(
+      std::chrono::high_resolution_clock::now() + std::chrono::seconds(1)));
   updateTimer->async_wait(
       std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
   LOG(INFO) << "CALLING HEARTBEAT: "
@@ -75,7 +73,7 @@ void MyPeer::start() {
                    .count()
             << " VS "
             << std::chrono::duration_cast<std::chrono::seconds>(
-                   std::chrono::steady_clock::now().time_since_epoch())
+                   std::chrono::high_resolution_clock::now().time_since_epoch())
                    .count();
 }
 
@@ -89,14 +87,13 @@ void MyPeer::updateEndpointServer() {
   }
   auto localSocketStack = localSocket;
   LOG(INFO) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
-  netEngine->getIoService()->post(
-      [localSocketStack, serverEndpoint, ipAddressPacket]() {
-        // TODO: Need mutex here
-        LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-        int bytesSent = localSocketStack->send_to(asio::buffer(ipAddressPacket),
-                                                  serverEndpoint);
-        LOG(INFO) << bytesSent << " bytes sent";
-      });
+  netEngine->post([localSocketStack, serverEndpoint, ipAddressPacket]() {
+    // TODO: Need mutex here
+    LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
+    int bytesSent = localSocketStack->send_to(asio::buffer(ipAddressPacket),
+                                              serverEndpoint);
+    LOG(INFO) << bytesSent << " bytes sent";
+  });
 }
 
 void MyPeer::checkForEndpoints(const asio::error_code& error) {

@@ -23,7 +23,7 @@ class PortMappingHandler {
   UPNPDev* upnpDevice;
   string lanAddress;
   string wanAddress;
-  UPNPUrls upnp_urls;
+  shared_ptr<UPNPUrls> upnp_urls;
   IGDdatas upnp_data;
 };
 }  // namespace wga

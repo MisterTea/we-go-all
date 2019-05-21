@@ -2,7 +2,7 @@
 
 namespace wga {
 void UdpBiDirectionalRpc::send(const string& message) {
-  netEngine->getIoService()->post([this, message]() {
+  netEngine->post([this, message]() {
     lock_guard<recursive_mutex> guard(this->mutex);
     VLOG(1) << "IN SEND LAMBDA: " << message.length() << " TO "
             << this->activeEndpoint;

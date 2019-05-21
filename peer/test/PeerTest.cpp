@@ -30,7 +30,7 @@ class PeerTest : public testing::Test {
         keys.push_back(CryptoHandler::generateKey());
       }
     }
-    server.reset(new SingleGameServer(20000, names[0], keys[0].first, names[0],
+    server.reset(new SingleGameServer(netEngine, 20000, names[0], keys[0].first, names[0],
                                       numPlayers));
 
     peerConnectionServer.reset(
@@ -96,17 +96,15 @@ TEST_F(PeerTest, ProtocolTest) {
     EXPECT_EQ(result["peerData"][id]["endpoints"].size(), 0);
   }
 
-  shared_ptr<udp::socket> localSocket(new udp::socket(
-      *netEngine->getIoService(), udp::endpoint(udp::v4(), 12345)));
+  shared_ptr<udp::socket> localSocket(netEngine->startUdpServer(12345));
   udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000")[0];
   string ipAddressPacket = names[0] + "_" + "192.168.0.1:" + to_string(12345);
-  netEngine->getIoService()->post(
-      [localSocket, serverEndpoint, ipAddressPacket]() {
-        VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-        int bytesSent =
-            localSocket->send_to(asio::buffer(ipAddressPacket), serverEndpoint);
-        VLOG(1) << bytesSent << " bytes sent";
-      });
+  netEngine->post([localSocket, serverEndpoint, ipAddressPacket]() {
+    VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
+    int bytesSent =
+        localSocket->send_to(asio::buffer(ipAddressPacket), serverEndpoint);
+    VLOG(1) << bytesSent << " bytes sent";
+  });
 
   this_thread::sleep_for(chrono::seconds(1));
 

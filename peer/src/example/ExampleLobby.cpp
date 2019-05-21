@@ -39,6 +39,7 @@ class ExampleLobby {
         new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
 
     server.reset(new SingleGameServer(
+      netEngine,
         params["port"].as<int>(), "Host",
         CryptoHandler::makePublicFromPrivate(
             CryptoHandler::stringToKey<PrivateKey>(

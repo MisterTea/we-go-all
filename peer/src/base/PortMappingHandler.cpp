@@ -2,7 +2,7 @@
 
 namespace wga {
 PortMappingHandler::PortMappingHandler()
-    : sourcePortDistribution(24000, 25000) {
+    : sourcePortDistribution(24000, 25000), upnpDevice(NULL) {
   int error = 0;
   // get a list of upnp devices (asks on the broadcast address and returns the
   // responses)
@@ -35,7 +35,8 @@ PortMappingHandler::PortMappingHandler()
   LOG(INFO) << "DEVICE COUNT: " << deviceCount;
 
   char lanAddressArray[4096];
-  int status = UPNP_GetValidIGD(upnpDevice, &upnp_urls, &upnp_data,
+  upnp_urls.reset(new UPNPUrls());
+  int status = UPNP_GetValidIGD(upnpDevice, upnp_urls.get(), &upnp_data,
                                 lanAddressArray, sizeof(lanAddressArray));
   lanAddress = string(lanAddressArray);
 
@@ -43,7 +44,8 @@ PortMappingHandler::PortMappingHandler()
                       // success all others are different failures
     LOG(ERROR) << "No valid Internet Gateway Device could be connected to: "
                << status;
-    FreeUPNPUrls(&upnp_urls);
+    FreeUPNPUrls(upnp_urls.get());
+    upnp_urls.reset();
     freeUPNPDevlist(upnpDevice);
     upnpDevice = NULL;
     return;
@@ -51,11 +53,12 @@ PortMappingHandler::PortMappingHandler()
 
   // get the external (WAN) IP address
   char wanAddressArray[4096];
-  if (UPNP_GetExternalIPAddress(upnp_urls.controlURL,
+  if (UPNP_GetExternalIPAddress(upnp_urls->controlURL,
                                 upnp_data.first.servicetype,
                                 wanAddressArray) != 0) {
     LOG(ERROR) << "Could not get external IP address";
-    FreeUPNPUrls(&upnp_urls);
+    FreeUPNPUrls(upnp_urls.get());
+    upnp_urls.reset();
     freeUPNPDevlist(upnpDevice);
     upnpDevice = NULL;
     return;
@@ -70,8 +73,13 @@ PortMappingHandler::~PortMappingHandler() {
   for (auto it : tmpSourcePorts) {
     unmapPort(it);
   }
-  FreeUPNPUrls(&upnp_urls);
-  freeUPNPDevlist(upnpDevice);
+  if (upnp_urls.get()) {
+    FreeUPNPUrls(upnp_urls.get());
+    upnp_urls.reset();
+  }
+  if (upnpDevice) {
+    freeUPNPDevlist(upnpDevice);
+  }
 }
 
 int PortMappingHandler::mapPort(int destinationPort,
@@ -98,7 +106,7 @@ int PortMappingHandler::mapPort(int destinationPort,
     char map_lease_duration[16] = "";  // original time, not remaining time :(
 
     int error = UPNP_GetGenericPortMappingEntry(
-        upnp_urls.controlURL, upnp_data.first.servicetype,
+        upnp_urls->controlURL, upnp_data.first.servicetype,
         to_string(index).c_str(), map_wan_port, map_lanAddress, map_lan_port,
         map_protocol, map_description, map_mapping_enabled, map_remote_host,
         map_lease_duration);
@@ -121,9 +129,9 @@ int PortMappingHandler::mapPort(int destinationPort,
                 << map_description;
 
       // Found existing mapping, delete it
-      int error = UPNP_DeletePortMapping(upnp_urls.controlURL,
+      int error = UPNP_DeletePortMapping(upnp_urls->controlURL,
                                          upnp_data.first.servicetype,
-                                         map_wan_port, "UDP", NULL);
+                                         map_wan_port, map_protocol, NULL);
 
       if (error) {
         LOGFATAL << "Failed to unmap ports: " << error;
@@ -136,11 +144,11 @@ int PortMappingHandler::mapPort(int destinationPort,
     int sourcePort = sourcePortDistribution(generator);
 
     LOG(INFO) << "TRYING TO ADD PORT MAPPING";
-    LOG(INFO) << upnp_urls.controlURL << " / " << upnp_data.first.servicetype
+    LOG(INFO) << upnp_urls->controlURL << " / " << upnp_data.first.servicetype
               << " / " << sourcePort << " / " << destinationPort << " / "
               << lanAddress << " / " << description;
     int error = UPNP_AddPortMapping(
-        upnp_urls.controlURL, upnp_data.first.servicetype,
+        upnp_urls->controlURL, upnp_data.first.servicetype,
         to_string(sourcePort).c_str(), to_string(destinationPort).c_str(),
         lanAddress.c_str(), description.c_str(), "UDP", NULL, "86400");
 
@@ -152,6 +160,22 @@ int PortMappingHandler::mapPort(int destinationPort,
     if (error) {
       LOGFATAL << "Failed to map ports: " << error;
     }
+
+    error = UPNP_AddPortMapping(
+        upnp_urls->controlURL, upnp_data.first.servicetype,
+        to_string(sourcePort).c_str(), to_string(destinationPort).c_str(),
+        lanAddress.c_str(), description.c_str(), "TCP", NULL, "86400");
+
+    if (error == 718) {
+      LOG(INFO) << "Mapping conflicts with another mapping.  Will retry...";
+      unmapPort(sourcePort);
+      continue;
+    }
+
+    if (error) {
+      LOGFATAL << "Failed to map ports: " << error;
+    }
+
     LOG(INFO) << "Successfully mapped " << wanAddress << ":" << sourcePort
               << " to " << lanAddress << ":" << destinationPort;
     return sourcePort;
@@ -168,16 +192,24 @@ void PortMappingHandler::unmapPort(int sourcePort) {
   }
 
   int error =
-      UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype,
+      UPNP_DeletePortMapping(upnp_urls->controlURL, upnp_data.first.servicetype,
                              to_string(sourcePort).c_str(), "UDP", NULL);
 
   if (error == 714) {
     LOG(INFO) << "Tried to delete a port mapping that didn't exist (maybe "
                  "timed out?)";
-    return;
+  } else if (error) {
+    LOG(ERROR) << "Failed to unmap ports: " << error;
   }
 
-  if (error) {
+  error =
+      UPNP_DeletePortMapping(upnp_urls->controlURL, upnp_data.first.servicetype,
+                             to_string(sourcePort).c_str(), "TCP", NULL);
+
+  if (error == 714) {
+    LOG(INFO) << "Tried to delete a port mapping that didn't exist (maybe "
+                 "timed out?)";
+  } else if (error) {
     LOG(ERROR) << "Failed to unmap ports: " << error;
   }
 }

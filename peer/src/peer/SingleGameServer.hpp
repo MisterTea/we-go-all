@@ -25,9 +25,11 @@ inline void to_json(json& j, const wga::ServerPeerData& p) {
 
 class SingleGameServer {
  public:
-  SingleGameServer(int _port, const string& _hostId, const PublicKey& _hostKey,
+  SingleGameServer(shared_ptr<NetEngine> netEngine, int _port,
+                   const string& _hostId, const PublicKey& _hostKey,
                    const string& hostName, int _numPlayers)
       : numPlayers(_numPlayers) {
+    netEngine->forwardPort(_port);
     server.config.port = _port;
     gameId = sole::uuid4();
     hostId = _hostId;

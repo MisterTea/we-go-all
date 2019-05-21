@@ -4,8 +4,10 @@
 #include "LogHandler.hpp"
 #include "MyPeer.hpp"
 #include "NetEngine.hpp"
+#include "PeerConnectionServer.hpp"
 #include "PlayerData.hpp"
 #include "PortMappingHandler.hpp"
+#include "SingleGameServer.hpp"
 #include "TimeHandler.hpp"
 
 #include <cxxopts/include/cxxopts.hpp>
@@ -22,6 +24,8 @@ class ExamplePeer {
     options.add_options()                                                    //
         ("localport", "Port to run local server on", cxxopts::value<int>())  //
         ("host", "True if hosting",
+         cxxopts::value<bool>()->default_value("false"))  //
+        ("selflobby", "True if hosting a self lobby",
          cxxopts::value<bool>()->default_value("false"))  //
         ("v,verbose", "Log verbosity",
          cxxopts::value<int>()->default_value("0"))  //
@@ -40,13 +44,6 @@ class ExamplePeer {
     // Reconfigure default logger to apply settings above
     el::Loggers::reconfigureLogger("default", defaultConf);
 
-    auto portMappingHandler = make_shared<PortMappingHandler>();
-    portMappingHandler->mapPort(params["localport"].as<int>(),
-                                "WGA Example Peer");
-
-    shared_ptr<NetEngine> netEngine(
-        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
-
     bool host = params["host"].as<bool>();
 
     if (host) {
@@ -58,12 +55,27 @@ class ExamplePeer {
           "M0JVZTd4aTN0M3dyUXdYQnlMNTdmQU1pRHZnaU9ITU8=");
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
     }
-    myPeer.reset(new MyPeer(
-        netEngine, "Client", privateKey, params["localport"].as<int>(),
-        params["lobbyhost"].as<string>(), params["lobbyport"].as<int>(),
-        host ? "Host" : "Client"));
+
+    shared_ptr<NetEngine> netEngine(
+        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
+    int lobbyPort = params["lobbyport"].as<int>();
+
+    if (params["selflobby"].as<bool>()) {
+      LOG(INFO) << "Running local lobby";
+      server.reset(
+          new SingleGameServer(netEngine, lobbyPort, "Host", publicKey, "Host", 2));
+      peerConnectionServer.reset(
+          new PeerConnectionServer(netEngine, lobbyPort, server));
+    }
+
+    myPeer.reset(new MyPeer(netEngine, host ? "Host" : "Client", privateKey,
+                            params["localport"].as<int>(),
+                            params["lobbyhost"].as<string>(), lobbyPort,
+                            host ? "Host" : "Client"));
     if (host) {
       myPeer->host("Starwars");
+    } else {
+      myPeer->join();
     }
 
     netEngine->start();
@@ -118,6 +130,8 @@ class ExamplePeer {
   PublicKey publicKey;
   PrivateKey privateKey;
   shared_ptr<MyPeer> myPeer;
+  shared_ptr<SingleGameServer> server;
+  shared_ptr<PeerConnectionServer> peerConnectionServer;
 };
 }  // namespace wga
 

@@ -42,8 +42,7 @@ class FlakyRpcTest : public testing::Test {
 
     // Create port multiplexers
     for (int a = 0; a < numNodes; a++) {
-      shared_ptr<udp::socket> localSocket(new udp::socket(
-          *netEngine->getIoService(), udp::endpoint(udp::v4(), 20000 + a)));
+      shared_ptr<udp::socket> localSocket(netEngine->startUdpServer(20000 + a));
       servers.push_back(
           shared_ptr<RpcServer>(new RpcServer(netEngine, localSocket)));
     }
