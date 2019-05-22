@@ -119,6 +119,11 @@ class BiDirectionalRpc {
     return make_pair(pingEstimator.getMean(), offsetEstimator.getMean());
   }
 
+  double getHalfPingUpperBound() {
+    return (pingEstimator.getMean() / 2.0) +
+           ((sqrt(pingEstimator.getVariance() / 4.0) * 3.0));
+  }
+
  protected:
   unordered_map<RpcId, string> delayedRequests;
   unordered_map<RpcId, string> outgoingRequests;

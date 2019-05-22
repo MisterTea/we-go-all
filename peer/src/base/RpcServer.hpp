@@ -155,6 +155,15 @@ class RpcServer : public PortMultiplexer {
     return retval;
   }
 
+  double getHalfPingUpperBound() {
+    double ping = 0;
+    for (const auto& it : endpoints) {
+      ping = max(ping, it.second->getHalfPingUpperBound());
+    }
+    ping = min(ping, 1000000.0);
+    return ping;
+  }
+
  protected:
   map<string, shared_ptr<EncryptedMultiEndpointHandler>> endpoints;
 };

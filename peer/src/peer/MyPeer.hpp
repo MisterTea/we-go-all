@@ -45,6 +45,10 @@ class MyPeer {
     return rpcServer->getPeerLatency();
   }
 
+  double getHalfPingUpperBound() {
+    return rpcServer->getHalfPingUpperBound();
+  }
+
   string getGameName() { return gameName; }
 
  protected:
