@@ -83,13 +83,10 @@ class ChronoMap {
   bool empty() const { return expirationTime == 0; }
 
   void blockUntilTime(int64_t timestamp) {
-    LOG(INFO) << "Waiting for time: " << expirationTime << " < " << timestamp;
     while (expirationTime <= timestamp) {
       // Yield the processor
       usleep(0);
     }
-    LOG(INFO) << "Done waiting for time: " << expirationTime << " < "
-              << timestamp;
   }
 
  protected:
