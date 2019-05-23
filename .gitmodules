@@ -49,3 +49,6 @@
 [submodule "peer/external/eigen"]
 	path = peer/external/eigen
 	url = https://github.com/eigenteam/eigen-git-mirror.git
+[submodule "peer/external/UniversalStacktrace"]
+	path = peer/external/UniversalStacktrace
+	url = https://github.com/MisterTea/UniversalStacktrace.git

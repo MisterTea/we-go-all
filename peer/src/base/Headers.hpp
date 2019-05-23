@@ -1,7 +1,6 @@
 #ifndef __WGA_HEADERS__
 #define __WGA_HEADERS__
 
-#define ELPP_FEATURE_ALL (1)
 #define ELPP_THREAD_SAFE (1)
 
 // Enable standalone asio
@@ -63,14 +62,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include "UniversalStacktrace/ust/ust.hpp"
 #include "easyloggingpp/src/easylogging++.h"
 
-#if ELPP_STACKTRACE
-#define LOGFATAL \
-  (LOG(ERROR) << "\n" << el::base::debug::StackTrace(), LOG(FATAL))
-#else
-#define LOGFATAL LOG(FATAL)
-#endif  // ELPP_STACKTRACE
+#define LOGFATAL (LOG(ERROR) << "\n" << ust::generate(), LOG(FATAL))
 
 #include "CTPL/ctpl_stl.h"
 #include "Catch2/single_include/catch2/catch.hpp"
