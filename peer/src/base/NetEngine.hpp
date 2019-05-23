@@ -43,7 +43,7 @@ class NetEngine {
   }
 
   inline asio::steady_timer* createTimer(
-      std::chrono::time_point<std::chrono::high_resolution_clock> launchPoint) {
+      std::chrono::time_point<std::chrono::steady_clock> launchPoint) {
     return new asio::steady_timer(*ioService, launchPoint);
   }
 

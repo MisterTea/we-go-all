@@ -64,7 +64,7 @@ void MyPeer::start() {
   updateEndpointServer();
 
   updateTimer.reset(netEngine->createTimer(
-      std::chrono::high_resolution_clock::now() + std::chrono::seconds(1)));
+      std::chrono::steady_clock::now() + std::chrono::seconds(1)));
   updateTimer->async_wait(
       std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
   LOG(INFO) << "CALLING HEARTBEAT: "
