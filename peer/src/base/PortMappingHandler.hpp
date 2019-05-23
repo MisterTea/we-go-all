@@ -2,8 +2,17 @@
 
 #include "Headers.hpp"
 
-#include <miniupnpc-2.1.20190408/miniupnpc.h>
-#include <miniupnpc-2.1.20190408/upnpcommands.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct UPNPDev;
+struct UPNPUrls;
+struct IGDdatas;
+
+#ifdef __cplusplus
+}
+#endif
 
 namespace wga {
 class PortMappingHandler {
@@ -24,6 +33,6 @@ class PortMappingHandler {
   string lanAddress;
   string wanAddress;
   shared_ptr<UPNPUrls> upnp_urls;
-  IGDdatas upnp_data;
+  shared_ptr<IGDdatas> upnp_data;
 };
 }  // namespace wga

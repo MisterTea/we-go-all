@@ -1,8 +1,12 @@
 #include "PortMappingHandler.hpp"
 
+#include <miniupnpc-2.1.20190408/miniupnpc.h>
+#include <miniupnpc-2.1.20190408/upnpcommands.h>
+
 namespace wga {
 PortMappingHandler::PortMappingHandler()
     : sourcePortDistribution(24000, 25000), upnpDevice(NULL) {
+  upnp_data = std::make_shared<IGDdatas>();
   int error = 0;
   // get a list of upnp devices (asks on the broadcast address and returns the
   // responses)
@@ -36,7 +40,7 @@ PortMappingHandler::PortMappingHandler()
 
   char lanAddressArray[4096];
   upnp_urls.reset(new UPNPUrls());
-  int status = UPNP_GetValidIGD(upnpDevice, upnp_urls.get(), &upnp_data,
+  int status = UPNP_GetValidIGD(upnpDevice, upnp_urls.get(), upnp_data.get(),
                                 lanAddressArray, sizeof(lanAddressArray));
   lanAddress = string(lanAddressArray);
 
@@ -54,7 +58,7 @@ PortMappingHandler::PortMappingHandler()
   // get the external (WAN) IP address
   char wanAddressArray[4096];
   if (UPNP_GetExternalIPAddress(upnp_urls->controlURL,
-                                upnp_data.first.servicetype,
+                                upnp_data->first.servicetype,
                                 wanAddressArray) != 0) {
     LOG(ERROR) << "Could not get external IP address";
     FreeUPNPUrls(upnp_urls.get());
@@ -80,6 +84,7 @@ PortMappingHandler::~PortMappingHandler() {
   if (upnpDevice) {
     freeUPNPDevlist(upnpDevice);
   }
+  upnp_data.reset();
 }
 
 int PortMappingHandler::mapPort(int destinationPort,
@@ -106,7 +111,7 @@ int PortMappingHandler::mapPort(int destinationPort,
     char map_lease_duration[16] = "";  // original time, not remaining time :(
 
     int error = UPNP_GetGenericPortMappingEntry(
-        upnp_urls->controlURL, upnp_data.first.servicetype,
+        upnp_urls->controlURL, upnp_data->first.servicetype,
         to_string(index).c_str(), map_wan_port, map_lanAddress, map_lan_port,
         map_protocol, map_description, map_mapping_enabled, map_remote_host,
         map_lease_duration);
@@ -130,7 +135,7 @@ int PortMappingHandler::mapPort(int destinationPort,
 
       // Found existing mapping, delete it
       int error = UPNP_DeletePortMapping(upnp_urls->controlURL,
-                                         upnp_data.first.servicetype,
+                                         upnp_data->first.servicetype,
                                          map_wan_port, map_protocol, NULL);
 
       if (error) {
@@ -144,11 +149,11 @@ int PortMappingHandler::mapPort(int destinationPort,
     int sourcePort = sourcePortDistribution(generator);
 
     LOG(INFO) << "TRYING TO ADD PORT MAPPING";
-    LOG(INFO) << upnp_urls->controlURL << " / " << upnp_data.first.servicetype
+    LOG(INFO) << upnp_urls->controlURL << " / " << upnp_data->first.servicetype
               << " / " << sourcePort << " / " << destinationPort << " / "
               << lanAddress << " / " << description;
     int error = UPNP_AddPortMapping(
-        upnp_urls->controlURL, upnp_data.first.servicetype,
+        upnp_urls->controlURL, upnp_data->first.servicetype,
         to_string(sourcePort).c_str(), to_string(destinationPort).c_str(),
         lanAddress.c_str(), description.c_str(), "UDP", NULL, "86400");
 
@@ -162,7 +167,7 @@ int PortMappingHandler::mapPort(int destinationPort,
     }
 
     error = UPNP_AddPortMapping(
-        upnp_urls->controlURL, upnp_data.first.servicetype,
+        upnp_urls->controlURL, upnp_data->first.servicetype,
         to_string(sourcePort).c_str(), to_string(destinationPort).c_str(),
         lanAddress.c_str(), description.c_str(), "TCP", NULL, "86400");
 
@@ -191,9 +196,9 @@ void PortMappingHandler::unmapPort(int sourcePort) {
     return;
   }
 
-  int error =
-      UPNP_DeletePortMapping(upnp_urls->controlURL, upnp_data.first.servicetype,
-                             to_string(sourcePort).c_str(), "UDP", NULL);
+  int error = UPNP_DeletePortMapping(
+      upnp_urls->controlURL, upnp_data->first.servicetype,
+      to_string(sourcePort).c_str(), "UDP", NULL);
 
   if (error == 714) {
     LOG(INFO) << "Tried to delete a port mapping that didn't exist (maybe "
@@ -202,9 +207,9 @@ void PortMappingHandler::unmapPort(int sourcePort) {
     LOG(ERROR) << "Failed to unmap ports: " << error;
   }
 
-  error =
-      UPNP_DeletePortMapping(upnp_urls->controlURL, upnp_data.first.servicetype,
-                             to_string(sourcePort).c_str(), "TCP", NULL);
+  error = UPNP_DeletePortMapping(upnp_urls->controlURL,
+                                 upnp_data->first.servicetype,
+                                 to_string(sourcePort).c_str(), "TCP", NULL);
 
   if (error == 714) {
     LOG(INFO) << "Tried to delete a port mapping that didn't exist (maybe "
