@@ -284,6 +284,26 @@ bool MyPeer::initialized() {
   return true;
 }
 
+vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
+  vector<string> values;
+  for (auto& it : peerData) {
+    while (true) {
+      lock_guard<recursive_mutex> guard(peerDataMutex);
+      auto expirationTime = it.second->playerInputData.getExpirationTime();
+      if (timestamp < expirationTime) {
+        values.push_back(it.second->playerInputData.getOrDie(timestamp, key));
+        break;
+      }
+      // Check if the peer is dead
+      auto peerId = it.first;
+      if (rpcServer->isPeerShutDown(peerId)) {
+        break;
+      }
+    }
+  }
+  return values;
+}
+
 void MyPeer::updateState(int64_t timestamp,
                          unordered_map<string, string> data) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
