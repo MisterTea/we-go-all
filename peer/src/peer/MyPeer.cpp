@@ -9,8 +9,8 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
                const PrivateKey& _privateKey, int _serverPort,
                const string& _lobbyHost, int _lobbyPort, const string& _name)
     : userId(_userId),
-      shuttingDown(false),
       privateKey(_privateKey),
+      shuttingDown(false),
       netEngine(_netEngine),
       serverPort(_serverPort),
       lobbyHost(_lobbyHost),
@@ -36,12 +36,29 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
 }
 
 void MyPeer::shutdown() {
-  LOG(INFO) << "SHUTTING DOWN";
-  shuttingDown = true;
-  updateTimer->cancel();
-  // Wait for the updates to flush
-  sleep(1);
-  rpcServer.reset();
+  if (!shuttingDown) {
+    LOG(INFO) << "SHUTTING DOWN";
+    shuttingDown = true;
+    while (rpcServer->hasWork()) {
+      LOG(INFO) << "WAITING FOR WORK TO FLUSH";
+      sleep(1);
+    }
+    rpcServer->finish();
+    // Wait for the updates to flush
+    sleep(1);
+    LOG(INFO) << "BEGINNING FLUSH";
+    while (rpcServer->hasWork()) {
+      LOG(INFO) << "WAITING FOR WORK TO FLUSH";
+      sleep(1);
+    }
+    updateTimer->cancel();
+    // Wait for the updates to flush
+    sleep(1);
+    rpcServer->closeSocket();
+    // Wait for the updates to flush
+    sleep(1);
+    rpcServer.reset();
+  }
 }
 
 void MyPeer::host(const string& gameName) {
@@ -49,16 +66,18 @@ void MyPeer::host(const string& gameName) {
   json request = {
       {"hostId", userId}, {"gameId", gameId}, {"gameName", gameName}};
   SimpleWeb::CaseInsensitiveMultimap header;
-  header.insert(make_pair("Content-Type","application/json"));
+  header.insert(make_pair("Content-Type", "application/json"));
   auto response = client->request("POST", path, request.dump(2), header);
   FATAL_FAIL_HTTP(response);
 }
 
 void MyPeer::join() {
   string path = string("/api/join");
-  json request = {{"peerId", userId}, {"name", name}, {"peerKey", CryptoHandler::keyToString(publicKey)}};
+  json request = {{"peerId", userId},
+                  {"name", name},
+                  {"peerKey", CryptoHandler::keyToString(publicKey)}};
   SimpleWeb::CaseInsensitiveMultimap header;
-  header.insert(make_pair("Content-Type","application/json"));
+  header.insert(make_pair("Content-Type", "application/json"));
   auto response = client->request("POST", path, request.dump(2), header);
   FATAL_FAIL_HTTP(response);
 }
@@ -66,8 +85,8 @@ void MyPeer::join() {
 void MyPeer::start() {
   updateEndpointServer();
 
-  updateTimer.reset(netEngine->createTimer(
-      std::chrono::steady_clock::now() + std::chrono::seconds(1)));
+  updateTimer.reset(netEngine->createTimer(std::chrono::steady_clock::now() +
+                                           std::chrono::seconds(1)));
   updateTimer->async_wait(
       std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
   LOG(INFO) << "CALLING HEARTBEAT: "

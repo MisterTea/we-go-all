@@ -10,6 +10,10 @@ PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
                 std::placeholders::_2));
 }
 
+void PortMultiplexer::closeSocket() {
+  netEngine->post([this] { localSocket->close(); });
+}
+
 void PortMultiplexer::handleRecieve(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
   if (error.value()) {

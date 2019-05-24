@@ -11,6 +11,8 @@ class PortMultiplexer {
   PortMultiplexer(shared_ptr<NetEngine> _netEngine,
                   shared_ptr<udp::socket> _localSocket);
 
+  void closeSocket();
+
   shared_ptr<udp::socket> getLocalSocket() { return localSocket; }
 
   void addRecipient(shared_ptr<EncryptedMultiEndpointHandler> recipient) {

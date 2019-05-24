@@ -3,11 +3,19 @@
 #include "TimeHandler.hpp"
 
 namespace wga {
-BiDirectionalRpc::BiDirectionalRpc() : onBarrier(0), onId(0), flaky(false) {}
+BiDirectionalRpc::BiDirectionalRpc()
+    : onBarrier(0), onId(0), flaky(false), shuttingDown(false) {}
 
 BiDirectionalRpc::~BiDirectionalRpc() {}
 
-void BiDirectionalRpc::shutdown() {}
+void BiDirectionalRpc::sendShutdown() {
+  VLOG(1) << "SHUTTING DOWN RPC";
+  string s(1, '\0');
+  s[0] = SHUTDOWN;
+  send(s);
+}
+
+void BiDirectionalRpc::shutdown() { shuttingDown = true; }
 
 void BiDirectionalRpc::heartbeat() {
   lock_guard<recursive_mutex> guard(mutex);
@@ -102,6 +110,10 @@ void BiDirectionalRpc::receive(const string& message) {
             break;
           }
         }
+      } break;
+      case SHUTDOWN: {
+        VLOG(1) << "GOT SHUT DOWN";
+        shutdown();
       } break;
       default: {
         LOGFATAL << "Got invalid header: " << header << " in message "

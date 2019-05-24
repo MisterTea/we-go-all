@@ -17,6 +17,14 @@ class MyPeer {
          const string& _lobbyHost, int _lobbyPort, const string& _name);
 
   void shutdown();
+  inline bool isShutdown() { return shuttingDown; }
+  int getLivingPeerCount() {
+    if (rpcServer.get() == NULL) {
+      return 0;
+    } else {
+      return rpcServer->getLivingPeerCount();
+    }
+  }
 
   void host(const string& gameName);
   void join();
@@ -45,9 +53,7 @@ class MyPeer {
     return rpcServer->getPeerLatency();
   }
 
-  double getHalfPingUpperBound() {
-    return rpcServer->getHalfPingUpperBound();
-  }
+  double getHalfPingUpperBound() { return rpcServer->getHalfPingUpperBound(); }
 
   string getGameName() { return gameName; }
 

@@ -30,8 +30,8 @@ class PeerTest : public testing::Test {
         keys.push_back(CryptoHandler::generateKey());
       }
     }
-    server.reset(new SingleGameServer(netEngine, 20000, names[0], keys[0].first, names[0],
-                                      numPlayers));
+    server.reset(new SingleGameServer(netEngine, 20000, names[0], keys[0].first,
+                                      names[0], numPlayers));
 
     peerConnectionServer.reset(
         new PeerConnectionServer(netEngine, 20000, server));
@@ -166,8 +166,11 @@ TEST_F(PeerTest, TwoPeers) {
   EXPECT_EQ(state.find("button0")->second, "0");
   EXPECT_NE(state.find("button1"), state.end());
   EXPECT_EQ(state.find("button1")->second, "1");
-  for (auto it : peers) {
-    it->shutdown();
+  peers[0]->shutdown();
+  for (auto &it : peers) {
+    while (it->getLivingPeerCount()) {
+      sleep(1);
+    }
   }
 }
 
@@ -212,8 +215,12 @@ TEST_F(PeerTest, ThreePeers) {
     EXPECT_NE(state.find("button2"), state.end());
     EXPECT_EQ(state.find("button2")->second, "2");
   }
-  for (auto it : peers) {
-    it->shutdown();
+  peers[0]->shutdown();
+  peers[1]->shutdown();
+  for (auto &it : peers) {
+    while (it->getLivingPeerCount()) {
+      sleep(1);
+    }
   }
 }
 }  // namespace wga

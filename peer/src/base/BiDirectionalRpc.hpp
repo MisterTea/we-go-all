@@ -37,12 +37,20 @@ struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
 }  // namespace std
 
 namespace wga {
-enum RpcHeader { HEARTBEAT = 1, REQUEST = 2, REPLY = 3, ACKNOWLEDGE = 4 };
+enum RpcHeader {
+  HEARTBEAT = 1,
+  REQUEST = 2,
+  REPLY = 3,
+  ACKNOWLEDGE = 4,
+  SHUTDOWN = 5
+};
 
 class BiDirectionalRpc {
  public:
   BiDirectionalRpc();
   virtual ~BiDirectionalRpc();
+
+  void sendShutdown();
   void shutdown();
   void heartbeat();
   void barrier() {
@@ -124,6 +132,8 @@ class BiDirectionalRpc {
            ((sqrt(pingEstimator.getVariance() / 4.0) * 3.0));
   }
 
+  inline bool isShuttingDown() { return shuttingDown; }
+
  protected:
   unordered_map<RpcId, string> delayedRequests;
   unordered_map<RpcId, string> outgoingRequests;
@@ -140,6 +150,7 @@ class BiDirectionalRpc {
   uint64_t onId;
   bool flaky;
   recursive_mutex mutex;
+  bool shuttingDown;
 
   struct NetworkStats {
     int64_t offset;

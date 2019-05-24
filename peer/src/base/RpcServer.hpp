@@ -102,6 +102,15 @@ class RpcServer : public PortMultiplexer {
   }
 
   void finish() {
+    for (auto it : endpoints) {
+      it.second->shutdown();
+    }
+    for (int a = 0; a < 100; a++) {
+      for (auto it : endpoints) {
+        it.second->sendShutdown();
+      }
+      usleep(10 * 1000);
+    }
     while (hasWork()) {
       {
         heartbeat();
@@ -118,6 +127,16 @@ class RpcServer : public PortMultiplexer {
       }
     }
     return false;
+  }
+
+  int getLivingPeerCount() {
+    int count = 0;
+    for (auto it : endpoints) {
+      if (!it.second->isShuttingDown()) {
+        count++;
+      }
+    }
+    return count;
   }
 
   vector<string> getPeerIds() {
