@@ -37,8 +37,6 @@ class MyPeer {
 
   void updateState(int64_t timestamp, unordered_map<string, string> data);
 
-  vector<string> getAllInputValues(int64_t timestamp, const string& key);
-
   unordered_map<string, string> getFullState(int64_t timestamp);
   int64_t getNearestExpirationTime();
 

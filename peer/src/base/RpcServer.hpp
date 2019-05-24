@@ -139,6 +139,10 @@ class RpcServer : public PortMultiplexer {
     return count;
   }
 
+  bool isPeerShutDown(const string& peerId) {
+    return endpoints.at(peerId)->isShuttingDown();
+  }
+
   vector<string> getPeerIds() {
     vector<string> retval;
     for (auto it : endpoints) {

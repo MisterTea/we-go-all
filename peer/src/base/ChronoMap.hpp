@@ -82,13 +82,6 @@ class ChronoMap {
 
   bool empty() const { return expirationTime == 0; }
 
-  void blockUntilTime(int64_t timestamp) {
-    while (expirationTime <= timestamp) {
-      // Yield the processor
-      usleep(0);
-    }
-  }
-
  protected:
   unordered_map<K, map<int64_t, V>> data;
   int64_t expirationTime;

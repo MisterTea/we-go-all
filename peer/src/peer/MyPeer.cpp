@@ -284,16 +284,6 @@ bool MyPeer::initialized() {
   return true;
 }
 
-vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
-  vector<string> values;
-  for (auto& it : peerData) {
-    it.second->playerInputData.blockUntilTime(timestamp);
-    lock_guard<recursive_mutex> guard(peerDataMutex);
-    values.push_back(it.second->playerInputData.getOrDie(timestamp, key));
-  }
-  return values;
-}
-
 void MyPeer::updateState(int64_t timestamp,
                          unordered_map<string, string> data) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
@@ -314,11 +304,21 @@ void MyPeer::updateState(int64_t timestamp,
 unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
   unordered_map<string, string> state;
   for (auto& it : peerData) {
-    it.second->playerInputData.blockUntilTime(timestamp);
-    lock_guard<recursive_mutex> guard(peerDataMutex);
-    unordered_map<string, string> peerState =
-        it.second->playerInputData.getAll(timestamp);
-    state.insert(peerState.begin(), peerState.end());
+    while (true) {
+      lock_guard<recursive_mutex> guard(peerDataMutex);
+      auto expirationTime = it.second->playerInputData.getExpirationTime();
+      if (timestamp < expirationTime) {
+        unordered_map<string, string> peerState =
+            it.second->playerInputData.getAll(timestamp);
+        state.insert(peerState.begin(), peerState.end());
+        break;
+      }
+      // Check if the peer is dead
+      auto peerId = it.first;
+      if (rpcServer->isPeerShutDown(peerId)) {
+        break;
+      }
+    }
   }
   return state;
 }
