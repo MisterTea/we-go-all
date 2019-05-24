@@ -38,11 +38,11 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
 void MyPeer::shutdown() {
   if (!shuttingDown) {
     LOG(INFO) << "SHUTTING DOWN";
-    shuttingDown = true;
     while (rpcServer->hasWork()) {
       LOG(INFO) << "WAITING FOR WORK TO FLUSH";
       sleep(1);
     }
+    shuttingDown = true;
     rpcServer->finish();
     // Wait for the updates to flush
     sleep(1);
