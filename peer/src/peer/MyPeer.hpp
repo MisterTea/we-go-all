@@ -12,7 +12,7 @@
 namespace wga {
 class MyPeer {
  public:
-  MyPeer(shared_ptr<NetEngine> _netEngine, const string& _id,
+  MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
          const PrivateKey& _privateKey, int _serverPort,
          const string& _lobbyHost, int _lobbyPort, const string& _name);
 
@@ -52,14 +52,13 @@ class MyPeer {
   string getGameName() { return gameName; }
 
  protected:
-  string id;
-  bool shuttingDown;
-  shared_ptr<NetEngine> netEngine;
+  string userId;
   PrivateKey privateKey;
   PublicKey publicKey;
-  string publicKeyString;
+  bool shuttingDown;
+  shared_ptr<NetEngine> netEngine;
   shared_ptr<HttpClient> client;
-  uuid gameId;
+  string gameId;
   int serverPort;
   string hostId;
   shared_ptr<RpcServer> rpcServer;

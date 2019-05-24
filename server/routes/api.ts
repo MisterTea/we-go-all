@@ -1,5 +1,6 @@
 var express = require('express');
 var router = express.Router();
+var ObjectId = require('mongoose').Types.ObjectId;
 var db = require('../model/db');
 
 const asyncMiddleware = fn =>
@@ -8,45 +9,37 @@ const asyncMiddleware = fn =>
       .catch(next);
   };
 
+router.use(express.json());
+
 // Get game id for current user
-router.get('/get_current_game_id/:hostkey', asyncMiddleware(async (req, res, _next) => {
+router.get('/get_current_game_id/:peerId', asyncMiddleware(async (req, res, _next) => {
   // TODO: authentication
 
-  // TODO: public keys are not unique, need to use id as well
-  var hostKey = req.params.hostKey;
+  var peerId = new ObjectId(req.params.peerId);
 
-  var host = await db.users.findOne({ publicKey: hostKey });
-  if (!host) {
+  console.log(peerId);
+  var game = await db.games.find({ peers: { $in: [peerId] }, active: true });
+  console.log("RESULTS");
+  console.log(game);
+  console.log(game.length);
+  if (game.length == 0) {
     res.status(400);
-    res.json({ "error": "Could not find user with key: " + hostKey });
+    res.json({ "error": "Could not find active game with peer id: " + peerId });
     return;
   }
-
-  var game = await db.games.find({ host: host._id, active: true });
-  if (!game) {
-    res.status(400);
-    res.json({ "error": "Could not find active game with host id: " + host._id });
-    return;
-  }
+  console.log(game);
 
   res.status(200);
-  res.json({ "gameId": "" + game[0]._id });
+  res.json({ "gameId": "" + game[0].id });
 }));
 
 router.get('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => {
-  var gameId = req.params.gameId;
+  var gameId = new ObjectId(req.params.gameId);
 
   var game = await db.games.findById(gameId);
   if (!game) {
     res.status(400);
-    res.json({ "error": "Could not find game with id: " + game._id });
-    return;
-  }
-
-  var host = await db.games.findById(game.host._id);
-  if (!host) {
-    res.status(500);
-    res.json({ "error": "Missing host for game " + gameId });
+    res.json({ "error": "Could not find game with id: " + game.id });
     return;
   }
 
@@ -60,23 +53,33 @@ router.get('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => 
       return;
     }
     var peerData = {
-      "id": peerId,
+      "id": peerId.toString(),
       "key": peer.publicKey,
       "name": peer.name,
       "endpoints": peer.endpoints,
     };
-    allPeerData[peer.publicKey] = peerData;
+    console.log(JSON.stringify(peerData));
+    allPeerData[peerId.toString()] = peerData;
   }
 
   res.status(200);
-  res.json({ "gameName": game.gameName, "hostKey": host.publicKey, "peerData": allPeerData });
+  res.json({
+    gameName: game.gameName,
+    ready: (game.ready.length == game.peers.length),
+    hostId: game.host.toString(),
+    peerData: allPeerData,
+  });
 }));
 
 
 router.post('/host', asyncMiddleware(async (req, res, _next) => {
-  var gameId = req.body.gameId;
-  var hostKey = req.body.hostKey;
+  console.log("HOST COMMAND");
+  console.log(req);
+  console.log(req.body);
+  var gameId = new ObjectId(req.body.gameId);
+  var hostId = new ObjectId(req.body.hostId);
   var gameName = req.body.gameName;
+  console.log(gameId);
 
   var game = await db.games.findById(gameId);
   if (!game) {
@@ -84,31 +87,51 @@ router.post('/host', asyncMiddleware(async (req, res, _next) => {
     res.json({ "error": "Could not find game with id: " + gameId });
     return;
   }
-  if (game.gameName) {
+  if (game.gameName && game.gameName != gameName) {
     res.status(400);
     res.json({ "error": "Game already has name: " + gameId + " -> " + game.gameName });
     return;
   }
-
-  var host = await db.games.findById(game.host._id);
-  if (!host) {
-    res.status(500);
-    res.json({ "error": "Missing host for game " + gameId });
-    return;
+  game.gameName = gameName;
+  var found = false;
+  for (var a = 0; a < game.ready.length; a++) {
+    if (game.ready[a].equals(hostId)) {
+      found = true;
+    }
   }
+  if (!found) {
+    game.ready.push(hostId);
+  }
+  await game.save();
 
-  if (hostKey != host.publicKey) {
+  res.status(200);
+  res.send({ "status": "OK" });
+}));
+
+router.post('/join', asyncMiddleware(async (req, res, _next) => {
+  var peerId = new ObjectId(req.body.peerId);
+  var name = req.body.name;
+  var peerKey = req.body.peerKey;
+  console.log("Peer id");
+
+  var gameList = await db.games.find({ peers: { $in: new ObjectId(peerId) }, active: true });
+  if (gameList.length == 0) {
     res.status(400);
-    res.json({ "error": "provided key does not match host key: " + hostKey + " != " + host.publicKey });
+    res.json({ "error": "Could not find active game with host id: " + peerId });
     return;
   }
-
-  game = await db.games.findByIdAndUpdate({ gameName });
-  if (!game) {
-    res.status(500);
-    res.json({ "error": "Could not update game " + gameId });
-    return;
+  var game = gameList[0];
+  console.log(game);
+  var found = false;
+  for (var a = 0; a < game.ready.length; a++) {
+    if (game.ready[a].equals(peerId)) {
+      found = true;
+    }
   }
+  if (!found) {
+    game.ready.push(peerId);
+  }
+  await game.save();
 
   res.status(200);
   res.send({ "status": "OK" });

@@ -91,7 +91,7 @@ class UserDetails extends React.Component<{ appState: AppState }, { [newKey: str
           </Form.Group>
           <Form.Group>
             <Form.Label>Public Key (you may need this for debugging, but otherwise ignore)</Form.Label>
-            <Form.Control as="textarea" rows="3" name="publicKey" value={this.state.publicKey} readOnly={true}></Form.Control>
+            <Form.Control as="textarea" rows="3" name="publicKey" value={this.state.publicKey ? this.state.publicKey : ""} readOnly={true}></Form.Control>
           </Form.Group>
           <Form.Group>
             <Form.Label>Displayed Name</Form.Label>

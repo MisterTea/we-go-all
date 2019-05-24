@@ -12,9 +12,10 @@ exports.start = function (port: number) {
     logger.info('UDP Server listening on ' + address.address + ":" + address.port);
   });
 
-  socket.on('message', function (message: string, remote: any) {
+  socket.on('message', function (messageObject: object, remote: any) {
+    let message = "" + messageObject;
     var tokens = message.split('_');
-    if (tokens.length < 2) {
+    if (tokens.length < 1) {
       logger.error("Invalid message: " + message);
       var replyMessage = "ERROR";
       socket.send(replyMessage, 0, replyMessage.length, remote.port, remote.address, function (err: any, bytes: any) {
@@ -23,7 +24,7 @@ exports.start = function (port: number) {
       });
       return;
     }
-    var playerKey = tokens[0];
+    var playerId = tokens[0];
     var endpoints: string[] = [];
     endpoints.push(remote.address + ':' + remote.port);
     for (var a = 1; a < tokens.length; a++) {
@@ -40,7 +41,7 @@ exports.start = function (port: number) {
       }
     };
 
-    db.player.FindOneAndUpdate({ publicKey: playerKey }, errorHandlerUdp((player: any) => {
+    db.users.findByIdAndUpdate(playerId, { endpoints }, errorHandlerUdp((player: any) => {
       // Update the endpoints
     }));
   });

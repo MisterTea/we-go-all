@@ -1,7 +1,7 @@
 type Query {
   activeGames: [Game]
   getUser(id: ID!): User
-  me: User!
+  me: User
 }
 
 type Mutation {
@@ -28,7 +28,7 @@ type UserPrivate {
 
 type Game {
   id: ID!
-  gameName: String!
+  gameName: String
   host: User
   peers: [User]
   active: Boolean

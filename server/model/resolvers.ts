@@ -76,11 +76,12 @@ export const resolvers = {
         // TODO: Mark existing games by this host as inactive
         let userId = req.cookies["user_id"];
         var game = new db.games({
-          gameName: "(unknown)",
+          gameName: null,
           host: ObjectId(userId),
           createTime: (new Date).getTime(),
           active: true,
-          peers: [ObjectId(userId)]
+          peers: [ObjectId(userId)],
+          ready: [],
         });
         return await game.save();
       } else {

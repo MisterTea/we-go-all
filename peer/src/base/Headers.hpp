@@ -127,7 +127,7 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 
 #define FATAL_FAIL_HTTP(RESPONSE)        \
   if (RESPONSE->status_code != "200 OK") \
-    LOGFATAL << "Error making http request: " << RESPONSE->status_code;
+    LOGFATAL << "Error making http request: " << RESPONSE->status_code << "\n" << RESPONSE->content.string();
 
 #define DRAW_FROM_UNORDERED(ITERATOR, COLLECTION) \
   auto ITERATOR = COLLECTION.begin();             \

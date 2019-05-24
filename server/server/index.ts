@@ -19,7 +19,7 @@ var apiRouter = require('../routes/api');
 import cors from 'cors';
 var myGraphQLSchema = require('../model/schema').default;
 import { ApolloServer, gql } from 'apollo-server-express';
-import bodyParser from 'body-parser';
+//import bodyParser from 'body-parser';
 
 
 var passport = require('./passport_handler');
@@ -58,7 +58,6 @@ app.use(require('express-bunyan-logger')({
 app.use(require('express-session')({ secret: 'we-go-all', resave: false, saveUninitialized: false }));
 
 // Body parser
-//var bodyParser = require('body-parser');
 //app.use(bodyParser.json()); // support json encoded bodies
 //app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
@@ -66,8 +65,6 @@ app.use(require('express-session')({ secret: 'we-go-all', resave: false, saveUni
 app.set('views', './views');
 app.set('view engine', 'pug');
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Initialize Passport and restore authentication state, if any, from the
@@ -99,7 +96,10 @@ const apollo = new ApolloServer({
 
 apollo.applyMiddleware({ app });
 
+//app.use(express.json());
+//app.use(express.urlencoded({ extended: true }));
 app.use('/api', apiRouter);
+
 app.use('/login', loginRouter);
 app.post('/logout',
   function (req: any, res: any) {

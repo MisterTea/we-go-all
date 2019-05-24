@@ -112,10 +112,12 @@ class AppState {
         let data: any = result.data;
         console.log("GOT DATA:");
         console.log(data.me);
-        outerThis.userId = data.me.id;
-        outerThis.name = data.me.name;
-        outerThis.publicKey = data.me.publicKey;
-        console.log(outerThis.publicKey);
+        if (data.me) {
+          outerThis.userId = data.me.id;
+          outerThis.name = data.me.name;
+          outerThis.publicKey = data.me.publicKey;
+          console.log(outerThis.publicKey);
+        }
         fn();
       })
     } else {

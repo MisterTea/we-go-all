@@ -5,19 +5,18 @@
 #include "LocalIpFetcher.hpp"
 
 namespace wga {
-MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _id,
+MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
                const PrivateKey& _privateKey, int _serverPort,
                const string& _lobbyHost, int _lobbyPort, const string& _name)
-    : id(_id),
+    : userId(_userId),
       shuttingDown(false),
-      netEngine(_netEngine),
       privateKey(_privateKey),
+      netEngine(_netEngine),
       serverPort(_serverPort),
       lobbyHost(_lobbyHost),
       lobbyPort(_lobbyPort),
       name(_name) {
-  publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
-  publicKeyString = CryptoHandler::keyToString(publicKey);
+  publicKey = CryptoHandler::makePublicFromPrivate(_privateKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(netEngine->startUdpServer(serverPort));
   asio::socket_base::reuse_address option(true);
@@ -28,11 +27,11 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _id,
   client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
 
   LOG(INFO) << "GETTING GAME ID";
-  string path = string("/api/get_current_game_id/") + id;
+  string path = string("/api/get_current_game_id/") + userId;
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
-  gameId = sole::rebuild(result["gameId"]);
+  gameId = result["gameId"];
   LOG(INFO) << "GOT GAME ID";
 }
 
@@ -48,15 +47,19 @@ void MyPeer::shutdown() {
 void MyPeer::host(const string& gameName) {
   string path = string("/api/host");
   json request = {
-      {"hostId", id}, {"gameId", gameId.str()}, {"gameName", gameName}};
-  auto response = client->request("POST", path, request.dump(2));
+      {"hostId", userId}, {"gameId", gameId}, {"gameName", gameName}};
+  SimpleWeb::CaseInsensitiveMultimap header;
+  header.insert(make_pair("Content-Type","application/json"));
+  auto response = client->request("POST", path, request.dump(2), header);
   FATAL_FAIL_HTTP(response);
 }
 
 void MyPeer::join() {
   string path = string("/api/join");
-  json request = {{"peerId", id}, {"name", name}, {"peerKey", publicKeyString}};
-  auto response = client->request("POST", path, request.dump(2));
+  json request = {{"peerId", userId}, {"name", name}, {"peerKey", CryptoHandler::keyToString(publicKey)}};
+  SimpleWeb::CaseInsensitiveMultimap header;
+  header.insert(make_pair("Content-Type","application/json"));
+  auto response = client->request("POST", path, request.dump(2), header);
   FATAL_FAIL_HTTP(response);
 }
 
@@ -81,7 +84,7 @@ void MyPeer::updateEndpointServer() {
   auto serverEndpoints = netEngine->resolve(lobbyHost, to_string(lobbyPort));
   auto serverEndpoint = serverEndpoints[rand() % serverEndpoints.size()];
   auto localIps = LocalIpFetcher::fetch(serverPort, true);
-  string ipAddressPacket = id;
+  string ipAddressPacket = userId;
   for (auto it : localIps) {
     ipAddressPacket += "_" + it + ":" + to_string(serverPort);
   }
@@ -106,7 +109,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
 
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
-  string path = string("/api/get_game_info/") + gameId.str();
+  string path = string("/api/get_game_info/") + gameId;
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
@@ -125,9 +128,9 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
       LOGFATAL << "Game Name does not match what I should be hosting: "
                << result["gameName"].get<string>() << " != " << gameName;
     }
-    if (result["hostId"].get<string>() != id) {
+    if (result["hostId"].get<string>() != userId) {
       LOGFATAL << "Game host should be me but it isn't "
-               << result["hostId"].get<string>() << " != " << id;
+               << result["hostId"].get<string>() << " != " << userId;
     }
   } else {
     gameName = result["gameName"].get<string>();
@@ -144,7 +147,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
         CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
     string name = it.value()["name"];
     peerData[id] = shared_ptr<PlayerData>(new PlayerData(peerKey, name));
-    if (peerKey == publicKey) {
+    if (id == userId) {
       // Don't need to set up endpoint for myself
       continue;
     }
@@ -168,7 +171,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
 
   this_thread::sleep_for(chrono::seconds(1));
 
-  myData = peerData[id];
+  myData = peerData[userId];
 
   update(asio::error_code());
 }
@@ -185,14 +188,14 @@ void MyPeer::update(const asio::error_code& error) {
     // Per-second update
     updateEndpointServer();
     LOG(INFO) << "UPDATING";
-    string path = string("/api/get_game_info/") + gameId.str();
+    string path = string("/api/get_game_info/") + gameId;
     auto response = client->request("GET", path);
     auto result = json::parse(response->content.string());
     // Iterate over peer data and update peers
     auto peerDataObject = result["peerData"];
     for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
          ++it) {
-      // std::cout << it.key() << " : " << it.value() << "\n";
+      std::cout << it.key() << " : " << it.value() << "\n";
       PublicKey peerKey =
           CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
       if (peerKey == publicKey) {
@@ -219,7 +222,7 @@ void MyPeer::update(const asio::error_code& error) {
 
   for (const auto& it : peerData) {
     auto peerKey = it.first;
-    if (peerKey == id) {
+    if (peerKey == userId) {
       continue;
     }
     auto endpointHandler = rpcServer->getEndpointHandler(peerKey);

@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 var config = require('../server/config');
-var ObjectId = mongoose.Schema.Types.ObjectId;
+var ObjectId = mongoose.ObjectId;
 
 function requiresString(s: any) {
   return typeof s === 'string' ? false : true
@@ -37,7 +37,6 @@ var UserSchema = new mongoose.Schema({
   publicKey: {
     type: String,
     index: {
-      unique: true,
       partialFilterExpression: { publicKey: { $type: 'string' } },
     },
   },
@@ -49,11 +48,12 @@ var GameSchema = new mongoose.Schema({
   gameName: {
     type: String,
     index: {
-      partialFilterExpression: { publicKey: { $type: 'string' } },
+      partialFilterExpression: { gameName: { $type: 'string' } },
     },
   },
   host: ObjectId,
   peers: [ObjectId],
+  ready: [ObjectId],
   active: Boolean,
 });
 exports.games = mongoose.model('Game', GameSchema);

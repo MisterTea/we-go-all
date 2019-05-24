@@ -141,8 +141,7 @@ class RpcServer : public PortMultiplexer {
       const string& key) {
     auto it = endpoints.find(key);
     if (it == endpoints.end()) {
-      LOGFATAL << "Invalid endpoint handler: "
-               << CryptoHandler::keyToString(key);
+      LOGFATAL << "Invalid endpoint handler: " << key;
     }
     return it->second;
   }
