@@ -73,14 +73,15 @@ export const resolvers = {
       console.log("REQUEST");
       console.log(req);
       if (req.cookies["user_id"]) {
-        // TODO: Mark existing games by this host as inactive
-        let userId = req.cookies["user_id"];
+        let userId = ObjectId(req.cookies["user_id"]);
+        var deactivateGamesResult = await db.games.updateMany({ host: userId, active: true }, { active: false });
+        console.log("DEACTIVATED: " + deactivateGamesResult.nModified + " games");
         var game = new db.games({
           gameName: null,
-          host: ObjectId(userId),
+          host: userId,
           createTime: (new Date).getTime(),
           active: true,
-          peers: [ObjectId(userId)],
+          peers: [userId],
           ready: [],
         });
         return await game.save();
