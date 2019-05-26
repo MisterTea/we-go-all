@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var passport = require("../server/passport_handler");
+var config = require('../server/config');
 
 /*
 router.post('/',
@@ -21,16 +22,18 @@ var authCb = function (req, res) {
   res.redirect('/');
 }
 
-router.get('/discord', passport.authenticate('discord'));
+let discordAuth = passport.authenticate('discord', { callbackURL: config.login.discord.callbackURL })
+router.get('/discord', discordAuth);
 router.get(
   '/discord/callback',
-  passport.authenticate('discord'),
+  discordAuth,
   authCb);
 
-router.get('/github', passport.authenticate('github'));
+let githubAuth = passport.authenticate('github', { callbackURL: config.login.github.callbackURL })
+router.get('/github', githubAuth);
 router.get(
   '/github/callback',
-  passport.authenticate('github'),
+  githubAuth,
   authCb);
 
 module.exports = router;
