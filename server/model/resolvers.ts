@@ -8,19 +8,14 @@ export const resolvers = {
   },
   Game: {
     async peers(game, _args, _context: any, _info: any) {
-      console.log("GETTING PEERS");
-      console.log(game.peers);
-      console.log(game);
       var peers: any[] = [];
       for (let i = 0; i < game.peers.length; i++) {
         let peerId = game.peers[i];
-        console.log("Getting peer: " + peerId);
         peers.push(await db.users.findById(peerId));
       }
       return peers;
     },
     async host(game, _args, _context: any, _info: any) {
-      console.log("GETTING HOST: " + game.host);
       return await db.users.findById(game.host);
     },
   },
@@ -29,7 +24,6 @@ export const resolvers = {
       return await db.games.find({ active: true });
     },
     getUser: async (_parent: any, { id }, _context: any, _info: any) => {
-      console.log("GETTING USER WITH ID: " + id);
       return await db.users.findById(ObjectId(id));
     },
     me: async (_parent: any, _args: any, context: any, _info: any) => {
