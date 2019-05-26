@@ -33,7 +33,7 @@ class AppState {
 
     // Create a WebSocket link:
     const wsLink = new WebSocketLink({
-      uri: 'ws://' + location.host + `/subscriptions`,
+      uri: (location.protocol == "https:" ? "wss://" : "ws://") + location.host + `/subscriptions`,
       options: {
         reconnect: true
       }
