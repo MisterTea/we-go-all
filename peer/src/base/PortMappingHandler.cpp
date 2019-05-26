@@ -163,7 +163,8 @@ int PortMappingHandler::mapPort(int destinationPort,
     }
 
     if (error) {
-      LOGFATAL << "Failed to map ports: " << error;
+      LOG(ERROR) << "Failed to map ports: " << error;
+      return -1;
     }
 
     error = UPNP_AddPortMapping(
@@ -178,7 +179,9 @@ int PortMappingHandler::mapPort(int destinationPort,
     }
 
     if (error) {
-      LOGFATAL << "Failed to map ports: " << error;
+      LOG(ERROR) << "Failed to map ports: " << error;
+      unmapPort(sourcePort);
+      return -1;
     }
 
     LOG(INFO) << "Successfully mapped " << wanAddress << ":" << sourcePort
