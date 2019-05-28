@@ -82,9 +82,9 @@ class ExamplePeer {
     myPeer->start();
     while (!myPeer->initialized()) {
       LOG(INFO) << "Waiting for initialization for peer...";
-      sleep(1);
+      microsleep(1000 * 1000);
     }
-    sleep(1);
+    microsleep(1000 * 1000);
 
     for (int expirationTime = 200; expirationTime < 1000 * 60 * 10;
          expirationTime += 200) {

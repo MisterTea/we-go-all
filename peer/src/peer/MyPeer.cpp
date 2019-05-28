@@ -31,7 +31,7 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
   auto response = client->request("GET", path);
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
-  gameId = result["gameId"];
+  gameId = result["gameId"].get<string>();
   LOG(INFO) << "GOT GAME ID";
 }
 
@@ -40,23 +40,23 @@ void MyPeer::shutdown() {
     LOG(INFO) << "SHUTTING DOWN";
     while (rpcServer->hasWork()) {
       LOG(INFO) << "WAITING FOR WORK TO FLUSH";
-      sleep(1);
+      microsleep(1000 * 1000);
     }
     shuttingDown = true;
     rpcServer->finish();
     // Wait for the updates to flush
-    sleep(1);
+    microsleep(1000 * 1000);
     LOG(INFO) << "BEGINNING FLUSH";
     while (rpcServer->hasWork()) {
       LOG(INFO) << "WAITING FOR WORK TO FLUSH";
-      sleep(1);
+      microsleep(1000 * 1000);
     }
     updateTimer->cancel();
     // Wait for the updates to flush
-    sleep(1);
+    microsleep(1000 * 1000);
     rpcServer->closeSocket();
     // Wait for the updates to flush
-    sleep(1);
+    microsleep(1000 * 1000);
     rpcServer.reset();
   }
 }

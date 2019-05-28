@@ -11,9 +11,11 @@
 #define USE_STANDALONE_ASIO (1)
 #endif
 
-#ifdef _WIN32
+#ifdef WIN32
+#ifndef _WIN32_WINNT
 // Require win7 or higher
 #define _WIN32_WINNT _WIN32_WINNT_WIN7
+#endif
 #endif
 
 #ifdef __FreeBSD__
@@ -33,7 +35,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,7 +42,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
-#include <unistd.h>
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -150,6 +150,7 @@ inline std::vector<std::string> split(const std::string& s, char delim) {
   return elems;
 }
 
+#ifndef _MSC_VER
 inline std::string SystemToStr(const char* cmd) {
   std::array<char, 128> buffer;
   std::string result;
@@ -161,6 +162,7 @@ inline std::string SystemToStr(const char* cmd) {
   }
   return result;
 }
+#endif
 
 inline bool replace(std::string& str, const std::string& from,
                     const std::string& to) {
@@ -194,6 +196,9 @@ std::array<T, N> stringToArray(const V& v) {
   return d;
 }
 
+inline void microsleep(int64_t usec) {
+  std::this_thread::sleep_for(std::chrono::microseconds(usec));
+}
 }  // namespace wga
 
 #endif

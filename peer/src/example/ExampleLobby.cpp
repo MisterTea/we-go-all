@@ -58,7 +58,7 @@ class ExampleLobby {
 
     while (true) {
       LOG(INFO) << "Running server...";
-      sleep(60);
+      microsleep(60 * 1000 * 1000);
     }
   }
 

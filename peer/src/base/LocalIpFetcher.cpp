@@ -17,7 +17,7 @@ vector<string> LocalIpFetcher::fetch(int port, bool udp) {
                           FORMAT_MESSAGE_IGNORE_INSERTS,                  \
                       NULL, e, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
                       (LPTSTR)&lpMsgBuf, 0, NULL)) {                      \
-      fprintf(stderr, "Error %d: %S\n", e, lpMsgBuf);                     \
+      fprintf(stderr, "Error %d: %S\n", e, (wchar_t *)lpMsgBuf);                     \
       LocalFree(lpMsgBuf);                                                \
     } else                                                                \
       fprintf(stderr, "Error %d\n", e);                                   \
@@ -108,7 +108,7 @@ vector<string> LocalIpFetcher::fetch(int port, bool udp) {
               NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
               // Default language
               (LPTSTR)&lpMsgBuf, 0, NULL)) {
-        printf("\tError: %s", lpMsgBuf);
+        printf("\tError: %s", (char *)lpMsgBuf);
         LocalFree(lpMsgBuf);
         if (pAddresses) free(pAddresses);
         exit(1);

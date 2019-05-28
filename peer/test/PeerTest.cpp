@@ -151,7 +151,7 @@ TEST_F(PeerTest, TwoPeers) {
   for (int a = 0; a < peers.size(); a++) {
     while (!peers[a]->initialized()) {
       LOG(INFO) << "Waiting for initialization for peer " << a << " ...";
-      sleep(1);
+      microsleep(1000 * 1000);
     }
   }
   peers[0]->updateState(200, {{"button0", "0"}});
@@ -169,7 +169,7 @@ TEST_F(PeerTest, TwoPeers) {
   peers[0]->shutdown();
   for (auto &it : peers) {
     while (it->getLivingPeerCount()) {
-      sleep(1);
+      microsleep(1000 * 1000);
     }
   }
 }
@@ -200,7 +200,7 @@ TEST_F(PeerTest, ThreePeers) {
   for (int a = 0; a < peers.size(); a++) {
     while (!peers[a]->initialized()) {
       LOG(INFO) << "Waiting for initialization for peer " << a << " ...";
-      sleep(1);
+      microsleep(1000 * 1000);
     }
   }
   peers[0]->updateState(200, {{"button0", "0"}});
@@ -219,7 +219,7 @@ TEST_F(PeerTest, ThreePeers) {
   peers[1]->shutdown();
   for (auto &it : peers) {
     while (it->getLivingPeerCount()) {
-      sleep(1);
+      microsleep(1000 * 1000);
     }
   }
 }

@@ -10,11 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
+#include <windows.h>
 /* Win32 Specific includes and defines */
-#include <io.h>
-#include <iphlpapi.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+//#include <io.h>
+//#include <iphlpapi.h>
+//#include <winsock2.h>
+//#include <ws2tcpip.h>
 #define snprintf _snprintf
 #define strdup _strdup
 #ifndef strncasecmp

@@ -45,7 +45,7 @@ class MyPeer {
   void finish() {
     while (rpcServer->hasWork()) {
       LOG(INFO) << "WAITING FOR WORK TO FINISH";
-      usleep(1000 * 1000);
+      microsleep(1000 * 1000);
     }
   }
 

@@ -97,7 +97,7 @@ class RpcServer : public PortMultiplexer {
         heartbeat();
       }
       LOG(INFO) << "WAITING FOR INIT";
-      usleep(1000 * 1000);
+      microsleep(1000 * 1000);
     }
   }
 
@@ -109,14 +109,14 @@ class RpcServer : public PortMultiplexer {
       for (auto it : endpoints) {
         it.second->sendShutdown();
       }
-      usleep(10 * 1000);
+      microsleep(10 * 1000);
     }
     while (hasWork()) {
       {
         heartbeat();
       }
       LOG(INFO) << "WAITING FOR FINISH";
-      usleep(1000 * 1000);
+      microsleep(1000 * 1000);
     }
   }
 

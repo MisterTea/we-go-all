@@ -156,7 +156,7 @@ class FlakyRpcTest : public testing::Test {
         }
       }
 
-      usleep(1000);
+      microsleep(1000);
       if (currentTime != iterationTime) {
         currentTime = iterationTime;
       }
