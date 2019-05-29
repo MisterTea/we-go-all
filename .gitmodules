@@ -52,3 +52,6 @@
 [submodule "peer/external/UniversalStacktrace"]
 	path = peer/external/UniversalStacktrace
 	url = https://github.com/MisterTea/UniversalStacktrace.git
+[submodule "peer/external/cpp-lru-cache"]
+	path = peer/external/cpp-lru-cache
+	url = https://github.com/lamerman/cpp-lru-cache.git

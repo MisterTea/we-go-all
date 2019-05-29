@@ -3,11 +3,12 @@
 namespace wga {
 void UdpBiDirectionalRpc::send(const string& message) {
   netEngine->post([this, message]() {
+    string localMessage = message;  // Needed to keep message in RAM
     lock_guard<recursive_mutex> guard(this->mutex);
-    VLOG(1) << "IN SEND LAMBDA: " << message.length() << " TO "
+    VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
             << this->activeEndpoint;
-    int bytesSent =
-        this->localSocket->send_to(asio::buffer(message), this->activeEndpoint);
+    int bytesSent = this->localSocket->send_to(asio::buffer(localMessage),
+                                               this->activeEndpoint);
     VLOG(1) << bytesSent << " bytes sent";
   });
 }

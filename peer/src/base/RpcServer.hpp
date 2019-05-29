@@ -102,15 +102,14 @@ class RpcServer : public PortMultiplexer {
   }
 
   void finish() {
-    for (auto it : endpoints) {
-      it.second->shutdown();
-    }
-    for (int a = 0; a < 100; a++) {
+    while(getLivingPeerCount()) {
       for (auto it : endpoints) {
         it.second->sendShutdown();
       }
       microsleep(10 * 1000);
     }
+    // Wait for reply shutdowns
+    microsleep(1000 * 1000);
     while (hasWork()) {
       {
         heartbeat();

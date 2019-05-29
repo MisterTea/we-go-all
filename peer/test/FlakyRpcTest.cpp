@@ -23,11 +23,29 @@ class FlakyRpcTest : public testing::Test {
  protected:
   void SetUp() override {
     srand(time(NULL));
-    netEngine.reset(
-        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
+    netEngine.reset(new NetEngine());
   }
 
   void TearDown() override {
+    LOG(INFO) << "Shutting down servers";
+    while (true) {
+      bool done = true;
+      for (const auto& it : servers) {
+        if (it->hasWork()) {
+          done = false;
+        }
+        it->heartbeat();
+      }
+      if (done) {
+        break;
+      } else {
+        microsleep(1000 * 1000);
+      }
+    }
+    for (const auto& it : servers) {
+      it->finish();
+    }
+    servers.clear();
     LOG(INFO) << "TEARING DOWN";
     netEngine->shutdown();
     LOG(INFO) << "TEAR DOWN COMPLETE";
@@ -83,7 +101,7 @@ class FlakyRpcTest : public testing::Test {
   }
 
   void runTestOneNode(shared_ptr<RpcServer> server, int numTrials, int numTotal,
-                      int* numFinished) {
+                      volatile int* numFinished) {
     server->runUntilInitialized();
 
     vector<string> peerIds = server->getPeerIds();
@@ -146,6 +164,7 @@ class FlakyRpcTest : public testing::Test {
 
         if (currentTime != iterationTime) {
           server->heartbeat();
+          currentTime = iterationTime;
         }
 
         if (numAcks >= numTrials && !complete) {
@@ -157,9 +176,6 @@ class FlakyRpcTest : public testing::Test {
       }
 
       microsleep(1000);
-      if (currentTime != iterationTime) {
-        currentTime = iterationTime;
-      }
     }
     LOG(INFO) << "Exiting test loop";
   }
@@ -167,7 +183,7 @@ class FlakyRpcTest : public testing::Test {
   void runTest(int numTrials) {
     vector<shared_ptr<thread>> runThreads;
     int numTotal = servers.size();
-    int numFinished = 0;
+    volatile int numFinished = 0;
     for (auto& server : servers) {
       runThreads.push_back(shared_ptr<thread>(
           new thread(&FlakyRpcTest::runTestOneNode, this, server, numTrials,

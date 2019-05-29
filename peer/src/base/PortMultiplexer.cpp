@@ -4,10 +4,10 @@ namespace wga {
 PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
                                  shared_ptr<udp::socket> _localSocket)
     : netEngine(_netEngine), localSocket(_localSocket) {
-  localSocket->async_receive_from(
-      asio::buffer(receiveBuffer), receiveEndpoint,
-      std::bind(&PortMultiplexer::handleRecieve, this, std::placeholders::_1,
-                std::placeholders::_2));
+    localSocket->async_receive_from(
+        asio::buffer(receiveBuffer), receiveEndpoint,
+        std::bind(&PortMultiplexer::handleRecieve, this, std::placeholders::_1,
+                  std::placeholders::_2));
 }
 
 void PortMultiplexer::closeSocket() {

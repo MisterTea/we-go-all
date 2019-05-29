@@ -73,6 +73,9 @@
 #define SERVICEPREFIX "u"
 #define SERVICEPREFIX2 'u'
 
+// JJG: Reduce miniupnpc spam
+#undef DEBUG
+
 /* check if an ip address is a private (LAN) address
  * see https://tools.ietf.org/html/rfc1918 */
 static int is_rfc1918addr(const char* addr) {

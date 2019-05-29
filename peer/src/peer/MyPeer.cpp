@@ -32,7 +32,7 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
   FATAL_FAIL_HTTP(response);
   json result = json::parse(response->content.string());
   gameId = result["gameId"].get<string>();
-  LOG(INFO) << "GOT GAME ID";
+  LOG(INFO) << "GOT GAME ID: " << gameId;
 }
 
 void MyPeer::shutdown() {
@@ -51,7 +51,9 @@ void MyPeer::shutdown() {
       LOG(INFO) << "WAITING FOR WORK TO FLUSH";
       microsleep(1000 * 1000);
     }
-    updateTimer->cancel();
+    netEngine->post([this]() {
+      updateTimer->cancel();
+    });
     // Wait for the updates to flush
     microsleep(1000 * 1000);
     rpcServer->closeSocket();
@@ -107,22 +109,24 @@ void MyPeer::updateEndpointServer() {
   for (auto it : localIps) {
     ipAddressPacket += "_" + it + ":" + to_string(serverPort);
   }
-  auto localSocketStack = localSocket;
   LOG(INFO) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
-  netEngine->post([localSocketStack, serverEndpoint, ipAddressPacket]() {
+  netEngine->post([this, serverEndpoint, ipAddressPacket]() {
     // TODO: Need mutex here
     LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-    int bytesSent = localSocketStack->send_to(asio::buffer(ipAddressPacket),
+    int bytesSent = localSocket->send_to(asio::buffer(ipAddressPacket),
                                               serverEndpoint);
     LOG(INFO) << bytesSent << " bytes sent";
   });
 }
 
 void MyPeer::checkForEndpoints(const asio::error_code& error) {
+  LOG(INFO) << "CHECKING FOR ENDPOINTS";
   if (error == asio::error::operation_aborted) {
     return;
   }
+  LOG(INFO) << "CHECKING FOR ENDPOINTS";
   lock_guard<recursive_mutex> guard(peerDataMutex);
+  LOG(INFO) << "CHECKING FOR ENDPOINTS";
 
   updateEndpointServer();
 

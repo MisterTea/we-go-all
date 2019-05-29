@@ -7,17 +7,18 @@ option(CODE_COVERAGE "Enable code coverage" OFF)
 # Enable C++-17
 if(UNIX)
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
+
+	# Enable debug info
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 
 # Flags for miniupnpc
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMINIUPNPC_SET_SOCKET_TIMEOUT -DMINIUPNPC_GET_SRC_ADDR -DMINIUPNP_STATICLIB -DSTATICLIB")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIUPNPC_SET_SOCKET_TIMEOUT -DMINIUPNPC_GET_SRC_ADDR -DMINIUPNP_STATICLIB -DSTATICLIB")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMINIUPNPC_SET_SOCKET_TIMEOUT -DMINIUPNPC_GET_SRC_ADDR -DMINIUPNP_STATICLIB -DSTATICLIB -DSODIUM_STATIC -DASIO_STANDALONE")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIUPNPC_SET_SOCKET_TIMEOUT -DMINIUPNPC_GET_SRC_ADDR -DMINIUPNP_STATICLIB -DSTATICLIB -DSODIUM_STATIC -DASIO_STANDALONE")
 
 # Flags for libnat-pmp
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_STRNATPMPERR")
 
-# Enable debug info
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 IF(APPLE)
 SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
@@ -57,6 +58,14 @@ find_package(Sodium REQUIRED)
 
 IF(MINGW)
   set(CORE_LIBRARIES Ws2_32 iphlpapi)
+ELSEIF(WIN32)
+  set(
+  CORE_LIBRARIES
+
+  Ws2_32
+  iphlpapi
+  Shlwapi
+  dbghelp)
 ELSEIF(FREEBSD)
   set(CORE_LIBRARIES util execinfo)
 ELSEIF(NETBSD)
@@ -73,11 +82,12 @@ include_directories(
   external/json/include
   external/msgpack-c/include
   external/Eigen
+  external/googletest/googletest/include
   ${sodium_INCLUDE_DIR}
   )
 
 add_library(
-  wga-lib
+  upnp
   STATIC
 
   external/libnatpmp-20150609/declspec.h
@@ -123,18 +133,45 @@ add_library(
   external/miniupnpc-2.1.20190408/minissdpc.c
   external/miniupnpc-2.1.20190408/miniupnpc.c
   external/miniupnpc-2.1.20190408/igd_desc_parse.c
+)
 
+add_library(
+  wga-lib
+  STATIC
+
+  src/base/PidController.hpp
   src/base/PidController.cpp
+
+  src/base/LocalIpFetcher.hpp
   src/base/LocalIpFetcher.cpp
+
+  src/base/BiDirectionalRpc.hpp
   src/base/BiDirectionalRpc.cpp
+
+  src/base/UdpBiDirectionalRpc.hpp
   src/base/UdpBiDirectionalRpc.cpp
+
+  src/base/CryptoHandler.hpp
   src/base/CryptoHandler.cpp
+
+  src/base/LogHandler.hpp
   src/base/LogHandler.cpp
+
+  src/base/MultiEndpointHandler.hpp
   src/base/MultiEndpointHandler.cpp
+
+  src/base/EncryptedMultiEndpointHandler.hpp
   src/base/EncryptedMultiEndpointHandler.cpp
+
+  src/base/PortMultiplexer.hpp
   src/base/PortMultiplexer.cpp
+
+  src/base/PortMappingHandler.hpp
   src/base/PortMappingHandler.cpp
+
+  src/base/TimeHandler.hpp
   src/base/TimeHandler.cpp
+
   src/base/EasyLoggingWrapper.cpp
 
   src/peer/MyPeer.cpp
@@ -150,6 +187,7 @@ target_link_libraries (
   examplepeer
   LINK_PUBLIC
   wga-lib
+  upnp
   ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
@@ -165,6 +203,7 @@ target_link_libraries (
   examplelobby
   LINK_PUBLIC
   wga-lib
+  upnp
   ${sodium_LIBRARY_RELEASE}
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
@@ -189,22 +228,24 @@ if(BUILD_TEST) # Build unit tests.
   add_dependencies(
     wga-test
     wga-lib
-    gtest
-    gtest_main
-    gmock
-    gmock_main
+	upnp
+	gtest
+	gtest_main
+	gmock
+	gmock_main
     )
   
   target_link_libraries(
     wga-test
     wga-lib
+    upnp
     ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
     ${CORE_LIBRARIES}
-    gtest
-    gtest_main
-    gmock
-    gmock_main
+	gtest
+	gtest_main
+	gmock
+	gmock_main
     )
   add_test(
     wga-test

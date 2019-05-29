@@ -8,6 +8,7 @@ node_modules
 react_build
 build
 .build
+msvc_build
 
 # Build artifacts
 deps

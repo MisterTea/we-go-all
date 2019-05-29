@@ -42,7 +42,8 @@ enum RpcHeader {
   REQUEST = 2,
   REPLY = 3,
   ACKNOWLEDGE = 4,
-  SHUTDOWN = 5
+  SHUTDOWN = 5,
+  SHUTDOWN_REPLY = 6,
 };
 
 class BiDirectionalRpc {
@@ -93,6 +94,7 @@ class BiDirectionalRpc {
     }
     IdPayload idPayload = IdPayload(incomingReplies.begin()->first,
                                     incomingReplies.begin()->second);
+    processedReplies.put(idPayload.id, true);
     incomingReplies.erase(incomingReplies.begin());
     return idPayload;
   }
@@ -108,6 +110,7 @@ class BiDirectionalRpc {
       LOGFATAL << "Tried to get a reply that didn't exist!";
     }
     string payload = it->second;
+    processedReplies.put(it->first, true);
     incomingReplies.erase(it);
     return payload;
   }
@@ -145,6 +148,8 @@ class BiDirectionalRpc {
 
   unordered_map<RpcId, string> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
+
+  lru_cache<RpcId,bool> processedReplies;
 
   int64_t onBarrier;
   uint64_t onId;

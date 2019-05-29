@@ -86,6 +86,9 @@
 using namespace std::experimental;
 #endif
 
+#include "cpp-lru-cache/include/lrucache.hpp"
+using namespace cache;
+
 using namespace sole;
 
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;

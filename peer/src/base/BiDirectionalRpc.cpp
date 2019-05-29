@@ -4,7 +4,11 @@
 
 namespace wga {
 BiDirectionalRpc::BiDirectionalRpc()
-    : onBarrier(0), onId(0), flaky(false), shuttingDown(false) {}
+    : processedReplies(128 * 1024),
+      onBarrier(0),
+      onId(0),
+      flaky(false),
+      shuttingDown(false) {}
 
 BiDirectionalRpc::~BiDirectionalRpc() {}
 
@@ -112,7 +116,16 @@ void BiDirectionalRpc::receive(const string& message) {
         }
       } break;
       case SHUTDOWN: {
-        VLOG(1) << "GOT SHUT DOWN";
+        LOG(INFO) << "GOT SHUT DOWN";
+        {
+          string s(1, '\0');
+          s[0] = SHUTDOWN_REPLY;
+          send(s);
+        }
+        shutdown();
+      } break;
+      case SHUTDOWN_REPLY: {
+        LOG(INFO) << "GOT SHUT DOWN";
         shutdown();
       } break;
       default: {
@@ -145,7 +158,8 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
 
 void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload) {
   bool skip = false;
-  if (incomingReplies.find(rpcId) != incomingReplies.end()) {
+  if (incomingReplies.find(rpcId) != incomingReplies.end() ||
+      processedReplies.exists(rpcId)) {
     // We already received this reply.  Send acknowledge again and skip.
     sendAcknowledge(rpcId);
     skip = true;
@@ -264,7 +278,7 @@ void BiDirectionalRpc::sendRequest(const RpcId& id, const string& payload) {
       // the future do something more clever.
       break;
     }
-    int size = sizeof(RpcId) + it->second.length();
+    int size = int(sizeof(RpcId) + it->second.length());
     if (size + writer.size() > 400) {
       // Too big
       break;
@@ -305,7 +319,7 @@ void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
       // the future do something more clever.
       break;
     }
-    int size = sizeof(RpcId) + it->second.length();
+    int size = int(sizeof(RpcId) + it->second.length());
     if (size + writer.size() > 400) {
       // Too big
       break;
@@ -353,8 +367,8 @@ void BiDirectionalRpc::updateDrift(int64_t requestSendTime,
                        2;
   int64_t ping = (replyRecieveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
-  pingEstimator.addSample(ping);
-  offsetEstimator.addSample(timeOffset);
+  pingEstimator.addSample(double(ping));
+  offsetEstimator.addSample(double(timeOffset));
   TimeHandler::timeShift =
       std::chrono::microseconds{-1 * int64_t(offsetEstimator.getMean())};
 #if 0

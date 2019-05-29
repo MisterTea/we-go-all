@@ -35,8 +35,7 @@ class ExampleLobby {
     // Reconfigure default logger to apply settings above
     el::Loggers::reconfigureLogger("default", defaultConf);
 
-    shared_ptr<NetEngine> netEngine(
-        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
+    shared_ptr<NetEngine> netEngine(new NetEngine());
 
     server.reset(new SingleGameServer(
       netEngine,

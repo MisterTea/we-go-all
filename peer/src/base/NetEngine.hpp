@@ -7,14 +7,16 @@
 namespace wga {
 class NetEngine {
  public:
-  explicit NetEngine(shared_ptr<asio::io_service> _ioService)
-      : ioService(_ioService) {
+  NetEngine() {
     portMappingHandler = make_shared<PortMappingHandler>();
+    ioService.reset(new asio::io_service());
+    work.emplace(*ioService);
   }
 
   void start() {
     ioServiceThread = std::thread([this]() {
-      this->ioService->run();
+      LOG(ERROR) << "NET ENGINE STARTING";
+      ioService->run();
       LOG(ERROR) << "NET ENGINE FINISHED";
     });
   }
@@ -22,8 +24,17 @@ class NetEngine {
   void shutdown() {
     LOG(INFO) << "SHUTTING DOWN: " << uint64_t(portMappingHandler.get());
     portMappingHandler.reset();
-    ioService->stop();
-    ioServiceThread.join();
+    LOG(INFO) << "Stopping work";
+    ioService->post([this]() {
+      work.reset();  // let io_service run out of work
+    });
+    LOG(INFO) << "Joining thread";
+    if (ioServiceThread.joinable()) {
+      LOG(INFO) << "Thread is joinable";
+      ioServiceThread.join();
+    }
+    LOG(INFO) << "Resetting net engine";
+    ioService.reset();
   }
 
   template <typename F>
@@ -64,10 +75,15 @@ class NetEngine {
     return retval;
   }
 
+  inline shared_ptr<asio::io_service> getIoService() {
+    return ioService;
+  }
+
  protected:
   shared_ptr<PortMappingHandler> portMappingHandler;
   shared_ptr<asio::io_service> ioService;
   thread ioServiceThread;
+  optional<asio::io_service::work> work;
 };
 }  // namespace wga
 

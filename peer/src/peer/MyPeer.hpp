@@ -19,7 +19,7 @@ class MyPeer {
   void shutdown();
   inline bool isShutdown() { return shuttingDown; }
   int getLivingPeerCount() {
-    if (rpcServer.get() == NULL) {
+    if (shuttingDown || rpcServer.get() == NULL) {
       return 0;
     } else {
       return rpcServer->getLivingPeerCount();

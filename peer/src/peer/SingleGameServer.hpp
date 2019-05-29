@@ -31,7 +31,7 @@ class SingleGameServer {
       : numPlayers(_numPlayers) {
     netEngine->forwardPort(_port);
     server.config.port = _port;
-    gameId = sole::uuid4();
+    gameId = "MyGameId";
     hostId = _hostId;
     hostKey = _hostKey;
     addPeer(hostId, hostKey, hostName);
@@ -41,16 +41,16 @@ class SingleGameServer {
                shared_ptr<HttpServer::Request> request) {
           auto peerId = request->path_match[1].str();
           json retval;
-          retval["gameId"] = gameId.str();
+          retval["gameId"] = gameId;
           response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
         };
 
     server.resource["^/api/get_game_info/(.+)$"]["GET"] =
         [this](shared_ptr<HttpServer::Response> response,
                shared_ptr<HttpServer::Request> request) {
-          auto _gameId = sole::rebuild(request->path_match[1].str());
+          auto _gameId = request->path_match[1].str();
           if (gameId != _gameId) {
-            LOGFATAL << "Invalid game id: " << _gameId.str();
+            LOGFATAL << "Invalid game id: " << _gameId;
           }
           json retval;
           retval["gameName"] = gameName;
@@ -81,7 +81,7 @@ class SingleGameServer {
           if (content["hostId"].get<string>() != hostId) {
             LOGFATAL << "Host key does not match";
           }
-          if (sole::rebuild(content["gameId"].get<string>()) != gameId) {
+          if (content["gameId"].get<string>() != gameId) {
             LOGFATAL << "Game ID does not match";
           }
           gameName = content["gameName"].get<string>();
@@ -114,10 +114,14 @@ class SingleGameServer {
     }));
   }
 
-  virtual ~SingleGameServer() {
+  void shutdown() {
     server.stop();
-    serverThread->join();
-    serverThread.reset();
+    if (serverThread->joinable()) {
+      serverThread->join();
+    }
+  }
+
+  virtual ~SingleGameServer() {
   }
 
   void addPeer(const string& id, const PublicKey& key, const string& name) {
@@ -137,12 +141,12 @@ class SingleGameServer {
     }
   }
 
-  uuid getGameId() { return gameId; }
+  string getGameId() { return gameId; }
 
  protected:
   int numPlayers;
   HttpServer server;
-  uuid gameId;
+  string gameId;
   string gameName;
   string hostId;
   PublicKey hostKey;

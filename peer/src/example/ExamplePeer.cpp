@@ -56,8 +56,7 @@ class ExamplePeer {
       publicKey = CryptoHandler::makePublicFromPrivate(privateKey);
     }
 
-    shared_ptr<NetEngine> netEngine(
-        new NetEngine(shared_ptr<asio::io_service>(new asio::io_service())));
+    shared_ptr<NetEngine> netEngine(new NetEngine());
     int lobbyPort = params["lobbyport"].as<int>();
 
     if (params["selflobby"].as<bool>()) {
