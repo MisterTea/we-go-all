@@ -113,8 +113,8 @@ void MyPeer::updateEndpointServer() {
   netEngine->post([this, serverEndpoint, ipAddressPacket]() {
     // TODO: Need mutex here
     LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-    int bytesSent = localSocket->send_to(asio::buffer(ipAddressPacket),
-                                              serverEndpoint);
+    int bytesSent = int(localSocket->send_to(asio::buffer(ipAddressPacket),
+                                              serverEndpoint));
     LOG(INFO) << bytesSent << " bytes sent";
   });
 }

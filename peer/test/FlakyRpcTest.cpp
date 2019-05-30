@@ -1,7 +1,5 @@
 #include "Headers.hpp"
 
-#include "gtest/gtest.h"
-
 #include "EncryptedMultiEndpointHandler.hpp"
 #include "LogHandler.hpp"
 #include "MultiEndpointHandler.hpp"
@@ -9,6 +7,9 @@
 #include "PortMultiplexer.hpp"
 #include "RpcServer.hpp"
 #include "TimeHandler.hpp"
+
+#undef CHECK
+#include "Catch2/single_include/catch2/catch.hpp"
 
 using namespace wga;
 
@@ -19,14 +20,14 @@ struct RpcDetails {
   string destinationId;
 };
 
-class FlakyRpcTest : public testing::Test {
- protected:
-  void SetUp() override {
-    srand(time(NULL));
+class FlakyRpcTest {
+ public:
+  void SetUp() {
+    srand(unsigned int(time(NULL)));
     netEngine.reset(new NetEngine());
   }
 
-  void TearDown() override {
+  void TearDown() {
     LOG(INFO) << "Shutting down servers";
     while (true) {
       bool done = true;
@@ -105,7 +106,7 @@ class FlakyRpcTest : public testing::Test {
     server->runUntilInitialized();
 
     vector<string> peerIds = server->getPeerIds();
-    EXPECT_EQ(peerIds.size(), numTotal - 1);
+    REQUIRE(peerIds.size() == (numTotal - 1));
     map<RpcId, RpcDetails> allRpcDetails;
     {
       for (int trials = 0; trials < numTrials; trials++) {
@@ -182,7 +183,7 @@ class FlakyRpcTest : public testing::Test {
 
   void runTest(int numTrials) {
     vector<shared_ptr<thread>> runThreads;
-    int numTotal = servers.size();
+    int numTotal = int(servers.size());
     volatile int numFinished = 0;
     for (auto& server : servers) {
       runThreads.push_back(shared_ptr<thread>(
@@ -200,26 +201,33 @@ class FlakyRpcTest : public testing::Test {
   vector<shared_ptr<RpcServer>> servers;
 };
 
-TEST_F(FlakyRpcTest, TwoNodes) {
-  const int numNodes = 2;
-  const int numTrials = 100;
-  initFullyConnectedMesh(numNodes);
+TEST_CASE("FlakyRpcTest", "[FlakyRpcTest]") {
+  FlakyRpcTest testClass;
+  testClass.SetUp();
 
-  runTest(numTrials);
-}
+  SECTION("Two nodes") {
+    const int numNodes = 2;
+    const int numTrials = 100;
+    testClass.initFullyConnectedMesh(numNodes);
 
-TEST_F(FlakyRpcTest, ThreeNodes) {
-  const int numNodes = 3;
-  const int numTrials = 100;
-  initFullyConnectedMesh(numNodes);
+    testClass.runTest(numTrials);
+  }
 
-  runTest(numTrials);
-}
+  SECTION("Three nodes") {
+    const int numNodes = 3;
+    const int numTrials = 100;
+    testClass.initFullyConnectedMesh(numNodes);
 
-TEST_F(FlakyRpcTest, TenNodes) {
-  const int numNodes = 10;
-  const int numTrials = 100;
-  initFullyConnectedMesh(numNodes);
+    testClass.runTest(numTrials);
+  }
 
-  runTest(numTrials);
+  SECTION("Ten nodes") {
+    const int numNodes = 10;
+    const int numTrials = 100;
+    testClass.initFullyConnectedMesh(numNodes);
+
+    testClass.runTest(numTrials);
+  }
+
+  testClass.TearDown();
 }

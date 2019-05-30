@@ -1,6 +1,7 @@
 #ifndef __WGA_HEADERS__
 #define __WGA_HEADERS__
 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define ELPP_THREAD_SAFE (1)
 
 // Enable standalone asio
@@ -68,7 +69,6 @@
 #define LOGFATAL (LOG(ERROR) << "\n" << ust::generate(), LOG(FATAL))
 
 #include "CTPL/ctpl_stl.h"
-#include "Catch2/single_include/catch2/catch.hpp"
 #include "cppcodec/cppcodec/base64_default_rfc4648.hpp"
 #include "msgpack.hpp"
 #include "nlohmann/json.hpp"
@@ -117,16 +117,25 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
   if (((X) == -1)) LOGFATAL << "Error: (" << errno << "): " << strerror(errno);
 
 #define FATAL_FAIL_UNLESS_EINVAL(X)   \
-  if (((X) == -1) && errno != EINVAL) \
-    LOGFATAL << "Error: (" << errno << "): " << strerror(errno);
+  if (((X) == -1) && errno != EINVAL) {\
+    char buf[4096]; \
+    ::strerror_s(buf, 4096, errno); \
+    LOGFATAL << "Error: (" << errno << "): " << buf; \
+}
 
 #define FATAL_IF_FALSE(X) \
-  if (((X) == false))     \
-    LOGFATAL << "Error: (" << errno << "): " << strerror(errno);
+  if (((X) == false)) {    \
+    char buf[4096];                                              \
+    ::strerror_s(buf, 4096, errno);                              \
+    LOGFATAL << "Error: (" << errno << "): " << buf; \
+  }
 
 #define FATAL_IF_NULL(X) \
-  if (((X) == NULL))     \
-    LOGFATAL << "Error: (" << errno << "): " << strerror(errno);
+  if (((X) == NULL)) {    \
+    char buf[4096];                                              \
+    ::strerror_s(buf, 4096, errno);                              \
+    LOGFATAL << "Error: (" << errno << "): " << buf; \
+  }
 
 #define FATAL_FAIL_HTTP(RESPONSE)        \
   if (RESPONSE->status_code != "200 OK") \

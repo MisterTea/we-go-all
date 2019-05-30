@@ -30,9 +30,6 @@ ENDIF()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWGA_VERSION='\"${PROJECT_VERSION}\"'")
 
-IF(BUILD_TEST)
-  add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
-ENDIF(BUILD_TEST)
 IF(CODE_COVERAGE)
   if(UNIX)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
@@ -82,7 +79,6 @@ include_directories(
   external/json/include
   external/msgpack-c/include
   external/Eigen
-  external/googletest/googletest/include
   ${sodium_INCLUDE_DIR}
   )
 
@@ -213,8 +209,6 @@ if(BUILD_TEST) # Build unit tests.
   message(STATUS "Enabling test for ${PROJECT_NAME}")
   enable_testing()
 
-  set(GTEST_PATH ${PROJECT_SOURCE_DIR}/test)
-
   add_executable(
     wga-test
   
@@ -229,10 +223,6 @@ if(BUILD_TEST) # Build unit tests.
     wga-test
     wga-lib
 	upnp
-	gtest
-	gtest_main
-	gmock
-	gmock_main
     )
   
   target_link_libraries(
@@ -242,10 +232,6 @@ if(BUILD_TEST) # Build unit tests.
     ${sodium_LIBRARY_RELEASE}
     ${CMAKE_THREAD_LIBS_INIT}
     ${CORE_LIBRARIES}
-	gtest
-	gtest_main
-	gmock
-	gmock_main
     )
   add_test(
     wga-test

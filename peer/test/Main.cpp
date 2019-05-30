@@ -3,13 +3,15 @@
 #include "LogHandler.hpp"
 
 #include <cxxopts/include/cxxopts.hpp>
-#include "gtest/gtest.h"
+
+#undef CHECK
+#define CATCH_CONFIG_RUNNER
+#include "Catch2/single_include/catch2/catch.hpp"
 
 using namespace wga;
 
 int main(int argc, char **argv) {
   srand(1);
-  testing::InitGoogleTest(&argc, argv);
 
   cxxopts::Options options("Peer", "Peer Program for WGA");
   options.add_options()  //
@@ -28,13 +30,5 @@ int main(int argc, char **argv) {
   // Reconfigure default logger to apply settings above
   el::Loggers::reconfigureLogger("default", defaultConf);
 
-  if (params["stress"].as<bool>()) {
-    for (int a = 0; a < 99; a++) {
-      if (RUN_ALL_TESTS()) {
-        LOGFATAL << "Tests failed";
-      }
-    }
-  }
-
-  return RUN_ALL_TESTS();
+  return Catch::Session().run(argc, argv);
 }
