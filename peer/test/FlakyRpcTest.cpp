@@ -23,7 +23,7 @@ struct RpcDetails {
 class FlakyRpcTest {
  public:
   void SetUp() {
-    srand(unsigned int(time(NULL)));
+    srand(uint32_t(time(NULL)));
     netEngine.reset(new NetEngine());
   }
 

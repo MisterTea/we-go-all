@@ -116,30 +116,31 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 #define FATAL_FAIL(X) \
   if (((X) == -1)) LOGFATAL << "Error: (" << errno << "): " << strerror(errno);
 
-#define FATAL_FAIL_UNLESS_EINVAL(X)   \
-  if (((X) == -1) && errno != EINVAL) {\
-    char buf[4096]; \
-    ::strerror_s(buf, 4096, errno); \
-    LOGFATAL << "Error: (" << errno << "): " << buf; \
-}
-
-#define FATAL_IF_FALSE(X) \
-  if (((X) == false)) {    \
-    char buf[4096];                                              \
-    ::strerror_s(buf, 4096, errno);                              \
+#define FATAL_FAIL_UNLESS_EINVAL(X)                  \
+  if (((X) == -1) && errno != EINVAL) {              \
+    char buf[4096];                                  \
+    ::strerror_r(errno, buf, 4096);                  \
     LOGFATAL << "Error: (" << errno << "): " << buf; \
   }
 
-#define FATAL_IF_NULL(X) \
-  if (((X) == NULL)) {    \
-    char buf[4096];                                              \
-    ::strerror_s(buf, 4096, errno);                              \
+#define FATAL_IF_FALSE(X)                            \
+  if (((X) == false)) {                              \
+    char buf[4096];                                  \
+    ::strerror_r(errno, buf, 4096);                  \
     LOGFATAL << "Error: (" << errno << "): " << buf; \
   }
 
-#define FATAL_FAIL_HTTP(RESPONSE)        \
-  if (RESPONSE->status_code != "200 OK") \
-    LOGFATAL << "Error making http request: " << RESPONSE->status_code << "\n" << RESPONSE->content.string();
+#define FATAL_IF_NULL(X)                             \
+  if (((X) == NULL)) {                               \
+    char buf[4096];                                  \
+    ::strerror_r(errno, buf, 4096);                  \
+    LOGFATAL << "Error: (" << errno << "): " << buf; \
+  }
+
+#define FATAL_FAIL_HTTP(RESPONSE)                                              \
+  if (RESPONSE->status_code != "200 OK")                                       \
+    LOGFATAL << "Error making http request: " << RESPONSE->status_code << "\n" \
+             << RESPONSE->content.string();
 
 #define DRAW_FROM_UNORDERED(ITERATOR, COLLECTION) \
   auto ITERATOR = COLLECTION.begin();             \

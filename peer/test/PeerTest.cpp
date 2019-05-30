@@ -16,7 +16,7 @@ class PeerTest {
   PeerTest() {}
 
   void SetUp() {
-    srand(unsigned int(time(NULL)));
+    srand(uint32_t(time(NULL)));
     netEngine.reset(new NetEngine());
   }
 
@@ -61,13 +61,13 @@ class PeerTest {
     auto response = client.request("GET", path);
     json result = json::parse(response->content.string());
     string gameId = result["gameId"].get<string>();
-    REQUIRE(gameId ==  server->getGameId());
+    REQUIRE(gameId == server->getGameId());
 
     path = string("/api/host");
     json request = {
         {"hostId", names[0]}, {"gameId", gameId}, {"gameName", "Starwars"}};
     response = client.request("POST", path, request.dump(2));
-    REQUIRE(response->status_code ==  "200 OK");
+    REQUIRE(response->status_code == "200 OK");
 
     for (int a = 1; a < 4; a++) {
       path = string("/api/join");
@@ -75,21 +75,21 @@ class PeerTest {
                       {"name", names[a]},
                       {"peerKey", CryptoHandler::keyToString(keys[a].first)}};
       response = client.request("POST", path, request.dump(2));
-      REQUIRE(response->status_code ==  "200 OK");
+      REQUIRE(response->status_code == "200 OK");
     }
 
     path = string("/api/get_game_info/") + gameId;
     response = client.request("GET", path);
     result = json::parse(response->content.string());
-    REQUIRE(result["gameName"] ==  "Starwars");
-    REQUIRE(result["hostId"] ==  names[0]);
+    REQUIRE(result["gameName"] == "Starwars");
+    REQUIRE(result["hostId"] == names[0]);
     for (int a = 0; a < 4; a++) {
       string id = names[a];
       string stringKey = CryptoHandler::keyToString(keys[a].first);
-      REQUIRE(result["peerData"][id]["id"].get<string>() ==  names[a]);
-      REQUIRE(result["peerData"][id]["key"].get<string>() ==  stringKey);
-      REQUIRE(result["peerData"][id]["name"].get<string>() ==  names[a]);
-      REQUIRE(result["peerData"][id]["endpoints"].size() ==  0);
+      REQUIRE(result["peerData"][id]["id"].get<string>() == names[a]);
+      REQUIRE(result["peerData"][id]["key"].get<string>() == stringKey);
+      REQUIRE(result["peerData"][id]["name"].get<string>() == names[a]);
+      REQUIRE(result["peerData"][id]["endpoints"].size() == 0);
     }
 
     shared_ptr<udp::socket> localSocket(netEngine->startUdpServer(12345));
@@ -103,27 +103,24 @@ class PeerTest {
     });
     microsleep(1000 * 1000);
 
-    netEngine->post([localSocket]() mutable {
-      localSocket->shutdown(asio::socket_base::shutdown_both);
-      localSocket->close();
-    });
+    netEngine->post([localSocket]() mutable { localSocket->close(); });
     microsleep(1000 * 1000);
 
     path = string("/api/get_game_info/") + gameId;
     response = client.request("GET", path);
     result = json::parse(response->content.string());
-    REQUIRE(result["gameName"] ==  "Starwars");
-    REQUIRE(result["hostId"] ==  names[0]);
+    REQUIRE(result["gameName"] == "Starwars");
+    REQUIRE(result["hostId"] == names[0]);
     for (int a = 0; a < 4; a++) {
       string id = names[a];
       string stringKey = CryptoHandler::keyToString(keys[a].first);
-      REQUIRE(result["peerData"][id]["id"].get<string>() ==  id);
-      REQUIRE(result["peerData"][id]["key"].get<string>() ==  stringKey);
-      REQUIRE(result["peerData"][id]["name"].get<string>() ==  names[a]);
+      REQUIRE(result["peerData"][id]["id"].get<string>() == id);
+      REQUIRE(result["peerData"][id]["key"].get<string>() == stringKey);
+      REQUIRE(result["peerData"][id]["name"].get<string>() == names[a]);
       if (a == 0) {
-        REQUIRE(result["peerData"][id]["endpoints"].size() ==  2);
+        REQUIRE(result["peerData"][id]["endpoints"].size() == 2);
       } else {
-        REQUIRE(result["peerData"][id]["endpoints"].size() ==  0);
+        REQUIRE(result["peerData"][id]["endpoints"].size() == 0);
       }
     }
   }
