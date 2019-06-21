@@ -20,7 +20,8 @@ PortMappingHandler::PortMappingHandler()
       &error);  // error output
 
   if (error) {
-    LOGFATAL << "Error discovering UPNP devices: " << error;
+    LOG(ERROR) << "Error discovering UPNP devices: " << error;
+    return;
   }
 
   if (upnpDevice == NULL) {

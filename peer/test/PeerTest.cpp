@@ -103,7 +103,7 @@ class PeerTest {
     });
     microsleep(1000 * 1000);
 
-    netEngine->post([localSocket]() mutable { localSocket->close(); });
+    netEngine->post([localSocket]() { localSocket->close(); });
     microsleep(1000 * 1000);
 
     path = string("/api/get_game_info/") + gameId;
@@ -161,7 +161,7 @@ class PeerTest {
       }
     }
     microsleep(5 * 1000 * 1000);
-    for (int a = 0; a < peers.size(); a++) {
+    for (int a = 0; a < int(peers.size()) - 1; a++) {
       peers[a]->shutdown();
     }
     for (auto &it : peers) {
