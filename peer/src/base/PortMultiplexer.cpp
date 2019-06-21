@@ -21,16 +21,16 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
                << ": " << error.message();
     return;
   }
-  VLOG(1) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
+  VLOG(2) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
-  if (bytesTransferred <= WGA_MAGIC.length()) {
-    LOG(ERROR) << "Packet is too small to contain header: " << bytesTransferred;
+  if (bytesTransferred < WGA_MAGIC.length()) {
+    VLOG(2) << "Packet is too small to contain header: " << bytesTransferred;
   } else {
     string packetString(receiveBuffer.data(), bytesTransferred);
 
     string magicHeader = packetString.substr(0, WGA_MAGIC.length());
     if (magicHeader != WGA_MAGIC) {
-      LOG(ERROR) << "Invalid packet header";
+      LOG(ERROR) << "Invalid packet header (total size):" << bytesTransferred << " data: " << packetString;
     } else {
       string packetContents = packetString.substr(WGA_MAGIC.length());
       // We need to find out where this needs to go
@@ -40,7 +40,7 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
           recipient = it;
         }
       }
-      if (recipient.get() == NULL) {
+      if (recipient.get() == NULL && packetContents.size() > 0) {
         // We don't have any endpoint to receive this, so check the header
         LOG(INFO) << "Do not know who should get packet, will check header";
         for (auto& it : recipients) {

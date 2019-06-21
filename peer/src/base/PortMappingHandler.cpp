@@ -4,8 +4,11 @@
 #include <miniupnpc-2.1.20190408/upnpcommands.h>
 
 namespace wga {
+bool DISABLE_PORT_MAPPING = false;
+
 PortMappingHandler::PortMappingHandler()
     : sourcePortDistribution(24000, 25000), upnpDevice(NULL) {
+  if (DISABLE_PORT_MAPPING) return;
   upnp_data = std::make_shared<IGDdatas>();
   int error = 0;
   // get a list of upnp devices (asks on the broadcast address and returns the
@@ -20,8 +23,7 @@ PortMappingHandler::PortMappingHandler()
       &error);  // error output
 
   if (error) {
-    LOG(ERROR) << "Error discovering UPNP devices: " << error;
-    return;
+    LOGFATAL << "Error discovering UPNP devices: " << error;
   }
 
   if (upnpDevice == NULL) {

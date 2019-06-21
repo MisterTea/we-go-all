@@ -37,13 +37,14 @@ struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
 }  // namespace std
 
 namespace wga {
+extern bool ALL_RPC_FLAKY;
+
 enum RpcHeader {
-  HEARTBEAT = 1,
-  REQUEST = 2,
-  REPLY = 3,
-  ACKNOWLEDGE = 4,
-  SHUTDOWN = 5,
-  SHUTDOWN_REPLY = 6,
+  REQUEST = 1,
+  REPLY = 2,
+  ACKNOWLEDGE = 3,
+  SHUTDOWN = 4,
+  SHUTDOWN_REPLY = 5,
 };
 
 class BiDirectionalRpc {
@@ -53,6 +54,7 @@ class BiDirectionalRpc {
 
   void sendShutdown();
   void shutdown();
+  void init();
   void heartbeat();
   void barrier() {
     lock_guard<recursive_mutex> guard(mutex);
@@ -60,7 +62,7 @@ class BiDirectionalRpc {
   }
 
   RpcId request(const string& payload);
-  void requestNoReply(const string& payload);
+  void requestOneWay(const string& payload);
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
   inline void replyOneWay(const RpcId& rpcId) { reply(rpcId, "OK"); }
@@ -121,9 +123,35 @@ class BiDirectionalRpc {
 
   bool hasWork() {
     lock_guard<recursive_mutex> guard(mutex);
-    return !delayedRequests.empty() || !outgoingRequests.empty() ||
-           !incomingRequests.empty() || !outgoingReplies.empty() ||
-           !incomingReplies.empty();
+    if (shuttingDown) {
+      return false;
+    }
+    for (const auto& it : delayedRequests) {
+      if (!it.second.empty()) {
+        return true;
+      }
+    }
+    for (const auto& it : outgoingRequests) {
+      if (!it.second.empty()) {
+        return true;
+      }
+    }
+    for (const auto& it : incomingRequests) {
+      if (!it.second.empty()) {
+        return true;
+      }
+    }
+    for (const auto& it : outgoingReplies) {
+      if (!it.second.empty()) {
+        return true;
+      }
+    }
+    for (const auto& it : incomingReplies) {
+      if (!it.second.empty()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   pair<double, double> getLatency() {
@@ -149,7 +177,7 @@ class BiDirectionalRpc {
   unordered_map<RpcId, string> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
 
-  lru_cache<RpcId,bool> processedReplies;
+  lru_cache<RpcId, bool> processedReplies;
 
   int64_t onBarrier;
   uint64_t onId;

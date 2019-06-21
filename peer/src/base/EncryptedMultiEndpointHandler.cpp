@@ -29,6 +29,11 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
 }
 
 void EncryptedMultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
+  if (idPayload.payload.size() == 0) {
+    MultiEndpointHandler::requestWithId(idPayload);
+    return;
+  }
+
   if (!readyToSend()) {
     LOGFATAL << "Tried to send data before we were ready";
   }
@@ -40,6 +45,12 @@ void EncryptedMultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
 void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
                                           const string& payload) {
   lock_guard<recursive_mutex> guard(mutex);
+
+  if (payload.size() == 0) {
+    MultiEndpointHandler::reply(rpcId, payload);
+    return;
+  }
+
   if (!readyToSend()) {
     LOGFATAL << "Got reply before we were ready, something went wrong";
   }
@@ -50,9 +61,19 @@ void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
 void EncryptedMultiEndpointHandler::addIncomingRequest(
     const IdPayload& idPayload) {
   lock_guard<recursive_mutex> guard(mutex);
+  if (idPayload.payload.size() == 0) {
+    // Heartbeat
+    MultiEndpointHandler::addIncomingRequest(idPayload);
+    return;
+  }
+
   if (idPayload.id == SESSION_KEY_RPCID) {
     // Handshaking
     LOG(INFO) << "GOT HANDSHAKE";
+    if (cryptoHandler->canDecrypt()) {
+      LOG(WARNING) << "We already got the key, skipping request";
+      return;
+    }
     MessageReader reader;
     reader.load(idPayload.payload);
     PublicKey publicKey =
@@ -72,6 +93,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     MultiEndpointHandler::reply(idPayload.id, "OK");
     return;
   }
+
   if (!readyToRecieve()) {
     LOG(INFO) << "Tried to receive data before we were ready";
     return;
@@ -90,6 +112,12 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
 
 void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
                                                      const string& payload) {
+  if (payload.size() == 0) {
+    // Heartbeat
+    MultiEndpointHandler::addIncomingReply(uid, payload);
+    return;
+  }
+
   lock_guard<recursive_mutex> guard(mutex);
   if (!readyToSend()) {
     LOG(ERROR) << "Got reply before we were ready, something went wrong";

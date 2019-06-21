@@ -6,6 +6,10 @@
 namespace wga {
 class TimeHandler {
  public:
+  static void addNoise() {
+    initialTime += std::chrono::minutes(rand()%100);
+  }
+
   static int64_t currentTimeMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::high_resolution_clock::now() -

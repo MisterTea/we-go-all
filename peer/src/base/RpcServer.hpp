@@ -35,7 +35,7 @@ class RpcServer : public PortMultiplexer {
 
   void broadcast(const string& payload) {
     for (auto it : endpoints) {
-      it.second->requestNoReply(payload);
+      it.second->requestOneWay(payload);
     }
   }
 

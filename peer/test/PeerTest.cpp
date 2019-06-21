@@ -17,6 +17,7 @@ class PeerTest {
 
   void SetUp() {
     srand(uint32_t(time(NULL)));
+    DISABLE_PORT_MAPPING = true;
     netEngine.reset(new NetEngine());
   }
 
@@ -103,7 +104,7 @@ class PeerTest {
     });
     microsleep(1000 * 1000);
 
-    netEngine->post([localSocket]() { localSocket->close(); });
+    netEngine->post([localSocket]() mutable { localSocket->close(); });
     microsleep(1000 * 1000);
 
     path = string("/api/get_game_info/") + gameId;
@@ -161,7 +162,7 @@ class PeerTest {
       }
     }
     microsleep(5 * 1000 * 1000);
-    for (int a = 0; a < int(peers.size()) - 1; a++) {
+    for (int a = 0; a < (int(peers.size()) - 1); a++) {
       peers[a]->shutdown();
     }
     for (auto &it : peers) {
@@ -197,64 +198,14 @@ TEST_CASE("PeerTest", "[PeerTest]") {
 
   SECTION("Four Peers") { testClass.initGameServer(4); }
 
+  SECTION("Four Peers Flaky") {
+    TimeHandler::addNoise();
+    ALL_RPC_FLAKY = true;
+    testClass.initGameServer(4);
+  }
+
   LOG(INFO) << "CREATING PEERS";
   testClass.peerTest();
   testClass.TearDown();
 }
-
-#if 0
-// Doesn't terminate correctly yet
-TEST_F(PeerTest, ThreePeers) {
-  LOG(INFO) << "STARTING GAME SERVER";
-  initGameServer(3);
-  LOG(INFO) << "CREATING PEERS";
-  vector<shared_ptr<MyPeer>> peers = {
-      shared_ptr<MyPeer>(new MyPeer(netEngine, names[0], keys[0].second, 11000,
-                                    "localhost", 20000, names[0])),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, names[1], keys[1].second, 11001,
-                                    "localhost", 20000, names[1])),
-      shared_ptr<MyPeer>(new MyPeer(netEngine, names[2], keys[2].second, 11002,
-                                    "localhost", 20000, names[2])),
-  };
-  for (int a = 0; a < peers.size(); a++) {
-    if (!a) {
-      peers[a]->host("Starwars");
-    } else {
-      peers[a]->join();
-    }
-  }
-  LOG(INFO) << "STARTING PEERS";
-  for (auto it : peers) {
-    it->start();
-  }
-  for (int a = 0; a < peers.size(); a++) {
-    while (!peers[a]->initialized()) {
-      LOG(INFO) << "Waiting for initialization for peer " << a << " ...";
-      microsleep(1000 * 1000);
-    }
-  }
-  peers[0]->updateState(200, {{"button0", "0"}});
-  peers[1]->updateState(200, {{"button1", "1"}});
-  peers[2]->updateState(200, {{"button2", "2"}});
-  for (int a = 0; a < peers.size(); a++) {
-    unordered_map<string, string> state = peers[a]->getFullState(199);
-    EXPECT_NE(state.find("button0"), state.end());
-    REQUIRE(state.find("button0")->second ==  "0");
-    EXPECT_NE(state.find("button1"), state.end());
-    REQUIRE(state.find("button1")->second ==  "1");
-    EXPECT_NE(state.find("button2"), state.end());
-    REQUIRE(state.find("button2")->second ==  "2");
-  }
-  microsleep(1000 * 1000);
-  peers[0]->shutdown();
-  microsleep(1000 * 1000);
-  peers[1]->shutdown();
-  microsleep(1000 * 1000);
-  for (auto &it : peers) {
-    while (it->getLivingPeerCount()) {
-      microsleep(1000 * 1000);
-    }
-  }
-}
-#endif
 }  // namespace wga

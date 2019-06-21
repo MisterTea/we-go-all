@@ -3,6 +3,8 @@
 #include "TimeHandler.hpp"
 
 namespace wga {
+bool ALL_RPC_FLAKY = false;
+
 BiDirectionalRpc::BiDirectionalRpc()
     : processedReplies(128 * 1024),
       onBarrier(0),
@@ -21,18 +23,25 @@ void BiDirectionalRpc::sendShutdown() {
 
 void BiDirectionalRpc::shutdown() { shuttingDown = true; }
 
+void BiDirectionalRpc::init() {
+  // Send a bunch of heartbeats to stabilize any timeshift calculations
+  for (int a = 0; a < 100; a++) {
+    requestOneWay("");
+    microsleep(10000);
+  }
+}
+
 void BiDirectionalRpc::heartbeat() {
   lock_guard<recursive_mutex> guard(mutex);
   // TODO: If the outgoingReplies/requests is high, and we have recently
   // received data, flush a lot of data out
   VLOG(1) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
+    VLOG(1) << "RESENDING MESSAGE";
     resendRandomOutgoingMessage();
   } else {
     VLOG(1) << "SENDING HEARTBEAT";
-    string s = "0";
-    s[0] = HEARTBEAT;
-    send(s);
+    requestOneWay("");
   }
 }
 
@@ -56,17 +65,12 @@ void BiDirectionalRpc::receive(const string& message) {
   MessageReader reader;
   reader.load(message);
   RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
-  if (flaky && rand() % 2 == 0) {
+  if ((flaky || ALL_RPC_FLAKY) && rand() % 10 == 0) {
     // Pretend we never got the message
     VLOG(1) << "FLAKE";
   } else {
-    if (header != HEARTBEAT) {
-      VLOG(1) << "GOT PACKET WITH HEADER " << header;
-    }
+    VLOG(1) << "GOT PACKET WITH HEADER " << header;
     switch (header) {
-      case HEARTBEAT: {
-        // MultiEndpointHandler deals with keepalive
-      } break;
       case REQUEST: {
         while (reader.sizeRemaining()) {
           RpcId rpcId = reader.readClass<RpcId>();
@@ -151,8 +155,14 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
       }
     }
   }
+
   if (!skip) {
     addIncomingRequest(IdPayload(rpcId, payload));
+    if (payload.size() == 0) {
+      // heartbeat, send empty reply right away
+      reply(rpcId, "");
+      return;
+    }
   }
 }
 
@@ -203,7 +213,7 @@ RpcId BiDirectionalRpc::request(const string& payload) {
   return uuid;
 }
 
-void BiDirectionalRpc::requestNoReply(const string& payload) {
+void BiDirectionalRpc::requestOneWay(const string& payload) {
   lock_guard<recursive_mutex> guard(mutex);
   auto fullUuid = sole::uuid4();
   auto uuid = RpcId(onBarrier, fullUuid.cd);
@@ -228,7 +238,11 @@ void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
 
 void BiDirectionalRpc::reply(const RpcId& rpcId, const string& payload) {
   lock_guard<recursive_mutex> guard(mutex);
-  incomingRequests.erase(incomingRequests.find(rpcId));
+  auto it = incomingRequests.find(rpcId);
+  if (it == incomingRequests.end()) {
+    LOGFATAL << "Tried to reply but had no request: " << rpcId.id;
+  }
+  incomingRequests.erase(it);
   outgoingReplies[rpcId] = payload;
   sendReply(rpcId, payload);
 }

@@ -13,22 +13,14 @@ using namespace wga;
 int main(int argc, char **argv) {
   srand(1);
 
-  int argcCopy = argc;
-  char **argvCopy = new char *[argc];
-  for (int a = 0; a < argc; a++) {
-    argvCopy[a] = argv[a];
-  }
-
   cxxopts::Options options("Peer", "Peer Program for WGA");
-  options.allow_unrecognised_options();
   options.add_options()  //
       ("stress", "Enable stress tests",
        cxxopts::value<bool>()->default_value("false"))  //
       ("v,verbose", "Log verbosity",
        cxxopts::value<int>()->default_value("0"))  //
       ;
-  auto params = options.parse(argcCopy, argvCopy);
-  delete[] argvCopy;
+  auto params = options.parse(argc, argv);
 
   // Setup easylogging configurations
   el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);

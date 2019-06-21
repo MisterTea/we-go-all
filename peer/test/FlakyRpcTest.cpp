@@ -24,6 +24,7 @@ class FlakyRpcTest {
  public:
   void SetUp() {
     srand(uint32_t(time(NULL)));
+    DISABLE_PORT_MAPPING = true;
     netEngine.reset(new NetEngine());
   }
 
@@ -94,6 +95,7 @@ class FlakyRpcTest {
                                               netEngine, cryptoHandlers[a][b],
                                               {remoteEndpoint}));
         endpointHandler->setFlaky(true);
+        endpointHandler->init();
         servers[a]->addEndpoint(to_string(b), endpointHandler);
       }
     }

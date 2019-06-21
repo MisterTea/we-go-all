@@ -30,6 +30,7 @@ void MultiEndpointHandler::send(const string& message) {
   }
 
   UdpBiDirectionalRpc::send(message);
+  /*
   if (lastUnrepliedSendTime + 5 < time(NULL)) {
     // Send on all channels
     LOG(INFO) << "SENDING ON ALL CHANNELS";
@@ -40,6 +41,7 @@ void MultiEndpointHandler::send(const string& message) {
       activeEndpoint = tmp;
     }
   }
+  */
 
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);
@@ -96,8 +98,8 @@ void MultiEndpointHandler::update() {
       deadEndpoints.erase(it);
     }
     LOG(INFO) << "Trying new endpoint: "
-              << previousEndpoint.address().to_string() << " -> "
-              << activeEndpoint.address().to_string();
+              << previousEndpoint.address().to_string() << ":" << previousEndpoint.port() << " -> "
+              << activeEndpoint.address().to_string() << ":" << activeEndpoint.port();
     lastUnrepliedSendTime = time(NULL);
   } else {
     LOG(INFO) << "Connection hasn't been dead long enough: "

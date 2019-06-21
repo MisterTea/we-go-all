@@ -15,6 +15,8 @@ struct IGDdatas;
 #endif
 
 namespace wga {
+  extern bool DISABLE_PORT_MAPPING;
+
 class PortMappingHandler {
  public:
   PortMappingHandler();

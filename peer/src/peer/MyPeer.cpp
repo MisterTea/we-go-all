@@ -51,9 +51,7 @@ void MyPeer::shutdown() {
       LOG(INFO) << "WAITING FOR WORK TO FLUSH";
       microsleep(1000 * 1000);
     }
-    netEngine->post([this]() {
-      updateTimer->cancel();
-    });
+    netEngine->post([this]() { updateTimer->cancel(); });
     // Wait for the updates to flush
     microsleep(1000 * 1000);
     rpcServer->closeSocket();
@@ -109,13 +107,13 @@ void MyPeer::updateEndpointServer() {
   for (auto it : localIps) {
     ipAddressPacket += "_" + it + ":" + to_string(serverPort);
   }
-  LOG(INFO) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
-  netEngine->post([this, serverEndpoint, ipAddressPacket]() {
-    // TODO: Need mutex here
-    LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-    int bytesSent = int(localSocket->send_to(asio::buffer(ipAddressPacket),
-                                              serverEndpoint));
-    LOG(INFO) << bytesSent << " bytes sent";
+  auto localSocketStack = localSocket;
+  VLOG(1) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
+  netEngine->post([localSocketStack, serverEndpoint, ipAddressPacket]() {
+    VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
+    int bytesSent = localSocketStack->send_to(asio::buffer(ipAddressPacket),
+                                              serverEndpoint);
+    VLOG(1) << bytesSent << " bytes sent";
   });
 }
 
@@ -186,13 +184,14 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     }
     shared_ptr<CryptoHandler> peerCryptoHandler(
         new CryptoHandler(privateKey, peerKey));
-    rpcServer->addEndpoint(
-        id, shared_ptr<EncryptedMultiEndpointHandler>(
-                new EncryptedMultiEndpointHandler(
-                    localSocket, netEngine, peerCryptoHandler, endpoints)));
+    shared_ptr<EncryptedMultiEndpointHandler> endpointHandler(
+        new EncryptedMultiEndpointHandler(localSocket, netEngine,
+                                          peerCryptoHandler, endpoints));
+    endpointHandler->init();
+    rpcServer->addEndpoint(id, endpointHandler);
   }
 
-  this_thread::sleep_for(chrono::seconds(1));
+  // this_thread::sleep_for(chrono::seconds(1));
 
   myData = peerData[userId];
 
@@ -238,8 +237,10 @@ void MyPeer::update(const asio::error_code& error) {
       auto endpointHandler = rpcServer->getEndpointHandler(it.key());
       endpointHandler->addEndpoints(endpoints);
     }
+  }
 
-    LOG(INFO) << "CALLING HEARTBEAT";
+  if (counter % 100 == 0) {
+    VLOG(1) << "CALLING HEARTBEAT";
     rpcServer->heartbeat();
   }
 
@@ -292,17 +293,20 @@ vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
   vector<string> values;
   for (auto& it : peerData) {
     while (true) {
-      lock_guard<recursive_mutex> guard(peerDataMutex);
-      auto expirationTime = it.second->playerInputData.getExpirationTime();
-      if (timestamp < expirationTime) {
-        values.push_back(it.second->playerInputData.getOrDie(timestamp, key));
-        break;
+      {
+        lock_guard<recursive_mutex> guard(peerDataMutex);
+        auto expirationTime = it.second->playerInputData.getExpirationTime();
+        if (timestamp < expirationTime) {
+          values.push_back(it.second->playerInputData.getOrDie(timestamp, key));
+          break;
+        }
+        // Check if the peer is dead
+        auto peerId = it.first;
+        if (rpcServer->isPeerShutDown(peerId)) {
+          break;
+        }
       }
-      // Check if the peer is dead
-      auto peerId = it.first;
-      if (rpcServer->isPeerShutDown(peerId)) {
-        break;
-      }
+      microsleep(1);
     }
   }
   return values;
