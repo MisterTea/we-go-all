@@ -9,8 +9,19 @@ class ChronoMap {
  public:
   ChronoMap() : expirationTime(0) {}
 
+  bool waitForExpirationTime(long expirationTimeToWaitFor) {
+    unique_lock<mutex> lk(dataReadyMutex);
+    if (dataReady.wait_for(lk, 1s, [this, expirationTimeToWaitFor] {
+          return expirationTime > expirationTimeToWaitFor;
+        })) {
+      return true;
+    }
+    return false;
+  }
+
   void put(int64_t lastExpirationTime, int64_t newExpirationTime,
            unordered_map<K, V> data) {
+    lock_guard<mutex> lk(dataReadyMutex);
     if (lastExpirationTime < 0) {
       LOGFATAL << "Tried to put before start time";
     }
@@ -32,6 +43,7 @@ class ChronoMap {
   }
 
   optional<V> get(int64_t timestamp, const K& key) const {
+    lock_guard<mutex> lk(dataReadyMutex);
     if (timestamp < 0) {
       LOGFATAL << "Invalid time stamp";
     }
@@ -63,9 +75,16 @@ class ChronoMap {
   }
 
   unordered_map<K, V> getAll(int64_t timestamp) const {
+    unordered_set<K> keys;
+    {
+      lock_guard<mutex> lk(dataReadyMutex);
+      for (auto& it : data) {
+        keys.insert(it.first);
+      }
+    }
     unordered_map<K, V> retval;
-    for (auto& it : data) {
-      retval[it.first] = *(get(timestamp, it.first));
+    for (auto& it : keys) {
+      retval[it] = getOrDie(timestamp, it);
     }
     return retval;
   }
@@ -78,11 +97,19 @@ class ChronoMap {
     return *v;
   }
 
-  int64_t getExpirationTime() const { return expirationTime; }
+  int64_t getExpirationTime() const {
+    lock_guard<mutex> lk(dataReadyMutex);
+    return expirationTime;
+  }
 
-  bool empty() const { return expirationTime == 0; }
+  bool empty() const {
+    lock_guard<mutex> lk(dataReadyMutex);
+    return expirationTime == 0;
+  }
 
  protected:
+  mutable mutex dataReadyMutex;
+  mutable condition_variable dataReady;
   unordered_map<K, map<int64_t, V>> data;
   int64_t expirationTime;
   map<int64_t, tuple<int64_t, int64_t, unordered_map<K, V>>> futureData;
@@ -96,7 +123,6 @@ class ChronoMap {
       LOGFATAL << "Inserting into an empty map should always use 0";
     }
 
-    expirationTime = newExpirationTime;
     for (auto& it : newData) {
       if (data.find(it.first) == data.end()) {
         // New key.
@@ -106,6 +132,9 @@ class ChronoMap {
         data[it.first][lastExpirationTime] = it.second;
       }
     }
+
+    expirationTime = newExpirationTime;
+    dataReady.notify_all();
 
     if (futureData.empty()) {
       return;

@@ -113,27 +113,35 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 
 #define WGA_MAGIC std::string("WGAMAGIC")
 
+#ifndef strerror_s
+#define strerror_s(BUF,SIZE,ERRNO) strerror_r(ERRNO, BUF, SIZE)
+#endif
+
 #define FATAL_FAIL(X) \
-  if (((X) == -1)) LOGFATAL << "Error: (" << errno << "): " << strerror(errno);
+  if (((X) == -1)) { \
+    char buf[4096];                                  \
+    ::strerror_s(buf, 4096, errno);                  \
+    LOGFATAL << "Error: (" << errno << "): " << buf;\
+  }
 
 #define FATAL_FAIL_UNLESS_EINVAL(X)                  \
   if (((X) == -1) && errno != EINVAL) {              \
     char buf[4096];                                  \
-    ::strerror_r(errno, buf, 4096);                  \
+    ::strerror_s(buf, 4096, errno);                  \
     LOGFATAL << "Error: (" << errno << "): " << buf; \
   }
 
 #define FATAL_IF_FALSE(X)                            \
   if (((X) == false)) {                              \
     char buf[4096];                                  \
-    ::strerror_r(errno, buf, 4096);                  \
+    ::strerror_s(buf, 4096, errno);                  \
     LOGFATAL << "Error: (" << errno << "): " << buf; \
   }
 
 #define FATAL_IF_NULL(X)                             \
   if (((X) == NULL)) {                               \
     char buf[4096];                                  \
-    ::strerror_r(errno, buf, 4096);                  \
+    ::strerror_s(buf, 4096, errno);                  \
     LOGFATAL << "Error: (" << errno << "): " << buf; \
   }
 
