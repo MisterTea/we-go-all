@@ -16,10 +16,10 @@ jobs:
           command: git submodule update --init
       - run:
           name: Build the project with test
-          command: mkdir build; cd build; cmake -DASAN=ON ../; make -j4
+          command: mkdir peer/build; cd peer/build; cmake -DASAN=ON ../; make -j4
       - run:
           name: Run tests
-          command: cd build; ./wga-test
+          command: cd peer/build; ./wga-test
   linux_tsan:
     docker:
       - image: ubuntu:bionic
@@ -36,10 +36,10 @@ jobs:
           command: git submodule update --init
       - run:
           name: Build the project with test
-          command: mkdir build; cd build; cmake -DTSAN=ON ../; make -j4
+          command: mkdir peer/build; cd peer/build; cmake -DTSAN=ON ../; make -j4
       - run:
           name: Run tests
-          command: cd build; ./wga-test
+          command: cd peer/build; ./wga-test
   linux_ubsan:
     docker:
       - image: ubuntu:bionic
@@ -56,10 +56,10 @@ jobs:
           command: git submodule update --init
       - run:
           name: Build the project with test
-          command: mkdir build; cd build; cmake -DUBSAN=ON ../; make -j4
+          command: mkdir peer/build; cd peer/build; cmake -DUBSAN=ON ../; make -j4
       - run:
           name: Run tests
-          command: cd build; ./wga-test
+          command: cd peer/build; ./wga-test
 workflows:
   version: 2
   build_and_test:
