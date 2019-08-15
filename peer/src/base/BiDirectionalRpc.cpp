@@ -21,7 +21,10 @@ void BiDirectionalRpc::sendShutdown() {
   send(s);
 }
 
-void BiDirectionalRpc::shutdown() { shuttingDown = true; }
+void BiDirectionalRpc::shutdown() {
+  lock_guard<recursive_mutex> guard(mutex);
+  shuttingDown = true;
+}
 
 void BiDirectionalRpc::init() {
   // Send a bunch of heartbeats to stabilize any timeshift calculations

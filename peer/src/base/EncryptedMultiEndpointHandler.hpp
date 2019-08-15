@@ -21,6 +21,7 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
   virtual void reply(const RpcId& rpcId, const string& payload);
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
   bool readyToSend() {
+    lock_guard<recursive_mutex> guard(mutex);
     // Make sure rpc(0,1) is finished
     for (const auto& it : outgoingRequests) {
       if (it.first == SESSION_KEY_RPCID) {
@@ -31,6 +32,7 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
   }
 
   bool readyToRecieve() {
+    lock_guard<recursive_mutex> guard(mutex);
     return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
   }
 

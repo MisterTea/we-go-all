@@ -19,6 +19,7 @@ MultiEndpointHandler::MultiEndpointHandler(
 
 void MultiEndpointHandler::send(const string& message) {
   // LOG(INFO) << "SENDING MESSAGE: " << message;
+  lock_guard<recursive_mutex> lock(mutex);
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = time(NULL);
   }
@@ -50,6 +51,7 @@ void MultiEndpointHandler::send(const string& message) {
 
 bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
     const udp::endpoint& endpoint) {
+  lock_guard<recursive_mutex> lock(mutex);
   if (endpoint == activeEndpoint) {
     return true;
   }
@@ -77,6 +79,7 @@ void MultiEndpointHandler::addEndpoints(
 }
 
 void MultiEndpointHandler::update() {
+  lock_guard<recursive_mutex> lock(mutex);
   if (lastUnrepliedSendTime == 0) {
     // Nothing to do
     LOG(INFO) << "Connection seems to be working";
@@ -98,8 +101,10 @@ void MultiEndpointHandler::update() {
       deadEndpoints.erase(it);
     }
     LOG(INFO) << "Trying new endpoint: "
-              << previousEndpoint.address().to_string() << ":" << previousEndpoint.port() << " -> "
-              << activeEndpoint.address().to_string() << ":" << activeEndpoint.port();
+              << previousEndpoint.address().to_string() << ":"
+              << previousEndpoint.port() << " -> "
+              << activeEndpoint.address().to_string() << ":"
+              << activeEndpoint.port();
     lastUnrepliedSendTime = time(NULL);
   } else {
     LOG(INFO) << "Connection hasn't been dead long enough: "

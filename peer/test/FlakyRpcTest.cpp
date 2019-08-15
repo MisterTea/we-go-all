@@ -11,6 +11,11 @@
 #undef CHECK
 #include "Catch2/single_include/catch2/catch.hpp"
 
+const int START_PORT = 30000;
+namespace {
+recursive_mutex testMutex;
+}
+
 using namespace wga;
 
 struct RpcDetails {
@@ -62,7 +67,8 @@ class FlakyRpcTest {
 
     // Create port multiplexers
     for (int a = 0; a < numNodes; a++) {
-      shared_ptr<udp::socket> localSocket(netEngine->startUdpServer(20000 + a));
+      shared_ptr<udp::socket> localSocket(
+          netEngine->startUdpServer(START_PORT + a));
       servers.push_back(
           shared_ptr<RpcServer>(new RpcServer(netEngine, localSocket)));
     }
@@ -89,7 +95,7 @@ class FlakyRpcTest {
           continue;
         }
         auto remoteEndpoint =
-            netEngine->resolve("127.0.0.1", std::to_string(20000 + b));
+            netEngine->resolve("127.0.0.1", std::to_string(START_PORT + b));
         shared_ptr<EncryptedMultiEndpointHandler> endpointHandler(
             new EncryptedMultiEndpointHandler(servers[a]->getLocalSocket(),
                                               netEngine, cryptoHandlers[a][b],
@@ -108,7 +114,11 @@ class FlakyRpcTest {
     server->runUntilInitialized();
 
     vector<string> peerIds = server->getPeerIds();
-    REQUIRE(peerIds.size() == (numTotal - 1));
+    static mutex catchMutex;
+    {
+      lock_guard<mutex> lock(catchMutex);
+      REQUIRE(peerIds.size() == (numTotal - 1));
+    }
     map<RpcId, RpcDetails> allRpcDetails;
     {
       for (int trials = 0; trials < numTrials; trials++) {
@@ -134,7 +144,13 @@ class FlakyRpcTest {
         100;
     int numAcks = 0;
     bool complete = false;
-    while ((*numFinished) < numTotal) {
+    while (true) {
+      {
+        lock_guard<recursive_mutex> lock(testMutex);
+        if ((*numFinished) == numTotal) {
+          break;
+        }
+      }
       auto iterationTime =
           duration_cast<milliseconds>(system_clock::now().time_since_epoch()) /
           100;
@@ -173,8 +189,12 @@ class FlakyRpcTest {
         if (numAcks >= numTrials && !complete) {
           // Test complete
           complete = true;
-          (*numFinished)++;
-          LOG(INFO) << "Got all replies:" << (*numFinished) << "/" << numTotal;
+          {
+            lock_guard<recursive_mutex> lock(testMutex);
+            (*numFinished)++;
+            LOG(INFO) << "Got all replies:" << (*numFinished) << "/"
+                      << numTotal;
+          }
         }
       }
 

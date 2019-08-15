@@ -55,3 +55,6 @@
 [submodule "peer/external/cpp-lru-cache"]
 	path = peer/external/cpp-lru-cache
 	url = https://github.com/lamerman/cpp-lru-cache.git
+[submodule "peer/external/sanitizers-cmake"]
+	path = peer/external/sanitizers-cmake
+	url = git://github.com/arsenm/sanitizers-cmake.git

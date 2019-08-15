@@ -1,7 +1,9 @@
 cmake_minimum_required (VERSION 3.0.2)
 project (WeGoAll VERSION 0.0.1)
 
-option(BUILD_TEST "Build all unit test" ON)
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/external/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
+FIND_PACKAGE(Sanitizers)
+
 option(CODE_COVERAGE "Enable code coverage" OFF)
 
 # Enable C++-17
@@ -131,6 +133,14 @@ add_library(
   external/miniupnpc-2.1.20190408/igd_desc_parse.c
 )
 
+# SingleGameServer does some non-thread-safe actions, so don't run it with TSAN
+add_library(
+  wga-singlegameserver
+  STATIC
+
+  src/peer/SingleGameServer.cpp
+)
+
 add_library(
   wga-lib
   STATIC
@@ -171,14 +181,15 @@ add_library(
   src/base/EasyLoggingWrapper.cpp
 
   src/peer/MyPeer.cpp
+  src/peer/SingleGameServer.cpp
   )
-
+add_sanitizers(wga-lib)
+  
 add_executable (
   examplepeer
 
   src/example/ExamplePeer.cpp
   )
-
 target_link_libraries (
   examplepeer
   LINK_PUBLIC
@@ -188,13 +199,13 @@ target_link_libraries (
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
   )
+add_sanitizers(examplepeer)
 
 add_executable (
   examplelobby
 
   src/example/ExampleLobby.cpp
   )
-
 target_link_libraries (
   examplelobby
   LINK_PUBLIC
@@ -204,38 +215,34 @@ target_link_libraries (
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
   )
-  
-if(BUILD_TEST) # Build unit tests.
-  message(STATUS "Enabling test for ${PROJECT_NAME}")
-  enable_testing()
+add_sanitizers(examplelobby)
 
-  add_executable(
-    wga-test
-  
-    test/Main.cpp
+enable_testing()
 
-    test/ChronoMapTest.cpp
-    test/FlakyRpcTest.cpp
-    test/PeerTest.cpp
-    )
-  
-  add_dependencies(
-    wga-test
-    wga-lib
-	upnp
-    )
-  
-  target_link_libraries(
-    wga-test
-    wga-lib
-    upnp
-    ${sodium_LIBRARY_RELEASE}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${CORE_LIBRARIES}
-    )
-  add_test(
-    wga-test
-    wga-test
-    )
-  
-endif()
+add_executable(
+  wga-test
+
+  test/Main.cpp
+
+  test/ChronoMapTest.cpp
+  test/FlakyRpcTest.cpp
+  test/PeerTest.cpp
+  )
+add_dependencies(
+  wga-test
+  wga-lib
+  upnp
+  )
+target_link_libraries(
+  wga-test
+  wga-lib
+  upnp
+  ${sodium_LIBRARY_RELEASE}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${CORE_LIBRARIES}
+  )
+add_test(
+  wga-test
+  wga-test
+  )
+add_sanitizers(wga-test)

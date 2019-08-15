@@ -16,6 +16,7 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
   virtual ~MultiEndpointHandler() {}
 
   virtual void handleReply(const RpcId& rpcId, const string& payload) {
+    lock_guard<recursive_mutex> lock(mutex);
     lastUnrepliedSendTime = 0;
     BiDirectionalRpc::handleReply(rpcId, payload);
   }

@@ -1,0 +1,69 @@
+version: 2
+jobs:
+  linux_asan:
+    docker:
+      - image: ubuntu:bionic
+    steps:
+      - run:
+          name: Avoid hosts unknown for github
+          command: mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+      - run:
+          name: Install system dependencies
+          command: apt-get update; apt-get install -y git cmake libsodium-dev g++
+      - checkout
+      - run:
+          name: Init submodules
+          command: git submodule update --init
+      - run:
+          name: Build the project with test
+          command: mkdir build; cd build; cmake -DASAN=ON ../; make -j4
+      - run:
+          name: Run tests
+          command: cd build; ./wga-test
+  linux_tsan:
+    docker:
+      - image: ubuntu:bionic
+    steps:
+      - run:
+          name: Avoid hosts unknown for github
+          command: mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+      - run:
+          name: Install system dependencies
+          command: apt-get update; apt-get install -y git cmake libsodium-dev g++
+      - checkout
+      - run:
+          name: Init submodules
+          command: git submodule update --init
+      - run:
+          name: Build the project with test
+          command: mkdir build; cd build; cmake -DTSAN=ON ../; make -j4
+      - run:
+          name: Run tests
+          command: cd build; ./wga-test
+  linux_ubsan:
+    docker:
+      - image: ubuntu:bionic
+    steps:
+      - run:
+          name: Avoid hosts unknown for github
+          command: mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+      - run:
+          name: Install system dependencies
+          command: apt-get update; apt-get install -y git cmake libsodium-dev g++
+      - checkout
+      - run:
+          name: Init submodules
+          command: git submodule update --init
+      - run:
+          name: Build the project with test
+          command: mkdir build; cd build; cmake -DUBSAN=ON ../; make -j4
+      - run:
+          name: Run tests
+          command: cd build; ./wga-test
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - linux_asan
+      - linux_tsan
+      - linux_ubsan

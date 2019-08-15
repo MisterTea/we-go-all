@@ -163,7 +163,10 @@ class BiDirectionalRpc {
            ((sqrt(pingEstimator.getVariance() / 4.0) * 3.0));
   }
 
-  inline bool isShuttingDown() { return shuttingDown; }
+  inline bool isShuttingDown() {
+    lock_guard<recursive_mutex> guard(mutex);
+    return shuttingDown;
+  }
 
  protected:
   unordered_map<RpcId, string> delayedRequests;
