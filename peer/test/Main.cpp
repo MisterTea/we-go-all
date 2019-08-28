@@ -29,9 +29,13 @@ int main(int argc, char **argv) {
   defaultConf.setGlobally(el::ConfigurationType::ToFile, "true");
   el::Loggers::setVerboseLevel(params["verbose"].as<int>());
 
+#ifdef WIN32
+  string logPath = "/tmp/wga_test_log";
+#else
   string logDirectoryPattern = string("/tmp/wga_test_XXXXXXXX");
   string logDirectory = string(mkdtemp(&logDirectoryPattern[0]));
   string logPath = string(logDirectory) + "/log";
+#endif
   cout << "Writing log to " << logPath << endl;
   LogHandler::SetupLogFile(&defaultConf, logPath);
 
