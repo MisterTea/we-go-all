@@ -26,11 +26,15 @@ void BiDirectionalRpc::shutdown() {
   shuttingDown = true;
 }
 
-void BiDirectionalRpc::init() {
+void BiDirectionalRpc::initTimeShift() {
   // Send a bunch of heartbeats to stabilize any timeshift calculations
-  for (int a = 0; a < 100; a++) {
-    requestOneWay("");
-    microsleep(10000);
+  // This has to be done in a separate thread from heartbeat()
+  for (int a = 0; a < 1000; a++) {
+    auto reqId = request("");
+    while (!hasIncomingReplyWithId(reqId)) {
+      microsleep(1000);
+    }
+    consumeIncomingReplyWithId(reqId);
   }
 }
 

@@ -77,6 +77,7 @@ class MyPeer {
   int lobbyPort;
   string gameName;
   string name;
+  bool timeShiftInitialized;
 
   void updateEndpointServer();
 };

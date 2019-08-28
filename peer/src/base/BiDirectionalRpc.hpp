@@ -54,7 +54,7 @@ class BiDirectionalRpc {
 
   void sendShutdown();
   void shutdown();
-  void init();
+  void initTimeShift();
   void heartbeat();
   void barrier() {
     lock_guard<recursive_mutex> guard(mutex);

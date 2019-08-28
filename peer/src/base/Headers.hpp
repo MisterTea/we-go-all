@@ -113,15 +113,15 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 
 #define WGA_MAGIC std::string("WGAMAGIC")
 
-#ifndef strerror_s
-#define strerror_s(BUF,SIZE,ERRNO) strerror_r(ERRNO, BUF, SIZE)
+#ifndef WIN32
+#define strerror_s(BUF, SIZE, ERRNO) strerror_r(ERRNO, BUF, SIZE)
 #endif
 
-#define FATAL_FAIL(X) \
-  if (((X) == -1)) { \
+#define FATAL_FAIL(X)                                \
+  if (((X) == -1)) {                                 \
     char buf[4096];                                  \
     ::strerror_s(buf, 4096, errno);                  \
-    LOGFATAL << "Error: (" << errno << "): " << buf;\
+    LOGFATAL << "Error: (" << errno << "): " << buf; \
   }
 
 #define FATAL_FAIL_UNLESS_EINVAL(X)                  \

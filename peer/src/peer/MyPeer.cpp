@@ -15,7 +15,8 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
       serverPort(_serverPort),
       lobbyHost(_lobbyHost),
       lobbyPort(_lobbyPort),
-      name(_name) {
+      name(_name),
+      timeShiftInitialized(false) {
   publicKey = CryptoHandler::makePublicFromPrivate(_privateKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(netEngine->startUdpServer(serverPort));
@@ -187,7 +188,6 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     shared_ptr<EncryptedMultiEndpointHandler> endpointHandler(
         new EncryptedMultiEndpointHandler(localSocket, netEngine,
                                           peerCryptoHandler, endpoints));
-    endpointHandler->init();
     rpcServer->addEndpoint(id, endpointHandler);
   }
 
@@ -284,6 +284,18 @@ bool MyPeer::initialized() {
 
   if (!rpcServer->readyToSend()) {
     return false;
+  }
+
+  if (!timeShiftInitialized) {
+    timeShiftInitialized = true;
+    for (const auto& it : peerData) {
+      auto peerKey = it.first;
+      if (peerKey == userId) {
+        continue;
+      }
+      auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
+      endpointHandler->initTimeShift();
+    }
   }
 
   return true;

@@ -101,7 +101,6 @@ class FlakyRpcTest {
                                               netEngine, cryptoHandlers[a][b],
                                               {remoteEndpoint}));
         endpointHandler->setFlaky(true);
-        endpointHandler->init();
         servers[a]->addEndpoint(to_string(b), endpointHandler);
       }
     }
