@@ -8,7 +8,6 @@ SingleGameServer::SingleGameServer(shared_ptr<NetEngine> netEngine, int _port,
     : numPlayers(_numPlayers) {
   netEngine->forwardPort(_port);
   server.config.port = _port;
-  server.io_service = netEngine->getIoService();
   gameId = "MyGameId";
   hostId = _hostId;
   hostKey = _hostKey;
