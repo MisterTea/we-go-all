@@ -4,17 +4,17 @@ namespace wga {
 PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
                                  shared_ptr<udp::socket> _localSocket)
     : netEngine(_netEngine), localSocket(_localSocket) {
-    localSocket->async_receive_from(
-        asio::buffer(receiveBuffer), receiveEndpoint,
-        std::bind(&PortMultiplexer::handleRecieve, this, std::placeholders::_1,
-                  std::placeholders::_2));
+  localSocket->async_receive_from(
+      asio::buffer(receiveBuffer), receiveEndpoint,
+      std::bind(&PortMultiplexer::handleReceive, this, std::placeholders::_1,
+                std::placeholders::_2));
 }
 
 void PortMultiplexer::closeSocket() {
   netEngine->post([this] { localSocket->close(); });
 }
 
-void PortMultiplexer::handleRecieve(const asio::error_code& error,
+void PortMultiplexer::handleReceive(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
   if (error.value()) {
     LOG(ERROR) << "Got error when trying to receive packet: " << error.value()
@@ -30,7 +30,8 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
 
     string magicHeader = packetString.substr(0, WGA_MAGIC.length());
     if (magicHeader != WGA_MAGIC) {
-      LOG(ERROR) << "Invalid packet header (total size):" << bytesTransferred << " data: " << packetString;
+      LOG(ERROR) << "Invalid packet header (total size):" << bytesTransferred
+                 << " data: " << packetString;
     } else {
       string packetContents = packetString.substr(WGA_MAGIC.length());
       // We need to find out where this needs to go
@@ -61,7 +62,7 @@ void PortMultiplexer::handleRecieve(const asio::error_code& error,
 
   localSocket->async_receive_from(
       asio::buffer(receiveBuffer), receiveEndpoint,
-      std::bind(&PortMultiplexer::handleRecieve, this, std::placeholders::_1,
+      std::bind(&PortMultiplexer::handleReceive, this, std::placeholders::_1,
                 std::placeholders::_2));
 }
 

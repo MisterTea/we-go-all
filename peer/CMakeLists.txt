@@ -145,6 +145,9 @@ add_library(
   wga-lib
   STATIC
 
+  src/base/ClockSynchronizer.hpp
+  src/base/ClockSynchronizer.cpp
+
   src/base/PidController.hpp
   src/base/PidController.cpp
 
@@ -225,6 +228,7 @@ add_executable(
   test/Main.cpp
 
   test/ChronoMapTest.cpp
+  test/ClockSynchronizerTest.cpp
   test/FlakyRpcTest.cpp
   test/PeerTest.cpp
   )

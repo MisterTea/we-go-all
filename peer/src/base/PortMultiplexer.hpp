@@ -20,7 +20,7 @@ class PortMultiplexer {
   }
 
  protected:
-  void handleRecieve(const asio::error_code& error,
+  void handleReceive(const asio::error_code& error,
                      std::size_t bytesTransferred);
 
   shared_ptr<NetEngine> netEngine;

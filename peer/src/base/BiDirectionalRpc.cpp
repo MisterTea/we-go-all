@@ -10,7 +10,8 @@ BiDirectionalRpc::BiDirectionalRpc()
       onBarrier(0),
       onId(0),
       flaky(false),
-      shuttingDown(false) {}
+      shuttingDown(false),
+      clockSynchronizer(GlobalClock::timeHandler) {}
 
 BiDirectionalRpc::~BiDirectionalRpc() {}
 
@@ -88,16 +89,11 @@ void BiDirectionalRpc::receive(const string& message) {
       case REPLY: {
         while (reader.sizeRemaining()) {
           RpcId uid = reader.readClass<RpcId>();
-          int64_t requestReceiptTime = reader.readPrimitive<int64_t>();
-          int64_t replySendTime = reader.readPrimitive<int64_t>();
-          auto requestSendTimeIt = requestSendTimeMap.find(uid);
-          if (requestSendTimeIt != requestSendTimeMap.end()) {
-            int64_t requestSendTime = requestSendTimeIt->second;
-            requestSendTimeMap.erase(requestSendTimeIt);
-            int64_t replyRecieveTime = TimeHandler::currentTimeMicros();
-            updateDrift(requestSendTime, requestReceiptTime, replySendTime,
-                        replyRecieveTime);
-          }
+          int64_t requestReceiveTime =
+              reader.readPrimitive<int64_t>();
+          int64_t replySendTime =
+              reader.readPrimitive<int64_t>();
+          clockSynchronizer.handleReply(uid, requestReceiveTime, replySendTime);
           string payload = reader.readPrimitive<string>();
           handleReply(uid, payload);
         }
@@ -109,18 +105,7 @@ void BiDirectionalRpc::receive(const string& message) {
              it++) {
           VLOG(1) << "REPLY UID " << it->first.str();
           if (it->first == uid) {
-            if (requestRecieveTimeMap.find(it->first) ==
-                requestRecieveTimeMap.end()) {
-              LOG(INFO) << requestRecieveTimeMap.size();
-              for (const auto& it2 : requestRecieveTimeMap) {
-                LOG(INFO) << "XXXX: " << it2.first.str();
-              }
-              LOGFATAL << "Tried to remove a request receive time that we "
-                          "didn't have: "
-                       << it->first.str();
-            }
-            VLOG(2) << "Erasing receieve time for " << it->first.str();
-            requestRecieveTimeMap.erase(it->first);
+            clockSynchronizer.eraseRequestRecieveTime(it->first);
             outgoingReplies.erase(it);
             break;
           }
@@ -235,7 +220,7 @@ void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
       outgoingRequests.begin()->first.barrier == onBarrier) {
     // We can send the request immediately
     outgoingRequests[idPayload.id] = idPayload.payload;
-    requestSendTimeMap[idPayload.id] = TimeHandler::currentTimeMicros();
+    clockSynchronizer.createRequest(idPayload.id);
     sendRequest(idPayload.id, idPayload.payload);
   } else {
     // We have to wait for existing requests from an older barrier
@@ -269,7 +254,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
     for (auto it = delayedRequests.begin(); it != delayedRequests.end();) {
       if (it->first.barrier == lowestBarrier) {
         outgoingRequests[it->first] = it->second;
-        requestSendTimeMap[it->first] = TimeHandler::currentTimeMicros();
+        clockSynchronizer.createRequest(it->first);
         sendRequest(it->first, it->second);
         it = delayedRequests.erase(it);
       } else {
@@ -323,13 +308,9 @@ void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
   writer.start();
   writer.writePrimitive<unsigned char>(REPLY);
   writer.writeClass<RpcId>(id);
-  auto receiveTimeIt = requestRecieveTimeMap.find(id);
-  if (receiveTimeIt == requestRecieveTimeMap.end()) {
-    LOGFATAL << "Got a request with no receive time: " << id.str() << " "
-             << requestRecieveTimeMap.size();
-  }
-  writer.writePrimitive<int64_t>(receiveTimeIt->second);
-  writer.writePrimitive<int64_t>(TimeHandler::currentTimeMicros());
+  auto replyDuration = clockSynchronizer.getReplyDuration(id);
+  writer.writePrimitive<int64_t>(replyDuration.first);
+  writer.writePrimitive<int64_t>(replyDuration.second);
   writer.writePrimitive<string>(payload);
   // Try to attach more replies to this packet
   int i = 0;
@@ -348,12 +329,9 @@ void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
     i++;
     rpcsSent.insert(it->first);
     writer.writeClass<RpcId>(it->first);
-    receiveTimeIt = requestRecieveTimeMap.find(it->first);
-    if (receiveTimeIt == requestRecieveTimeMap.end()) {
-      LOGFATAL << "Got a request with no receive time";
-    }
-    writer.writePrimitive<int64_t>(receiveTimeIt->second);
-    writer.writePrimitive<int64_t>(TimeHandler::currentTimeMicros());
+    auto replyDuration = clockSynchronizer.getReplyDuration(it->first);
+    writer.writePrimitive<int64_t>(replyDuration.first);
+    writer.writePrimitive<int64_t>(replyDuration.second);
     writer.writePrimitive<string>(it->second);
   }
   VLOG(1) << "Attached " << i << " extra packets";
@@ -370,51 +348,8 @@ void BiDirectionalRpc::sendAcknowledge(const RpcId& uid) {
 
 void BiDirectionalRpc::addIncomingRequest(const IdPayload& idPayload) {
   lock_guard<recursive_mutex> guard(mutex);
-  if (requestRecieveTimeMap.find(idPayload.id) != requestRecieveTimeMap.end()) {
-    LOGFATAL << "Already created receive time for id: " << idPayload.id.str();
-  }
-  VLOG(2) << "Setting receive time: " << idPayload.id.str();
-  requestRecieveTimeMap[idPayload.id] = TimeHandler::currentTimeMicros();
+  clockSynchronizer.receiveRequest(idPayload.id);
   incomingRequests.insert(make_pair(idPayload.id, idPayload.payload));
-}
-
-void BiDirectionalRpc::updateDrift(int64_t requestSendTime,
-                                   int64_t requestReceiptTime,
-                                   int64_t replySendTime,
-                                   int64_t replyRecieveTime) {
-  int64_t ping_2 = int64_t(pingEstimator.getMean() / 2.0);
-  int64_t timeOffset = ((requestReceiptTime - requestSendTime - ping_2) +
-                        (replySendTime - replyRecieveTime - ping_2)) /
-                       2;
-  int64_t ping = (replyRecieveTime - requestSendTime) -
-                 (replySendTime - requestReceiptTime);
-  pingEstimator.addSample(double(ping));
-  offsetEstimator.addSample(double(timeOffset));
-  TimeHandler::timeShift =
-      std::chrono::microseconds{-1 * int64_t(offsetEstimator.getMean())};
-#if 0
-  if (networkStatsQueue.size() >= 100) {
-    VLOG(2) << "Time Sync Info: " << timeOffset << " " << ping << " "
-            << (replyRecieveTime - requestSendTime) << " "
-            << (replySendTime - requestReceiptTime);
-    int64_t sumShift = 0;
-    int64_t shiftCount = 0;
-    for (int i = 0; i < networkStatsQueue.size(); i++) {
-      sumShift += networkStatsQueue.at(i).offset;
-      shiftCount++;
-    }
-    VLOG(2) << "New shift: " << (sumShift / shiftCount);
-    auto shift = std::chrono::microseconds{sumShift / shiftCount / int64_t(-5)};
-    VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
-    TimeHandler::timeShift += shift;
-    VLOG(2) << "TIME CHANGE: " << TimeHandler::currentTimeMicros();
-    pingEstimator.addSample(ping);
-    VLOG(2) << "Ping Estimate: " << pingEstimator.getMean() << " +/- "
-            << sqrt(pingEstimator.getVariance());
-    networkStatsQueue.clear();
-  }
-  networkStatsQueue.push_back({timeOffset, ping});
-#endif
 }
 
 }  // namespace wga

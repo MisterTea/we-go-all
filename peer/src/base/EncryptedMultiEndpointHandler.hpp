@@ -28,10 +28,10 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
         return false;
       }
     }
-    return readyToRecieve();
+    return readyToReceive();
   }
 
-  bool readyToRecieve() {
+  bool readyToReceive() {
     lock_guard<recursive_mutex> guard(mutex);
     return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
   }

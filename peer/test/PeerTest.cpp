@@ -199,7 +199,7 @@ TEST_CASE("PeerTest", "[PeerTest]") {
   SECTION("Four Peers") { testClass.initGameServer(4); }
 
   SECTION("Four Peers Flaky") {
-    TimeHandler::addNoise();
+    GlobalClock::addNoise();
     ALL_RPC_FLAKY = true;
     testClass.initGameServer(4);
   }

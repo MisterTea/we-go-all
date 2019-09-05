@@ -84,7 +84,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     EncryptedSessionKey encryptedSessionKey =
         CryptoHandler::stringToKey<EncryptedSessionKey>(
             reader.readPrimitive<string>());
-    bool result = cryptoHandler->recieveIncomingSessionKey(encryptedSessionKey);
+    bool result = cryptoHandler->receiveIncomingSessionKey(encryptedSessionKey);
     if (!result) {
       LOG(ERROR) << "Invalid session key";
       return;
@@ -94,7 +94,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     return;
   }
 
-  if (!readyToRecieve()) {
+  if (!readyToReceive()) {
     LOG(INFO) << "Tried to receive data before we were ready";
     return;
   }

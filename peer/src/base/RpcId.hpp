@@ -22,9 +22,24 @@ class RpcId {
   int64_t barrier;
   uint64_t id;
 };
+}  // namespace wga
+
+namespace std {
+template <>
+struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
+ public:
+  // hash functor: hash uuid to size_t value by pseudorandomizing transform
+  size_t operator()(const wga::RpcId& rpcId) const {
+    if (sizeof(size_t) > 4) {
+      return size_t(rpcId.barrier ^ rpcId.id);
+    } else {
+      uint64_t hash64 = rpcId.barrier ^ rpcId.id;
+      return size_t(uint32_t(hash64 >> 32) ^ uint32_t(hash64));
+    }
+  }
+};
+}  // namespace std
 
 #define SESSION_KEY_RPCID RpcId(0, 1)
-
-}  // namespace wga
 
 #endif

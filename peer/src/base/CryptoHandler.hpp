@@ -88,7 +88,7 @@ class CryptoHandler {
   }
 
   EncryptedSessionKey generateOutgoingSessionKey();
-  bool recieveIncomingSessionKey(const EncryptedSessionKey& otherSessionKey);
+  bool receiveIncomingSessionKey(const EncryptedSessionKey& otherSessionKey);
 
   bool canDecrypt() { return incomingSessionKey != emptySessionKey; }
   bool canEncrypt() { return outgoingSessionKey != emptySessionKey; }

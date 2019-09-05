@@ -39,7 +39,7 @@ EncryptedSessionKey CryptoHandler::generateOutgoingSessionKey() {
   return retval;
 }
 
-bool CryptoHandler::recieveIncomingSessionKey(
+bool CryptoHandler::receiveIncomingSessionKey(
     const EncryptedSessionKey& otherSessionKey) {
   if (incomingSessionKey != emptySessionKey) {
     LOGFATAL << "Tried to receive a session key when one already exists!";

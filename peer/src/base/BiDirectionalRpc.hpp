@@ -1,12 +1,12 @@
 #ifndef __BIDIRECTIONAL_RPC_H__
 #define __BIDIRECTIONAL_RPC_H__
 
+#include "ClockSynchronizer.hpp"
 #include "Headers.hpp"
 #include "MessageReader.hpp"
 #include "MessageWriter.hpp"
 #include "PidController.hpp"
 #include "RpcId.hpp"
-#include "WelfordEstimator.hpp"
 
 namespace wga {
 class IdPayload {
@@ -18,25 +18,7 @@ class IdPayload {
   RpcId id;
   string payload;
 };
-}  // namespace wga
 
-namespace std {
-template <>
-struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
- public:
-  // hash functor: hash uuid to size_t value by pseudorandomizing transform
-  size_t operator()(const wga::RpcId& rpcId) const {
-    if (sizeof(size_t) > 4) {
-      return size_t(rpcId.barrier ^ rpcId.id);
-    } else {
-      uint64_t hash64 = rpcId.barrier ^ rpcId.id;
-      return size_t(uint32_t(hash64 >> 32) ^ uint32_t(hash64));
-    }
-  }
-};
-}  // namespace std
-
-namespace wga {
 extern bool ALL_RPC_FLAKY;
 
 enum RpcHeader {
@@ -155,12 +137,12 @@ class BiDirectionalRpc {
   }
 
   pair<double, double> getLatency() {
-    return make_pair(pingEstimator.getMean(), offsetEstimator.getMean());
+    return make_pair(clockSynchronizer.getPing(),
+                     clockSynchronizer.getOffset());
   }
 
   double getHalfPingUpperBound() {
-    return (pingEstimator.getMean() / 2.0) +
-           ((sqrt(pingEstimator.getVariance() / 4.0) * 3.0));
+    return clockSynchronizer.getHalfPingUpperBound();
   }
 
   inline bool isShuttingDown() {
@@ -174,9 +156,6 @@ class BiDirectionalRpc {
   unordered_map<RpcId, string> incomingRequests;
   unordered_set<RpcId> oneWayRequests;
 
-  unordered_map<RpcId, int64_t> requestSendTimeMap;
-  unordered_map<RpcId, int64_t> requestRecieveTimeMap;
-
   unordered_map<RpcId, string> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
 
@@ -188,13 +167,7 @@ class BiDirectionalRpc {
   recursive_mutex mutex;
   bool shuttingDown;
 
-  struct NetworkStats {
-    int64_t offset;
-    int64_t ping;
-  };
-  vector<NetworkStats> networkStatsQueue;
-  WelfordEstimator offsetEstimator;
-  WelfordEstimator pingEstimator;
+  ClockSynchronizer clockSynchronizer;
 
   void handleRequest(const RpcId& rpcId, const string& payload);
   virtual void handleReply(const RpcId& rpcId, const string& payload);
@@ -207,9 +180,6 @@ class BiDirectionalRpc {
   virtual void addIncomingReply(const RpcId& uid, const string& payload) {
     incomingReplies.emplace(uid, payload);
   }
-  void updateDrift(int64_t requestSendTime, int64_t requestReceiptTime,
-                   int64_t replySendTime, int64_t replyRecieveTime);
-
   virtual void send(const string& message) = 0;
 };
 }  // namespace wga

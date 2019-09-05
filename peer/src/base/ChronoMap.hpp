@@ -11,9 +11,10 @@ class ChronoMap {
 
   bool waitForExpirationTime(long expirationTimeToWaitFor) {
     unique_lock<mutex> lk(dataReadyMutex);
-    if (dataReady.wait_for(lk, 1s, [this, expirationTimeToWaitFor] {
-          return expirationTime > expirationTimeToWaitFor;
-        })) {
+    if (dataReady.wait_for(lk, std::chrono::seconds(1),
+                           [this, expirationTimeToWaitFor] {
+                             return expirationTime > expirationTimeToWaitFor;
+                           })) {
       return true;
     }
     return false;

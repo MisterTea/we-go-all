@@ -6,7 +6,7 @@
 #include "Catch2/single_include/catch2/catch.hpp"
 
 namespace wga {
-TEST_CASE("Simple", "[ChronoMap]") {
+TEST_CASE("ChronoMapSimple", "[ChronoMap]") {
   ChronoMap<string, string> testMap;
   optional<string> vOptional;
   string v;
