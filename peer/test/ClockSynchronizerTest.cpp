@@ -23,34 +23,46 @@ inline void simulate(shared_ptr<FakeTimeHandler> requesterTimeHandler,
     cout << "REQUEST TIME: " << requesterTimeHandler->currentTimeMicros() << " "
          << responderTimeHandler->currentTimeMicros() << endl;
     // Request takes ms to arrive
-    requesterTimeHandler->addTime(chrono::milliseconds(PING_2));
-    responderTimeHandler->addTime(chrono::milliseconds(PING_2));
+    if (PING_2) {
+      auto delay =
+          chrono::milliseconds(int64_t(stats::rnorm(double(PING_2), 0.5)));
+      requesterTimeHandler->addTime(delay);
+      responderTimeHandler->addTime(delay);
+    }
 
     auto timeBeforeProcess = responderTimeHandler->currentTimeMicros();
     cout << "TIME BEFORE PROCESS: " << requesterTimeHandler->currentTimeMicros()
          << " " << responderTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to process
-    requesterTimeHandler->addTime(chrono::milliseconds(PROCESS_TIME));
-    responderTimeHandler->addTime(chrono::milliseconds(PROCESS_TIME));
+    if (PROCESS_TIME) {
+      auto delay = chrono::milliseconds(
+          int64_t(stats::rnorm(double(PROCESS_TIME), 0.5)));
+      requesterTimeHandler->addTime(delay);
+      responderTimeHandler->addTime(delay);
+    }
     auto replyTime = responderTimeHandler->currentTimeMicros();
     cout << "REPLY TIME: " << requesterTimeHandler->currentTimeMicros() << " "
          << responderTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to arrive
-    requesterTimeHandler->addTime(chrono::milliseconds(PING_2));
-    responderTimeHandler->addTime(chrono::milliseconds(PING_2));
+    if (PING_2) {
+      auto delay =
+          chrono::milliseconds(int64_t(stats::rnorm(double(PING_2), 0.5)));
+      requesterTimeHandler->addTime(delay);
+      responderTimeHandler->addTime(delay);
+    }
     cout << "REPLY ARRIVE TIME: " << requesterTimeHandler->currentTimeMicros()
          << " " << responderTimeHandler->currentTimeMicros() << endl;
 
     sync.handleReply(first, timeBeforeProcess, replyTime);
   }
 
-  REQUIRE(sync.getHalfPingUpperBound() == Approx(PING_2 * 1000).margin(1.0));
-  REQUIRE(sync.getPing() == Approx(PING_2 * 2000).margin(1.0));
+  REQUIRE(sync.getHalfPingUpperBound() >= Approx(PING_2 * 1000).margin(100.0));
+  REQUIRE(sync.getPing() == Approx(PING_2 * 2000).margin(100.0));
   REQUIRE(requesterTimeHandler->getTimeShift() ==
-          Approx(DRIFT * 1000).margin(1.0));
-  REQUIRE(sync.getOffset() == Approx(DRIFT * 1000).margin(1.0));
+          Approx(DRIFT * 1000).margin(100.0));
+  REQUIRE(sync.getOffset() == Approx(DRIFT * 1000).margin(100.0));
 }
 
 TEST_CASE("OneWay", "[ClockSynchronizer]") {
@@ -96,7 +108,7 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
   secondTimeHandler->setTimeShift(DRIFT * 1000 / 2);
 
   RpcId id(0, 0);
-  for (int a = 0; a < 10000; a++) {
+  for (int a = 0; a < 100000; a++) {
     firstSync.createRequest(id);
     secondSync.createRequest(id);
 
@@ -106,23 +118,35 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
     cout << "REQUEST TIME: " << firstTimeHandler->currentTimeMicros() << " "
          << secondTimeHandler->currentTimeMicros() << endl;
     // Request takes ms to arrive
-    firstTimeHandler->addTime(chrono::milliseconds(PING_2));
-    secondTimeHandler->addTime(chrono::milliseconds(PING_2));
+    if (PING_2) {
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PING_2 * 1000.0), 1.0 * 1000.0)));
+      firstTimeHandler->addTime(delay);
+      secondTimeHandler->addTime(delay);
+    }
 
     auto timeBeforeProcess = secondTimeHandler->currentTimeMicros();
     cout << "TIME BEFORE PROCESS: " << firstTimeHandler->currentTimeMicros()
          << " " << secondTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to process
-    firstTimeHandler->addTime(chrono::milliseconds(PROCESS_TIME));
-    secondTimeHandler->addTime(chrono::milliseconds(PROCESS_TIME));
+    if (PROCESS_TIME) {
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PROCESS_TIME * 1000.0), 1.0 * 1000.0)));
+      firstTimeHandler->addTime(delay);
+      secondTimeHandler->addTime(delay);
+    }
     auto replyTime = secondTimeHandler->currentTimeMicros();
     cout << "REPLY TIME: " << firstTimeHandler->currentTimeMicros() << " "
          << secondTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to arrive
-    firstTimeHandler->addTime(chrono::milliseconds(PING_2));
-    secondTimeHandler->addTime(chrono::milliseconds(PING_2));
+    if (PING_2) {
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PING_2 * 1000.0), 1.0 * 1000.0)));
+      firstTimeHandler->addTime(delay);
+      secondTimeHandler->addTime(delay);
+    }
     cout << "REPLY ARRIVE TIME: " << firstTimeHandler->currentTimeMicros()
          << " " << secondTimeHandler->currentTimeMicros() << endl;
 
@@ -130,16 +154,17 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
     secondSync.handleReply(id, timeBeforeProcess, replyTime);
   }
 
-  REQUIRE(firstSync.getHalfPingUpperBound() ==
-          Approx(PING_2 * 1000).margin(1.0));
-  REQUIRE(firstSync.getPing() == Approx(PING_2 * 2000).margin(1.0));
-  REQUIRE(secondSync.getHalfPingUpperBound() ==
-          Approx(PING_2 * 1000).margin(1.0));
-  REQUIRE(secondSync.getPing() == Approx(PING_2 * 2000).margin(1.0));
+  REQUIRE(firstSync.getHalfPingUpperBound() >=
+          Approx(PING_2 * 1000).margin(100.0));
+  REQUIRE(firstSync.getPing() == Approx(PING_2 * 2000).margin(100.0));
+  REQUIRE(secondSync.getHalfPingUpperBound() >=
+          Approx(PING_2 * 1000).margin(100.0));
+  REQUIRE(secondSync.getPing() == Approx(PING_2 * 2000).margin(100.0));
 
   REQUIRE(firstTimeHandler->getTimeShift() ==
-          Approx(secondTimeHandler->getTimeShift()).margin(1.0));
-  REQUIRE(firstSync.getOffset() == Approx(secondSync.getOffset()).margin(1.0));
+          Approx(secondTimeHandler->getTimeShift()).margin(100.0));
+  REQUIRE(firstSync.getOffset() ==
+          Approx(secondSync.getOffset()).margin(100.0));
 }
 
 TEST_CASE("TwoWay", "[ClockSynchronizer]") {
