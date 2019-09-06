@@ -170,7 +170,8 @@ class BiDirectionalRpc {
   ClockSynchronizer clockSynchronizer;
 
   void handleRequest(const RpcId& rpcId, const string& payload);
-  virtual void handleReply(const RpcId& rpcId, const string& payload);
+  virtual void handleReply(const RpcId& rpcId, const string& payload,
+                           int64_t requestReceiveTime, int64_t replySendTime);
   void resendRandomOutgoingMessage();
   void tryToSendBarrier();
   void sendRequest(const RpcId& id, const string& payload);

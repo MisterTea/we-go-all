@@ -117,6 +117,8 @@ class RpcServer : public PortMultiplexer {
       LOG(INFO) << "WAITING FOR FINISH";
       microsleep(1000 * 1000);
     }
+
+    endpoints.clear();
   }
 
   bool hasWork() {

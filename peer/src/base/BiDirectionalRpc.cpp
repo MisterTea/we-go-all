@@ -89,13 +89,10 @@ void BiDirectionalRpc::receive(const string& message) {
       case REPLY: {
         while (reader.sizeRemaining()) {
           RpcId uid = reader.readClass<RpcId>();
-          int64_t requestReceiveTime =
-              reader.readPrimitive<int64_t>();
-          int64_t replySendTime =
-              reader.readPrimitive<int64_t>();
-          clockSynchronizer.handleReply(uid, requestReceiveTime, replySendTime);
+          int64_t requestReceiveTime = reader.readPrimitive<int64_t>();
+          int64_t replySendTime = reader.readPrimitive<int64_t>();
           string payload = reader.readPrimitive<string>();
-          handleReply(uid, payload);
+          handleReply(uid, payload, requestReceiveTime, replySendTime);
         }
       } break;
       case ACKNOWLEDGE: {
@@ -158,7 +155,8 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
   }
 }
 
-void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload) {
+void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload,
+    int64_t requestReceiveTime, int64_t replySendTime) {
   bool skip = false;
   if (incomingReplies.find(rpcId) != incomingReplies.end() ||
       processedReplies.exists(rpcId)) {
@@ -189,6 +187,7 @@ void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload) {
         addIncomingReply(rpcId, payload);
       }
       sendAcknowledge(rpcId);
+      clockSynchronizer.handleReply(rpcId, requestReceiveTime, replySendTime);
     } else {
       // We must have processed both this request and reply.  Send the
       // acknowledge again.

@@ -16,6 +16,8 @@ void PortMultiplexer::closeSocket() {
 
 void PortMultiplexer::handleReceive(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
+                                      LOG(INFO) << "HANDLE RECEIVE";
+  lock_guard<recursive_mutex> guard(mut);
   if (error.value()) {
     LOG(ERROR) << "Got error when trying to receive packet: " << error.value()
                << ": " << error.message();

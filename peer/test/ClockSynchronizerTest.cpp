@@ -13,47 +13,49 @@ inline void simulate(shared_ptr<FakeTimeHandler> requesterTimeHandler,
                      int DRIFT) {
   responderTimeHandler->setTimeShift(DRIFT * 1000);
 
-  for (int a = 0; a < 1000; a++) {
+  for (int a = 0; a < 100000; a++) {
     RpcId first(0, 0);
     sync.createRequest(first);
 
-    cout << "TIME SHIFTS: " << requesterTimeHandler->getTimeShift() << " "
-         << responderTimeHandler->getTimeShift() << endl;
+    VLOG(1) << "TIME SHIFTS: " << requesterTimeHandler->getTimeShift() << " "
+            << responderTimeHandler->getTimeShift() << endl;
 
-    cout << "REQUEST TIME: " << requesterTimeHandler->currentTimeMicros() << " "
-         << responderTimeHandler->currentTimeMicros() << endl;
+    VLOG(1) << "REQUEST TIME: " << requesterTimeHandler->currentTimeMicros()
+            << " " << responderTimeHandler->currentTimeMicros() << endl;
     // Request takes ms to arrive
     if (PING_2) {
-      auto delay =
-          chrono::milliseconds(int64_t(stats::rnorm(double(PING_2), 0.5)));
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PING_2 * 1000.0), 1.0 * 1000.0)));
       requesterTimeHandler->addTime(delay);
       responderTimeHandler->addTime(delay);
     }
 
     auto timeBeforeProcess = responderTimeHandler->currentTimeMicros();
-    cout << "TIME BEFORE PROCESS: " << requesterTimeHandler->currentTimeMicros()
-         << " " << responderTimeHandler->currentTimeMicros() << endl;
+    VLOG(1) << "TIME BEFORE PROCESS: "
+            << requesterTimeHandler->currentTimeMicros() << " "
+            << responderTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to process
     if (PROCESS_TIME) {
-      auto delay = chrono::milliseconds(
-          int64_t(stats::rnorm(double(PROCESS_TIME), 0.5)));
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PROCESS_TIME * 1000.0), 1.0 * 1000.0)));
       requesterTimeHandler->addTime(delay);
       responderTimeHandler->addTime(delay);
     }
     auto replyTime = responderTimeHandler->currentTimeMicros();
-    cout << "REPLY TIME: " << requesterTimeHandler->currentTimeMicros() << " "
-         << responderTimeHandler->currentTimeMicros() << endl;
+    VLOG(1) << "REPLY TIME: " << requesterTimeHandler->currentTimeMicros()
+            << " " << responderTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to arrive
     if (PING_2) {
-      auto delay =
-          chrono::milliseconds(int64_t(stats::rnorm(double(PING_2), 0.5)));
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PING_2 * 1000.0), 1.0 * 1000.0)));
       requesterTimeHandler->addTime(delay);
       responderTimeHandler->addTime(delay);
     }
-    cout << "REPLY ARRIVE TIME: " << requesterTimeHandler->currentTimeMicros()
-         << " " << responderTimeHandler->currentTimeMicros() << endl;
+    VLOG(1) << "REPLY ARRIVE TIME: "
+            << requesterTimeHandler->currentTimeMicros() << " "
+            << responderTimeHandler->currentTimeMicros() << endl;
 
     sync.handleReply(first, timeBeforeProcess, replyTime);
   }
@@ -79,19 +81,19 @@ TEST_CASE("OneWay", "[ClockSynchronizer]") {
              PROCESS_TIME, DRIFT);
   }
 
-  SECTION("NoDriftConstantLag") {
+  SECTION("NoDriftRandomLag") {
     PING_2 = 10;
     simulate(requesterTimeHandler, responderTimeHandler, sync, PING_2,
              PROCESS_TIME, DRIFT);
   }
 
-  SECTION("ConstantDriftNoLag") {
+  SECTION("RandomDriftNoLag") {
     DRIFT = 10;
     simulate(requesterTimeHandler, responderTimeHandler, sync, PING_2,
              PROCESS_TIME, DRIFT);
   }
 
-  SECTION("ConstantDriftConstantLag") {
+  SECTION("RandomDriftRandomLag") {
     PING_2 = 10;
     DRIFT = 10;
     simulate(requesterTimeHandler, responderTimeHandler, sync, PING_2,
@@ -112,11 +114,11 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
     firstSync.createRequest(id);
     secondSync.createRequest(id);
 
-    cout << "TIME SHIFTS: " << firstTimeHandler->getTimeShift() << " "
-         << secondTimeHandler->getTimeShift() << endl;
+    VLOG(1) << "TIME SHIFTS: " << firstTimeHandler->getTimeShift() << " "
+            << secondTimeHandler->getTimeShift() << endl;
 
-    cout << "REQUEST TIME: " << firstTimeHandler->currentTimeMicros() << " "
-         << secondTimeHandler->currentTimeMicros() << endl;
+    VLOG(1) << "REQUEST TIME: " << firstTimeHandler->currentTimeMicros() << " "
+            << secondTimeHandler->currentTimeMicros() << endl;
     // Request takes ms to arrive
     if (PING_2) {
       auto delay = chrono::microseconds(
@@ -125,9 +127,10 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
       secondTimeHandler->addTime(delay);
     }
 
-    auto timeBeforeProcess = secondTimeHandler->currentTimeMicros();
-    cout << "TIME BEFORE PROCESS: " << firstTimeHandler->currentTimeMicros()
-         << " " << secondTimeHandler->currentTimeMicros() << endl;
+    auto firstTimeBeforeProcess = firstTimeHandler->currentTimeMicros();
+    auto secondTimeBeforeProcess = secondTimeHandler->currentTimeMicros();
+    VLOG(1) << "TIME BEFORE PROCESS: " << firstTimeHandler->currentTimeMicros()
+            << " " << secondTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to process
     if (PROCESS_TIME) {
@@ -136,9 +139,11 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
       firstTimeHandler->addTime(delay);
       secondTimeHandler->addTime(delay);
     }
-    auto replyTime = secondTimeHandler->currentTimeMicros();
-    cout << "REPLY TIME: " << firstTimeHandler->currentTimeMicros() << " "
-         << secondTimeHandler->currentTimeMicros() << endl;
+
+    auto firstReplyTime = firstTimeHandler->currentTimeMicros();
+    auto secondReplyTime = secondTimeHandler->currentTimeMicros();
+    VLOG(1) << "REPLY TIME: " << firstTimeHandler->currentTimeMicros() << " "
+            << secondTimeHandler->currentTimeMicros() << endl;
 
     // Reply takes ms to arrive
     if (PING_2) {
@@ -147,11 +152,11 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
       firstTimeHandler->addTime(delay);
       secondTimeHandler->addTime(delay);
     }
-    cout << "REPLY ARRIVE TIME: " << firstTimeHandler->currentTimeMicros()
-         << " " << secondTimeHandler->currentTimeMicros() << endl;
+    VLOG(1) << "REPLY ARRIVE TIME: " << firstTimeHandler->currentTimeMicros()
+            << " " << secondTimeHandler->currentTimeMicros() << endl;
 
-    firstSync.handleReply(id, timeBeforeProcess, replyTime);
-    secondSync.handleReply(id, timeBeforeProcess, replyTime);
+    firstSync.handleReply(id, secondTimeBeforeProcess, secondReplyTime);
+    secondSync.handleReply(id, firstTimeBeforeProcess, firstReplyTime);
   }
 
   REQUIRE(firstSync.getHalfPingUpperBound() >=
@@ -183,23 +188,144 @@ TEST_CASE("TwoWay", "[ClockSynchronizer]") {
                 PING_2, PROCESS_TIME, DRIFT);
   }
 
-  SECTION("NoDriftConstantLag") {
+  SECTION("NoDriftRandomLag") {
     PING_2 = 10;
     simulateTwo(firstTimeHandler, secondTimeHandler, firstSync, secondSync,
                 PING_2, PROCESS_TIME, DRIFT);
   }
 
-  SECTION("ConstantDriftNoLag") {
+  SECTION("RandomDriftNoLag") {
     DRIFT = 10;
     simulateTwo(firstTimeHandler, secondTimeHandler, firstSync, secondSync,
                 PING_2, PROCESS_TIME, DRIFT);
   }
 
-  SECTION("ConstantDriftConstantLag") {
+  SECTION("RandomDriftRandomLag") {
     PING_2 = 10;
     DRIFT = 10;
     simulateTwo(firstTimeHandler, secondTimeHandler, firstSync, secondSync,
                 PING_2, PROCESS_TIME, DRIFT);
   }
 }
+
+inline void simulateN(vector<shared_ptr<FakeTimeHandler>> timeHandlers,
+                      vector<shared_ptr<ClockSynchronizer>> clockSyncs,
+                      int PING_2, int PROCESS_TIME, int DRIFT) {
+  const int NUM_CLOCKS = int(timeHandlers.size());
+  for (int a = 0; a < NUM_CLOCKS; a++) {
+    if (a % 2 == 0) {
+      timeHandlers[a]->setTimeShift(DRIFT * 1000 / 2 * -1);
+    } else {
+      timeHandlers[a]->setTimeShift(DRIFT * 1000 / 2);
+    }
+  }
+
+  RpcId id(0, 0);
+  for (int a = 0; a < 100000; a++) {
+    for (int a = 0; a < NUM_CLOCKS; a++) {
+      clockSyncs[a]->createRequest(id);
+    }
+
+    // Request takes ms to arrive
+    if (PING_2) {
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PING_2 * 1000.0), 1.0 * 1000.0)));
+      for (auto handler : timeHandlers) {
+        handler->addTime(delay);
+      }
+    }
+
+    vector<int64_t> timesBeforeProcess;
+    for (auto timeHandler : timeHandlers) {
+      timesBeforeProcess.push_back(timeHandler->currentTimeMicros());
+    }
+
+    // Reply takes ms to process
+    if (PROCESS_TIME) {
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PROCESS_TIME * 1000.0), 1.0 * 1000.0)));
+      for (auto handler : timeHandlers) {
+        handler->addTime(delay);
+      }
+    }
+
+    vector<int64_t> replyTimes;
+    for (auto timeHandler : timeHandlers) {
+      replyTimes.push_back(timeHandler->currentTimeMicros());
+    }
+
+    // Reply takes ms to arrive
+    if (PING_2) {
+      auto delay = chrono::microseconds(
+          int64_t(stats::rnorm(double(PING_2 * 1000.0), 1.0 * 1000.0)));
+      for (auto handler : timeHandlers) {
+        handler->addTime(delay);
+      }
+    }
+
+    for (int a = 0; a < NUM_CLOCKS; a++) {
+      auto clockSync = clockSyncs[a];
+      int replyFrom = rand() % NUM_CLOCKS;
+      while (replyFrom == a) {
+        replyFrom = rand() % NUM_CLOCKS;
+      }
+      clockSync->handleReply(id, timesBeforeProcess[replyFrom],
+                             replyTimes[replyFrom]);
+    }
+  }
+
+  for (auto clockSync : clockSyncs) {
+    REQUIRE(clockSync->getHalfPingUpperBound() >=
+            Approx(PING_2 * 1000).margin(100.0));
+    REQUIRE(clockSync->getPing() == Approx(PING_2 * 2000).margin(100.0));
+    for (auto clockSync2 : clockSyncs) {
+      REQUIRE(clockSync->getOffset() ==
+              Approx(clockSync2->getOffset()).margin(100.0));
+    }
+  }
+
+  for (auto timeHandler : timeHandlers) {
+    for (auto timeHandler2 : timeHandlers) {
+      REQUIRE(timeHandler->getTimeShift() ==
+              Approx(timeHandler2->getTimeShift()).margin(100.0));
+    }
+  }
+}
+
+TEST_CASE("EightWay", "[ClockSynchronizer]") {
+  const int NUM_CLOCKS = 8;
+
+  vector<shared_ptr<FakeTimeHandler>> timeHandlers;
+  vector<shared_ptr<ClockSynchronizer>> clockSyncs;
+
+  for (int a = 0; a < NUM_CLOCKS; a++) {
+    timeHandlers.push_back(make_shared<FakeTimeHandler>());
+    clockSyncs.push_back(make_shared<ClockSynchronizer>(timeHandlers[a]));
+  }
+
+  int PING_2 = 0;
+  int PROCESS_TIME = 10;
+  int DRIFT = 0;
+
+  SECTION("NoDriftNoLag") {
+    simulateN(timeHandlers, clockSyncs, PING_2, PROCESS_TIME, DRIFT);
+  }
+
+  SECTION("NoDriftRandomLag") {
+    PING_2 = 10;
+    simulateN(timeHandlers, clockSyncs, PING_2, PROCESS_TIME, DRIFT);
+  }
+
+  SECTION("RandomDriftNoLag") {
+    DRIFT = 10;
+    simulateN(timeHandlers, clockSyncs, PING_2, PROCESS_TIME, DRIFT);
+  }
+
+  SECTION("RandomDriftRandomLag") {
+    PING_2 = 10;
+    DRIFT = 10;
+    simulateN(timeHandlers, clockSyncs, PING_2, PROCESS_TIME, DRIFT);
+  }
+}
+
 }  // namespace wga

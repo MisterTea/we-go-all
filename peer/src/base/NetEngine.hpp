@@ -14,11 +14,11 @@ class NetEngine {
   }
 
   void start() {
-    ioServiceThread = std::thread([this]() {
+    ioServiceThread.reset(new std::thread([this]() {
       LOG(ERROR) << "NET ENGINE STARTING";
       ioService->run();
       LOG(ERROR) << "NET ENGINE FINISHED";
-    });
+    }));
   }
 
   void shutdown() {
@@ -26,12 +26,19 @@ class NetEngine {
     portMappingHandler.reset();
     LOG(INFO) << "Stopping work";
     ioService->post([this]() {
+      LOG(INFO) << "Clearing work";
       work.reset();  // let io_service run out of work
+      LOG(INFO) << "Work cleared";
     });
     LOG(INFO) << "Joining thread";
-    if (ioServiceThread.joinable()) {
+    if (ioServiceThread && ioServiceThread->joinable()) {
       LOG(INFO) << "Thread is joinable";
-      ioServiceThread.join();
+      ioServiceThread->join();
+    }
+    ioServiceThread.reset();
+    while (work.has_value()) {
+      LOG(INFO) << "Waiting for work to finish";
+      sleep(1);
     }
     LOG(INFO) << "Resetting net engine";
     ioService.reset();
@@ -75,14 +82,12 @@ class NetEngine {
     return retval;
   }
 
-  inline shared_ptr<asio::io_service> getIoService() {
-    return ioService;
-  }
+  inline shared_ptr<asio::io_service> getIoService() { return ioService; }
 
  protected:
   shared_ptr<PortMappingHandler> portMappingHandler;
   shared_ptr<asio::io_service> ioService;
-  thread ioServiceThread;
+  shared_ptr<thread> ioServiceThread;
   optional<asio::io_service::work> work;
 };
 }  // namespace wga

@@ -16,6 +16,7 @@ class PortMultiplexer {
   shared_ptr<udp::socket> getLocalSocket() { return localSocket; }
 
   void addRecipient(shared_ptr<EncryptedMultiEndpointHandler> recipient) {
+    lock_guard<recursive_mutex> guard(mut);
     recipients.push_back(recipient);
   }
 
@@ -29,6 +30,7 @@ class PortMultiplexer {
 
   udp::endpoint receiveEndpoint;
   std::array<char, 1024 * 1024> receiveBuffer;
+  recursive_mutex mut;
 };
 }  // namespace wga
 

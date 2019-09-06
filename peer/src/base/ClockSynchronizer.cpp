@@ -24,36 +24,24 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                        int64_t(offsetEstimator.getMean());
   int64_t ping = (replyReceiveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
-  cout << "Time offset: " << timeOffset << " "
-       << int64_t(offsetEstimator.getMean()) << " " << requestReceiptTime << " "
-       << requestSendTime << " " << replyReceiveTime << " " << replySendTime
-       << " " << ping_2 << endl;
-  cout << "Ping: " << ping << endl;
+  VLOG(1) << "Time offset: " << timeOffset << " "
+          << int64_t(offsetEstimator.getMean()) << " " << requestReceiptTime
+          << " " << requestSendTime << " " << replyReceiveTime << " "
+          << replySendTime << " " << ping_2 << endl;
+  VLOG(1) << "Ping: " << ping << endl;
   pingEstimator.addSample(double(ping));
   offsetEstimator.addSample(double(timeOffset));
   auto oldTimeShift = timeHandler->getTimeShift();
   timeHandler->setTimeShift(int64_t(offsetEstimator.getMean()));
   auto newTimeShift = timeHandler->getTimeShift();
   auto timeShiftDifference = newTimeShift - oldTimeShift;
-  cout << "Shifting times by: " << timeShiftDifference << endl;
+  VLOG(1) << "Shifting times by: " << timeShiftDifference << endl;
   for (auto& it : requestSendTimeMap) {
     it.second = it.second + timeShiftDifference;
-    cout << it.second << endl;
   }
-  cout << "***" << endl;
-  for (auto& it : requestSendTimeMap) {
-    cout << it.second << endl;
-  }
-  cout << "***" << endl;
   for (auto& it : requestReceiveTimeMap) {
     it.second = it.second + timeShiftDifference;
-    cout << it.second << endl;
   }
-  cout << "***" << endl;
-  for (auto& it : requestReceiveTimeMap) {
-    cout << it.second << endl;
-  }
-  cout << "***" << endl;
 #if 0
   if (networkStatsQueue.size() >= 100) {
     VLOG(2) << "Time Sync Info: " << timeOffset << " " << ping << " "

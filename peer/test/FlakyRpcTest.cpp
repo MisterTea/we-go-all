@@ -31,6 +31,7 @@ class FlakyRpcTest {
     srand(uint32_t(time(NULL)));
     DISABLE_PORT_MAPPING = true;
     netEngine.reset(new NetEngine());
+    netEngine->start();
   }
 
   void TearDown() {
@@ -52,9 +53,15 @@ class FlakyRpcTest {
     for (const auto& it : servers) {
       it->finish();
     }
+    sleep(1);
+    for (const auto& it : servers) {
+      it->closeSocket();
+    }
+    sleep(1);
+    netEngine->shutdown();
     servers.clear();
     LOG(INFO) << "TEARING DOWN";
-    netEngine->shutdown();
+    netEngine.reset();
     LOG(INFO) << "TEAR DOWN COMPLETE";
   }
 
@@ -104,8 +111,6 @@ class FlakyRpcTest {
         servers[a]->addEndpoint(to_string(b), endpointHandler);
       }
     }
-
-    netEngine->start();
   }
 
   void runTestOneNode(shared_ptr<RpcServer> server, int numTrials, int numTotal,
@@ -224,6 +229,7 @@ class FlakyRpcTest {
 
 TEST_CASE("FlakyRpcTest", "[FlakyRpcTest]") {
   FlakyRpcTest testClass;
+  LOG(INFO) << "SETTING UP";
   testClass.SetUp();
 
   SECTION("Two nodes") {
@@ -250,5 +256,6 @@ TEST_CASE("FlakyRpcTest", "[FlakyRpcTest]") {
     testClass.runTest(numTrials);
   }
 
+  LOG(INFO) << "TEARING DOWN";
   testClass.TearDown();
 }
