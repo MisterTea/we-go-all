@@ -257,7 +257,7 @@ void MyPeer::update(const asio::error_code& error) {
       int64_t startTime = reader.readPrimitive<int64_t>();
       int64_t endTime = reader.readPrimitive<int64_t>();
       map<string, string> m = reader.readMap<string, string>();
-      LOG(INFO) << "GOT INPUTS: " << startTime << " " << endTime;
+      VLOG(1) << "GOT INPUTS: " << startTime << " " << endTime;
       unordered_map<string, string> mHashed(m.begin(), m.end());
       {
         lock_guard<recursive_mutex> guard(peerDataMutex);
@@ -325,7 +325,7 @@ void MyPeer::updateState(int64_t timestamp,
   lock_guard<recursive_mutex> guard(peerDataMutex);
   int64_t lastExpirationTime = myData->playerInputData.getExpirationTime();
   myData->playerInputData.put(lastExpirationTime, timestamp, data);
-  LOG(INFO) << "CREATING CHRONOMAP FOR TIME: " << lastExpirationTime << " -> "
+  VLOG(1) << "CREATING CHRONOMAP FOR TIME: " << lastExpirationTime << " -> "
             << timestamp;
   MessageWriter writer;
   writer.start();

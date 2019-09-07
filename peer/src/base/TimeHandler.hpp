@@ -11,28 +11,28 @@ class TimeHandler {
   virtual ~TimeHandler() {}
 
   void addNoise() {
-    initialTime += chrono::duration_cast<chrono::microseconds>(
-                       chrono::minutes(rand() % 100))
+    timeShift += chrono::duration_cast<chrono::microseconds>(
+                       chrono::seconds(rand() % 100))
                        .count();
   }
 
   int64_t currentTimeMs() { return currentTimeMicros() / 1000; }
 
-  int64_t currentTimeMicros() { return now() - initialTime; }
+  int64_t currentTimeMicros() { return now() - timeShift; }
 
-  int64_t getTimeShift() { return initialTime; }
+  int64_t getTimeShift() { return timeShift; }
 
-  void setTimeShift(int64_t _timeShift) { initialTime = _timeShift; }
+  void setTimeShift(int64_t _timeShift) { timeShift = _timeShift; }
 
  protected:
   virtual int64_t now() = 0;
 
-  int64_t initialTime;
+  int64_t timeShift;
 };
 
 class FakeTimeHandler : public TimeHandler {
  public:
-  FakeTimeHandler() { initialTime = currentTime = int64_t(0); }
+  FakeTimeHandler() { timeShift = currentTime = int64_t(0); }
 
   virtual ~FakeTimeHandler() {}
 
@@ -52,7 +52,10 @@ class FakeTimeHandler : public TimeHandler {
 
 class SystemClockTimeHandler : public TimeHandler {
  public:
-  SystemClockTimeHandler() { initialTime = now(); }
+  SystemClockTimeHandler() {
+    initialTime = now();
+    timeShift = 0;
+  }
 
   virtual ~SystemClockTimeHandler() {}
 
@@ -60,8 +63,9 @@ protected:
   virtual int64_t now() {
     return chrono::duration_cast<chrono::microseconds>(
                chrono::high_resolution_clock::now().time_since_epoch())
-        .count();
+        .count() - initialTime;
   }
+  int64_t initialTime;
 };
 
 class GlobalClock {

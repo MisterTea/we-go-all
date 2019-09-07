@@ -38,7 +38,7 @@ class NetEngine {
     ioServiceThread.reset();
     while (work.has_value()) {
       LOG(INFO) << "Waiting for work to finish";
-      sleep(1);
+      microsleep(1000 * 1000);
     }
     LOG(INFO) << "Resetting net engine";
     ioService.reset();
