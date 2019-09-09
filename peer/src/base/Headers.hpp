@@ -46,6 +46,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <bitset>
 #include <chrono>
 #include <ctime>
 #include <deque>
@@ -54,6 +55,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <set>
 #include <sstream>
 #include <streambuf>

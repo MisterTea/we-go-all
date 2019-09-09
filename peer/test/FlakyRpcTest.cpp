@@ -53,11 +53,11 @@ class FlakyRpcTest {
     for (const auto& it : servers) {
       it->finish();
     }
-    sleep(1);
+    microsleep(1000*1000);
     for (const auto& it : servers) {
       it->closeSocket();
     }
-    sleep(1);
+    microsleep(1000 * 1000);
     netEngine->shutdown();
     servers.clear();
     LOG(INFO) << "TEARING DOWN";
