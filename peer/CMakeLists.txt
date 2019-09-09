@@ -181,6 +181,9 @@ add_library(
   src/base/TimeHandler.hpp
   src/base/TimeHandler.cpp
 
+  src/base/StunClient.hpp
+  src/base/StunClient.cpp
+
   src/base/EasyLoggingWrapper.cpp
 
   src/peer/MyPeer.cpp
@@ -231,6 +234,7 @@ add_executable(
   test/ClockSynchronizerTest.cpp
   test/FlakyRpcTest.cpp
   test/PeerTest.cpp
+  test/StunTest.cpp
   )
 add_dependencies(
   wga-test
