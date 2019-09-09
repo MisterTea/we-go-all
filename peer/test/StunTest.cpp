@@ -164,9 +164,14 @@ TEST_CASE("StunTestSimple", "[StunTest]") {
 
       stun_client->reflect(*iter,
                            [&](error_code e, udp::endpoint reflective_ep) {
-                              cout << "FINISHED: " << stun.url << ": "
+                             if (e.value()) {
+                              cout << "ERROR: " << stun.url << ": "
                                   << e.message() << " "
                                   << reflective_ep << endl;
+                             } else {
+                              cout << "FINISHED: " << stun.url << ": "
+                                  << reflective_ep << endl;
+                             }
 
                              if (!e && --wait_for == 0) {
                                timer.cancel();
@@ -178,9 +183,9 @@ TEST_CASE("StunTestSimple", "[StunTest]") {
   }
 
   timer.expires_from_now(5s);
-  timer.async_wait([&](error_code) {
-    resolver.cancel();
+  timer.async_wait([&](error_code ec) {
     stun_client.reset();
+    resolver.cancel();
   });
 
   ios.run();

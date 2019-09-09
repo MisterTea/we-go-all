@@ -1,10 +1,5 @@
 #include "StunClient.hpp"
 
-using Timer = asio::steady_timer;
-using udp = asio::ip::udp;
-using LockGuard = lock_guard<mutex>;
-namespace error = asio::error;
-
 namespace wga {
 
 class decoder {
@@ -251,8 +246,6 @@ inline void decode(decoder& d, asio::ip::address_v6& addr) {
 
 template <typename T, typename... Args>
 inline T decoder::get(Args&&... args) {
-  using decode;
-
   if (_was_error) return T();
 
   T retval;
@@ -380,7 +373,7 @@ struct StunClient::Request {
   Handler handler;
   vector<uint8_t> tx_buffer;
   Endpoint tx_endpoint;
-  Timer timer;
+  asio::steady_timer timer;
   size_t resend_count;
 
   Request(asio::io_service& ios, RequestID id, Endpoint tx_endpoint,
@@ -402,7 +395,7 @@ struct StunClient::Request {
 
 //------------------------------------------------------------------------------
 struct StunClient::State {
-  mutex mutex;
+  recursive_mutex mutex;
   asio::io_service& ios;
   vector<uint8_t> rx_buffer;
   Endpoint rx_endpoint;
@@ -427,7 +420,7 @@ StunClient::StunClient(udp::socket& socket)
     : _socket(socket),
       _state(make_shared<State>(socket.get_io_service())),
       _request_count(0) {
-  LockGuard guard(_state->mutex);
+  lock_guard<recursive_mutex> guard(_state->mutex);
 
 #ifdef NDEBUG
   random_device rd;
@@ -441,7 +434,7 @@ StunClient::StunClient(udp::socket& socket)
 
 //------------------------------------------------------------------------------
 StunClient::~StunClient() {
-  LockGuard guard(_state->mutex);
+  lock_guard<recursive_mutex> guard(_state->mutex);
 
   _state->was_destroyed = true;
 
@@ -449,16 +442,12 @@ StunClient::~StunClient() {
     it.second->timer.cancel();
   }
 
-  if (false && _request_count) {
-    udp::socket s(_socket.get_io_service(), udp::endpoint(udp::v4(), 0));
-    static uint32_t buf = 0xffff;
-    s.send_to(asio::buffer(&buf, sizeof(buf)), _socket.local_endpoint());
-  }
+  _socket.cancel();
 }
 
 //------------------------------------------------------------------------------
 void StunClient::reflect(Endpoint server_endpoint, Handler handler) {
-  LockGuard guard(_state->mutex);
+  lock_guard<recursive_mutex> guard(_state->mutex);
 
   RequestID id;
 
@@ -470,7 +459,7 @@ void StunClient::reflect(Endpoint server_endpoint, Handler handler) {
   auto ri = _state->requests.find(server_endpoint);
 
   if (ri != _state->requests.end()) {
-    return execute(ri, error::operation_aborted);
+    return execute(ri, asio::error::operation_aborted);
   }
 
   _state->requests[server_endpoint] = request;
@@ -484,6 +473,7 @@ void StunClient::reflect(Endpoint server_endpoint, Handler handler) {
 
 //------------------------------------------------------------------------------
 void StunClient::start_sending(RequestPtr request) {
+  lock_guard<recursive_mutex> guard(_state->mutex);
   static const uint16_t size = 0;
 
   auto& buf = request->tx_buffer;
@@ -508,14 +498,18 @@ void StunClient::start_sending(RequestPtr request) {
   auto state = _state;
   _socket.async_send_to(asio::buffer(buf), request->tx_endpoint,
                         [this, state, request](asio::error_code error, size_t) {
-                          LockGuard guard(state->mutex);
+                          lock_guard<recursive_mutex> guard(state->mutex);
                           on_send(error, move(request));
                         });
 }
 
 //------------------------------------------------------------------------------
-void StunClient::on_send(asio::error_code, RequestPtr request) {
+void StunClient::on_send(asio::error_code ec, RequestPtr request) {
   if (!request->handler) {
+    return;
+  }
+
+  if (ec == asio::error::operation_aborted) {
     return;
   }
 
@@ -523,8 +517,11 @@ void StunClient::on_send(asio::error_code, RequestPtr request) {
   request->timer.expires_from_now(chrono::milliseconds(timeout));
 
   auto state = _state;
-  request->timer.async_wait([this, state, request](asio::error_code) {
-    LockGuard guard(state->mutex);
+  request->timer.async_wait([this, state, request](asio::error_code ec) {
+    if (ec == asio::error::operation_aborted) {
+      return;
+    }
+    lock_guard<recursive_mutex> guard(state->mutex);
     if (!request->handler) return;
     start_sending(move(request));
   });
@@ -534,7 +531,7 @@ void StunClient::on_send(asio::error_code, RequestPtr request) {
 void StunClient::start_receiving(StatePtr state) {
   _socket.async_receive_from(asio::buffer(state->rx_buffer), state->rx_endpoint,
                              [this, state](asio::error_code error, size_t size) {
-                               LockGuard guard(state->mutex);
+                               lock_guard<recursive_mutex> guard(state->mutex);
                                on_recv(error, size, move(state));
                              });
 }
@@ -542,7 +539,7 @@ void StunClient::start_receiving(StatePtr state) {
 //------------------------------------------------------------------------------
 void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   if (state->was_destroyed) {
-    return state->destroy_requests(error::operation_aborted);
+    return state->destroy_requests(asio::error::operation_aborted);
   }
 
   auto& rx_buf = state->rx_buffer;
@@ -559,7 +556,7 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
 
   if (size < HEADER_SIZE) {
     if (--_request_count) start_receiving(move(state));
-    return execute(request_i, error::fault);
+    return execute(request_i, asio::error::fault);
   }
 
   decoder header_d(rx_buf.data(), size);
@@ -575,7 +572,7 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   if (header_d.error()) {
     if (--_request_count) start_receiving(move(state));
     // TODO: Better error mapping.
-    return execute(request_i, error::operation_not_supported);
+    return execute(request_i, asio::error::operation_not_supported);
   }
 
   if (plex != bitset<2>("00")) {
@@ -585,18 +582,18 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   if (cookie != COOKIE) {
     if (--_request_count) start_receiving(move(state));
     // TODO: Better error mapping.
-    return execute(request_i, error::fault);
+    return execute(request_i, asio::error::fault);
   }
 
   if (method != BIND_METHOD) {
     if (--_request_count) start_receiving(move(state));
-    return execute(request_i, error::operation_not_supported);
+    return execute(request_i, asio::error::operation_not_supported);
   }
 
   if (class_ != SUCCESS_CLASS) {
     if (--_request_count) start_receiving(move(state));
     // TODO: Better error mapping.
-    return execute(request_i, error::fault);
+    return execute(request_i, asio::error::fault);
   }
 
   decoder d(header_d.current(), length);
@@ -622,7 +619,7 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   }
 
   if (state->was_destroyed) {
-    return state->destroy_requests(error::operation_aborted);
+    return state->destroy_requests(asio::error::operation_aborted);
   }
 
   if (--_request_count) {
