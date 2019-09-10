@@ -79,6 +79,8 @@
 #include "SimpleWebServer/client_http.hpp"
 #include "SimpleWebServer/server_http.hpp"
 
+#define STATS_GO_INLINE
+#define STATS_ENABLE_STDVEC_WRAPPERS
 #include "stats/include/stats.hpp"
 
 #if __cplusplus >= 201703L
