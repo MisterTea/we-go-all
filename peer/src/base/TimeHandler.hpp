@@ -6,14 +6,14 @@
 namespace wga {
 class TimeHandler {
  public:
-  TimeHandler() {}
+  TimeHandler() : timeShift(0) {}
 
   virtual ~TimeHandler() {}
 
   void addNoise() {
     timeShift += chrono::duration_cast<chrono::microseconds>(
-                       chrono::seconds(rand() % 100))
-                       .count();
+                     chrono::seconds(rand() % 100))
+                     .count();
   }
 
   int64_t currentTimeMs() { return currentTimeMicros() / 1000; }
@@ -32,7 +32,7 @@ class TimeHandler {
 
 class FakeTimeHandler : public TimeHandler {
  public:
-  FakeTimeHandler() { timeShift = currentTime = int64_t(0); }
+  FakeTimeHandler() : currentTime(0) {}
 
   virtual ~FakeTimeHandler() {}
 
@@ -53,17 +53,19 @@ class FakeTimeHandler : public TimeHandler {
 class SystemClockTimeHandler : public TimeHandler {
  public:
   SystemClockTimeHandler() {
-    initialTime = now();
-    timeShift = 0;
+    initialTime = chrono::duration_cast<chrono::microseconds>(
+                      chrono::high_resolution_clock::now().time_since_epoch())
+                      .count();
   }
 
   virtual ~SystemClockTimeHandler() {}
 
-protected:
+ protected:
   virtual int64_t now() {
     return chrono::duration_cast<chrono::microseconds>(
                chrono::high_resolution_clock::now().time_since_epoch())
-        .count() - initialTime;
+               .count() -
+           initialTime;
   }
   int64_t initialTime;
 };
