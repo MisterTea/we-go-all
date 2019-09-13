@@ -126,6 +126,18 @@ void MultiEndpointHandler::banEndpoint(const udp::endpoint& newEndpoint) {
   if (activeEndpoint == newEndpoint) {
     killEndpoint();
   }
+  {
+    auto it = alternativeEndpoints.find(newEndpoint);
+    if (it != alternativeEndpoints.end()) {
+      alternativeEndpoints.erase(it);
+    }
+  }
+  {
+    auto it = deadEndpoints.find(newEndpoint);
+    if (it != deadEndpoints.end()) {
+      deadEndpoints.erase(it);
+    }
+  }
 }
 
 }  // namespace wga
