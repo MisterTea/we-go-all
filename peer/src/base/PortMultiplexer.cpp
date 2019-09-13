@@ -30,30 +30,32 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
     string packetString(receiveBuffer.data(), bytesTransferred);
 
     string magicHeader = packetString.substr(0, WGA_MAGIC.length());
-    string packetContents = packetString.substr(WGA_MAGIC.length());
-    // We need to find out where this needs to go
-    shared_ptr<EncryptedMultiEndpointHandler> recipient;
-    for (auto& it : recipients) {
-      if (it->canDecodeMagicHeader(magicHeader, packetContents) &&
-          it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
-        recipient = it;
-      }
-    }
-    if (recipient.get() == NULL && packetContents.size() > 0) {
-      // We don't have any endpoint to receive this, so check the header
-      LOG(INFO) << "Do not know who should get packet, will check header";
+    if (magicHeader != WGA_MAGIC) {
+      LOG(ERROR) << "Invalid packet header (total size):" << bytesTransferred
+                 << " data: " << packetString;
+    } else {
+      string packetContents = packetString.substr(WGA_MAGIC.length());
+      // We need to find out where this needs to go
+      shared_ptr<EncryptedMultiEndpointHandler> recipient;
       for (auto& it : recipients) {
-        if (it->canDecodeMagicHeader(magicHeader, packetContents)) {
+        if (it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
+          recipient = it;
+        }
+      }
+      if (recipient.get() == NULL && packetContents.size() > 0) {
+        // We don't have any endpoint to receive this, so check the header
+        LOG(INFO) << "Do not know who should get packet, will check header";
+        for (auto& it : recipients) {
           recipient = it;
           recipient->addEndpoint(receiveEndpoint);
           break;
         }
       }
-    }
-    if (recipient.get() == NULL) {
-      LOG(ERROR) << "Could not find receipient";
-    } else {
-      recipient->receive(packetContents);
+      if (recipient.get() == NULL) {
+        LOG(ERROR) << "Could not find receipient";
+      } else {
+        recipient->receive(packetContents);
+      }
     }
   }
 

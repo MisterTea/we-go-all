@@ -138,29 +138,4 @@ void EncryptedMultiEndpointHandler::send(const string& message) {
   string messageWithHeader = header + message;
   MultiEndpointHandler::send(messageWithHeader);
 }
-
-bool EncryptedMultiEndpointHandler::hasPublicKeyMatchInPayload(
-    const string& remainder) {
-  LOG(INFO) << "Checking public key match";
-  MessageReader reader;
-  reader.load(remainder);
-  RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
-  if (header != REQUEST) {
-    LOG(INFO) << "Header isn't request";
-    return false;
-  }
-  RpcId rpcId = reader.readClass<RpcId>();
-  if (rpcId != SESSION_KEY_RPCID) {
-    LOG(INFO) << "Header doesn't contain session key";
-    return false;
-  }
-  string payload = reader.readPrimitive<string>();
-  MessageReader innerReader;
-  innerReader.load(payload);
-  PublicKey publicKey = CryptoHandler::stringToKey<PublicKey>(
-      innerReader.readPrimitive<string>());
-  bool matched = (publicKey == cryptoHandler->getOtherPublicKey());
-  LOG(INFO) << "Match status: " << matched;
-  return matched;
-}
 }  // namespace wga

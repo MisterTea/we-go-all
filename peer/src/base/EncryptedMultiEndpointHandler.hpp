@@ -36,29 +36,11 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
     return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
   }
 
-  bool canDecodeMagicHeader(const std::string& magicHeader,
-                            const std::string& remainder) {
-    if (!cryptoHandler->canDecrypt()) {
-      // This must be the session key, try to dive into the packet and fetch the
-      // public key
-      return hasPublicKeyMatchInPayload(remainder);
-    }
-
-    auto result = cryptoHandler->decrypt(magicHeader);
-    if (result) {
-      if (*result == WGA_MAGIC) {
-        return true;
-      }
-    }
-    return false;
-  }
-
  protected:
   shared_ptr<CryptoHandler> cryptoHandler;
   virtual void addIncomingRequest(const IdPayload& idPayload);
   virtual void addIncomingReply(const RpcId& uid, const string& payload);
   virtual void send(const string& message);
-  bool hasPublicKeyMatchInPayload(const string& remainder);
 };
 }  // namespace wga
 
