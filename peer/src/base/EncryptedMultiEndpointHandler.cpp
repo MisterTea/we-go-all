@@ -90,6 +90,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
       LOG(ERROR) << "Invalid session key";
       return;
     }
+    MultiEndpointHandler::addIncomingRequest(idPayload);
     MultiEndpointHandler::reply(idPayload.id, "OK");
     return;
   }
