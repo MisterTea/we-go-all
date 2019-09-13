@@ -122,6 +122,7 @@ void MultiEndpointHandler::killEndpoint() {
 }
 
 void MultiEndpointHandler::banEndpoint(const udp::endpoint& newEndpoint) {
+  LOG(INFO) << "Banning endpoint: " << newEndpoint;
   bannedEndpoints.insert(newEndpoint);
   if (activeEndpoint == newEndpoint) {
     killEndpoint();

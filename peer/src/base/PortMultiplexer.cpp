@@ -46,6 +46,10 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
         // We don't have any endpoint to receive this, so check the header
         LOG(INFO) << "Do not know who should get packet, will check header";
         for (auto& it : recipients) {
+          if (it->isEndpointBanned(receiveEndpoint)) {
+            continue;
+          }
+          // Possible match, try it out
           recipient = it;
           recipient->addEndpoint(receiveEndpoint);
           break;

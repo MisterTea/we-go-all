@@ -170,7 +170,7 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
 void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload,
                                    int64_t requestReceiveTime,
                                    int64_t replySendTime) {
-  LOG(INFO) << "GOT REPLY: " << rpcId.id;
+  VLOG(1) << "GOT REPLY: " << rpcId.id;
   bool skip = false;
   if (incomingReplies.find(rpcId) != incomingReplies.end() ||
       processedReplies.exists(rpcId)) {

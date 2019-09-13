@@ -39,6 +39,9 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
     alternativeEndpoints.insert(newEndpoint);
   }
   void banEndpoint(const udp::endpoint& newEndpoint);
+  bool isEndpointBanned(const udp::endpoint& newEndpoint) {
+    return bannedEndpoints.find(newEndpoint) != bannedEndpoints.end();
+  }
 
  protected:
   time_t lastUpdateTime;
