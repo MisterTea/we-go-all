@@ -2,7 +2,7 @@ var dgram = require('dgram');
 var db = require('../model/db');
 var logger = require('./logger').logger;
 
-var HOST = '127.0.0.1';
+var HOST = '0.0.0.0';
 
 exports.start = function (port: number) {
   var socket = dgram.createSocket('udp4');
@@ -30,6 +30,8 @@ exports.start = function (port: number) {
     for (var a = 1; a < tokens.length; a++) {
       endpoints.push(tokens[a]);
     }
+    logger.info("GOT ENDPOINTS");
+    logger.info(endpoints);
 
     var errorHandlerUdp = function (callback: any) {
       return function (err: any, o: any) {
@@ -41,7 +43,7 @@ exports.start = function (port: number) {
       }
     };
 
-    db.users.findByIdAndUpdate(playerId, { endpoints }, errorHandlerUdp((player: any) => {
+    db.users.findByIdAndUpdate(playerId, { endpoints:endpoints }, errorHandlerUdp((player: any) => {
       // Update the endpoints
     }));
   });
