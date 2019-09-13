@@ -43,6 +43,7 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
   set<udp::endpoint> deadEndpoints;
   void update();
   virtual void send(const string& message);
+  void killEndpoint();
 };
 }  // namespace wga
 
