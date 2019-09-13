@@ -43,6 +43,7 @@ router.get('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => 
     return;
   }
 
+  var hasEndpoints = true;
   var allPeerData = {};
   for (var a = 0; a < game.peers.length; a++) {
     var peerId = game.peers[a];
@@ -58,6 +59,9 @@ router.get('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => 
       "name": peer.name,
       "endpoints": peer.endpoints,
     };
+    if (peer.endpoints.length == 0) {
+      hasEndpoints = false;
+    }
     console.log(JSON.stringify(peerData));
     allPeerData[peerId.toString()] = peerData;
   }
@@ -65,7 +69,7 @@ router.get('/get_game_info/:gameId', asyncMiddleware(async (req, res, _next) => 
   res.status(200);
   res.json({
     gameName: game.gameName,
-    ready: (game.ready.length == game.peers.length),
+    ready: (game.ready.length == game.peers.length) && hasEndpoints,
     hostId: game.host.toString(),
     peerData: allPeerData,
   });
