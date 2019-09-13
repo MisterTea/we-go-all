@@ -134,7 +134,7 @@ void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
 }
 
 void EncryptedMultiEndpointHandler::send(const string& message) {
-  string header = cryptoHandler->encrypt(WGA_MAGIC);
+  string header = WGA_MAGIC;
   string messageWithHeader = header + message;
   MultiEndpointHandler::send(messageWithHeader);
 }
