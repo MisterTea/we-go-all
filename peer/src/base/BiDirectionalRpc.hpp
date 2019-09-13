@@ -138,7 +138,7 @@ class BiDirectionalRpc {
 
   pair<double, double> getLatency() {
     return make_pair(clockSynchronizer.getPing(),
-                     clockSynchronizer.getOffset());
+                     clockSynchronizer.getHalfPingUpperBound());
   }
 
   double getHalfPingUpperBound() {
