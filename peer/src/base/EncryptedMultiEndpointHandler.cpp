@@ -90,7 +90,6 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
       LOG(ERROR) << "Invalid session key";
       return;
     }
-    MultiEndpointHandler::addIncomingRequest(idPayload);
     MultiEndpointHandler::reply(idPayload.id, "OK");
     return;
   }
@@ -150,6 +149,7 @@ bool EncryptedMultiEndpointHandler::hasPublicKeyMatchInPayload(
   }
   RpcId rpcId = reader.readClass<RpcId>();
   if (rpcId != SESSION_KEY_RPCID) {
+    LOG(INFO) << "Header doesn't contain session key";
     return false;
   }
   string payload = reader.readPrimitive<string>();
