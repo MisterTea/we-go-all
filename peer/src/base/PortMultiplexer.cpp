@@ -54,7 +54,9 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
       if (recipient.get() == NULL) {
         LOG(ERROR) << "Could not find receipient";
       } else {
-        recipient->receive(packetContents);
+        if(!recipient->receive(packetContents)) {
+          recipient->banEndpoint(receiveEndpoint);
+        }
       }
     }
   }

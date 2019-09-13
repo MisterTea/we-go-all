@@ -101,7 +101,7 @@ class BiDirectionalRpc {
 
   void setFlaky(bool _flaky) { flaky = _flaky; }
 
-  virtual void receive(const string& message);
+  virtual bool receive(const string& message);
 
   bool hasWork() {
     lock_guard<recursive_mutex> guard(mutex);
@@ -150,6 +150,12 @@ class BiDirectionalRpc {
     return shuttingDown;
   }
 
+  virtual bool readyToSend() {
+    return true;
+  }
+
+  void resendRandomOutgoingMessage();
+
  protected:
   unordered_map<RpcId, string> delayedRequests;
   unordered_map<RpcId, string> outgoingRequests;
@@ -172,16 +178,18 @@ class BiDirectionalRpc {
   void handleRequest(const RpcId& rpcId, const string& payload);
   virtual void handleReply(const RpcId& rpcId, const string& payload,
                            int64_t requestReceiveTime, int64_t replySendTime);
-  void resendRandomOutgoingMessage();
   void tryToSendBarrier();
   void sendRequest(const RpcId& id, const string& payload);
   void sendReply(const RpcId& id, const string& payload);
-  void sendAcknowledge(const RpcId& uid);
+  virtual void sendAcknowledge(const RpcId& uid);
   virtual void addIncomingRequest(const IdPayload& idPayload);
   virtual void addIncomingReply(const RpcId& uid, const string& payload) {
     incomingReplies.emplace(uid, payload);
   }
   virtual void send(const string& message) = 0;
+  bool validatePacket(const RpcId& rpcId, const string& payload) {
+    return true;
+  }
 };
 }  // namespace wga
 

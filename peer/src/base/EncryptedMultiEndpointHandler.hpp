@@ -20,10 +20,15 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
-  bool readyToSend() {
+  virtual bool readyToSend() {
     lock_guard<recursive_mutex> guard(mutex);
     // Make sure rpc(0,1) is finished
     for (const auto& it : outgoingRequests) {
+      if (it.first == SESSION_KEY_RPCID) {
+        return false;
+      }
+    }
+    for (const auto& it : outgoingReplies) {
       if (it.first == SESSION_KEY_RPCID) {
         return false;
       }
@@ -41,6 +46,8 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
   virtual void addIncomingRequest(const IdPayload& idPayload);
   virtual void addIncomingReply(const RpcId& uid, const string& payload);
   virtual void send(const string& message);
+  virtual void sendAcknowledge(const RpcId& uid);
+  bool validatePacket(const RpcId& rpcId, const string& payload);
 };
 }  // namespace wga
 

@@ -24,6 +24,9 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
   virtual bool hasEndpointAndResurrectIfFound(const udp::endpoint& endpoint);
   void addEndpoints(const vector<udp::endpoint>& newEndpoints);
   void addEndpoint(const udp::endpoint& newEndpoint) {
+    if (bannedEndpoints.find(newEndpoint) != bannedEndpoints.end()) {
+      return;
+    }
     if (activeEndpoint == newEndpoint) {
       return;
     }
@@ -35,12 +38,14 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
     }
     alternativeEndpoints.insert(newEndpoint);
   }
+  void banEndpoint(const udp::endpoint& newEndpoint);
 
  protected:
   time_t lastUpdateTime;
   time_t lastUnrepliedSendTime;
   set<udp::endpoint> alternativeEndpoints;
   set<udp::endpoint> deadEndpoints;
+  set<udp::endpoint> bannedEndpoints;
   void update();
   virtual void send(const string& message);
   void killEndpoint();

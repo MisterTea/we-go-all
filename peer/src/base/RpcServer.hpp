@@ -79,6 +79,12 @@ class RpcServer : public PortMultiplexer {
     }
   }
 
+  void resendRandomOutgoingMessage() {
+    for (auto it : endpoints) {
+      it.second->resendRandomOutgoingMessage();
+    }
+  }
+
   bool readyToSend() {
     for (auto it : endpoints) {
       if (!it.second->readyToSend()) {

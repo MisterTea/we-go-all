@@ -42,7 +42,7 @@ class FlakyRpcTest {
         if (it->hasWork()) {
           done = false;
         }
-        it->heartbeat();
+        it->resendRandomOutgoingMessage();
       }
       if (done) {
         break;

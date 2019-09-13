@@ -52,6 +52,9 @@ void MultiEndpointHandler::send(const string& message) {
 bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
     const udp::endpoint& endpoint) {
   lock_guard<recursive_mutex> lock(mutex);
+  if (bannedEndpoints.find(endpoint) != bannedEndpoints.end()) {
+    return false;
+  }
   if (endpoint == activeEndpoint) {
     return true;
   }
@@ -103,6 +106,9 @@ void MultiEndpointHandler::killEndpoint() {
     activeEndpoint = *it;
     alternativeEndpoints.erase(it);
   } else {
+    if (deadEndpoints.empty()) {
+      LOG(FATAL) << "No endpoints to try!";
+    }
     // We have no alternatives, try a dead endpoint
     DRAW_FROM_UNORDERED(it, deadEndpoints);
     activeEndpoint = *it;
@@ -113,6 +119,13 @@ void MultiEndpointHandler::killEndpoint() {
             << activeEndpoint.address().to_string() << ":"
             << activeEndpoint.port();
   lastUnrepliedSendTime = time(NULL);
+}
+
+void MultiEndpointHandler::banEndpoint(const udp::endpoint& newEndpoint) {
+  bannedEndpoints.insert(newEndpoint);
+  if (activeEndpoint == newEndpoint) {
+    killEndpoint();
+  }
 }
 
 }  // namespace wga
