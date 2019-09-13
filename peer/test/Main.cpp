@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 
   // Setup easylogging configurations
   el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
-  defaultConf.setGlobally(el::ConfigurationType::ToStandardOutput, "false");
+  defaultConf.setGlobally(el::ConfigurationType::ToStandardOutput, "true");
   defaultConf.setGlobally(el::ConfigurationType::ToFile, "true");
   el::Loggers::setVerboseLevel(params["verbose"].as<int>());
 

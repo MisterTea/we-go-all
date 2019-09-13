@@ -24,12 +24,7 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
   }
   VLOG(2) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
-  if (receiveEndpoint == localSocket->local_endpoint() ||
-    (localSocket->local_endpoint().address().to_string() == string("0.0.0.0") &&
-    receiveEndpoint.address().to_string() == string("127.0.0.1") &&
-    localSocket->local_endpoint().port() == receiveEndpoint.port())) {
-    LOG(ERROR) << "Got packet from my own process.  Ignoring...";
-  } else if (bytesTransferred < WGA_MAGIC.length()) {
+  if (bytesTransferred < WGA_MAGIC.length()) {
     VLOG(2) << "Packet is too small to contain header: " << bytesTransferred;
   } else {
     string packetString(receiveBuffer.data(), bytesTransferred);
@@ -51,17 +46,21 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
         // We don't have any endpoint to receive this, so check the header
         LOG(INFO) << "Do not know who should get packet, will check header";
         for (auto& it : recipients) {
-          if (it->canDecodeMagicHeader(magicHeader, packetContents)) {
-            recipient = it;
-            recipient->addEndpoint(receiveEndpoint);
-            break;
+          if (it->isEndpointBanned(receiveEndpoint)) {
+            continue;
           }
+          // Possible match, try it out
+          recipient = it;
+          recipient->addEndpoint(receiveEndpoint);
+          break;
         }
       }
       if (recipient.get() == NULL) {
         LOG(ERROR) << "Could not find receipient";
       } else {
-        recipient->receive(packetContents);
+        if(!recipient->receive(packetContents)) {
+          recipient->banEndpoint(receiveEndpoint);
+        }
       }
     }
   }

@@ -109,12 +109,12 @@ void MyPeer::updateEndpointServer() {
     ipAddressPacket += "_" + it + ":" + to_string(serverPort);
   }
   auto localSocketStack = localSocket;
-  VLOG(1) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
+  LOG(INFO) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
   netEngine->post([localSocketStack, serverEndpoint, ipAddressPacket]() {
-    VLOG(1) << "IN SEND LAMBDA: " << ipAddressPacket.length();
+    LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
     int bytesSent = localSocketStack->send_to(asio::buffer(ipAddressPacket),
                                               serverEndpoint);
-    VLOG(1) << bytesSent << " bytes sent";
+    LOG(INFO) << bytesSent << " bytes sent";
   });
 }
 
@@ -218,9 +218,7 @@ void MyPeer::update(const asio::error_code& error) {
     for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
          ++it) {
       std::cout << it.key() << " : " << it.value() << "\n";
-      PublicKey peerKey =
-          CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
-      if (peerKey == publicKey) {
+      if (it.key() == userId) {
         continue;
       }
       vector<udp::endpoint> endpoints;

@@ -29,13 +29,9 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
 }
 
 void EncryptedMultiEndpointHandler::requestWithId(const IdPayload& idPayload) {
-  if (idPayload.payload.size() == 0) {
-    MultiEndpointHandler::requestWithId(idPayload);
-    return;
-  }
-
   if (!readyToSend()) {
-    LOGFATAL << "Tried to send data before we were ready";
+    // These are heartbeats that can't go out yet
+    LOGFATAL << "Tried to send data before we were ready: " << readyToReceive();
   }
   IdPayload encryptedIdPayload =
       IdPayload(idPayload.id, cryptoHandler->encrypt(idPayload.payload));
@@ -46,13 +42,8 @@ void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
                                           const string& payload) {
   lock_guard<recursive_mutex> guard(mutex);
 
-  if (payload.size() == 0) {
-    MultiEndpointHandler::reply(rpcId, payload);
-    return;
-  }
-
-  if (!readyToSend()) {
-    LOGFATAL << "Got reply before we were ready, something went wrong";
+  if (!readyToReceive()) {
+    LOGFATAL << "Got reply before we were ready, something went wrong " << readyToReceive();
   }
   string encryptedPayload = cryptoHandler->encrypt(payload);
   MultiEndpointHandler::reply(rpcId, encryptedPayload);
@@ -61,12 +52,6 @@ void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
 void EncryptedMultiEndpointHandler::addIncomingRequest(
     const IdPayload& idPayload) {
   lock_guard<recursive_mutex> guard(mutex);
-  if (idPayload.payload.size() == 0) {
-    // Heartbeat
-    MultiEndpointHandler::addIncomingRequest(idPayload);
-    return;
-  }
-
   if (idPayload.id == SESSION_KEY_RPCID) {
     // Handshaking
     LOG(INFO) << "GOT HANDSHAKE";
@@ -79,7 +64,8 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     PublicKey publicKey =
         CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
     if (publicKey != cryptoHandler->getOtherPublicKey()) {
-      LOGFATAL << "Somehow got the wrong public key: " << CryptoHandler::keyToString(publicKey) << " != " << CryptoHandler::keyToString(cryptoHandler->getOtherPublicKey());
+      LOG(ERROR) << "Somehow got the wrong public key: " << CryptoHandler::keyToString(publicKey) << " != " << CryptoHandler::keyToString(cryptoHandler->getOtherPublicKey());
+      return;
     }
     EncryptedSessionKey encryptedSessionKey =
         CryptoHandler::stringToKey<EncryptedSessionKey>(
@@ -90,7 +76,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
       return;
     }
     MultiEndpointHandler::addIncomingRequest(idPayload);
-    MultiEndpointHandler::reply(idPayload.id, "OK");
+    reply(idPayload.id, "OK");
     return;
   }
 
@@ -101,7 +87,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
   auto decryptedString = cryptoHandler->decrypt(idPayload.payload);
   if (!decryptedString) {
     // Corrupt message, ignore
-    LOG(ERROR) << "Got a corrupt packet";
+    LOG(ERROR) << "Got a corrupt packet: " << idPayload.payload;
     return;
   }
   IdPayload decryptedIdPayload = IdPayload(idPayload.id, *decryptedString);
@@ -112,12 +98,6 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
 
 void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
                                                      const string& payload) {
-  if (payload.size() == 0) {
-    // Heartbeat
-    MultiEndpointHandler::addIncomingReply(uid, payload);
-    return;
-  }
-
   lock_guard<recursive_mutex> guard(mutex);
   if (!readyToSend()) {
     LOG(ERROR) << "Got reply before we were ready, something went wrong";
@@ -132,30 +112,33 @@ void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
   MultiEndpointHandler::addIncomingReply(uid, *decryptedPayload);
 }
 
+void EncryptedMultiEndpointHandler::sendAcknowledge(const RpcId& uid) {
+  MessageWriter writer;
+  writer.start();
+  writer.writePrimitive<unsigned char>(ACKNOWLEDGE);
+  writer.writeClass<RpcId>(uid);
+  writer.writePrimitive<string>(cryptoHandler->encrypt("ACK_OK"));
+  send(writer.finish());
+}
+
 void EncryptedMultiEndpointHandler::send(const string& message) {
-  string messageWithHeader = WGA_MAGIC + message;
+  string header = WGA_MAGIC;
+  string messageWithHeader = header + message;
   MultiEndpointHandler::send(messageWithHeader);
 }
 
-bool EncryptedMultiEndpointHandler::hasPublicKeyMatchInPayload(
-    const string& remainder) {
-  LOG(INFO) << "Checking public key match";
-  MessageReader reader;
-  reader.load(remainder);
-  RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
-  if (header != REQUEST) {
-    LOG(INFO) << "Header isn't request";
+bool EncryptedMultiEndpointHandler::validatePacket(const RpcId& rpcId, const string& payload) {
+  if (rpcId == SESSION_KEY_RPCID) {
+    return true;
+  }
+  if (!cryptoHandler->canDecrypt()) {
+    LOG(WARNING) << "Tried to validate packet but we can't decrypt yet";
     return false;
   }
-  RpcId rpcId = reader.readClass<RpcId>();
-  if (rpcId != SESSION_KEY_RPCID) {
-    return false;
+  bool result = bool(cryptoHandler->decrypt(payload));
+  if (!result) {
+    LOG(WARNING) << "Got a packet intended for someone else (or malformed)";
   }
-  string payload = reader.readPrimitive<string>();
-  MessageReader innerReader;
-  innerReader.load(payload);
-  PublicKey publicKey = CryptoHandler::stringToKey<PublicKey>(
-      innerReader.readPrimitive<string>());
-  return publicKey == cryptoHandler->getOtherPublicKey();
+  return result;
 }
 }  // namespace wga

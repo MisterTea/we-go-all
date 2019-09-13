@@ -60,11 +60,11 @@ inline void simulate(shared_ptr<FakeTimeHandler> requesterTimeHandler,
     sync.handleReply(first, timeBeforeProcess, replyTime);
   }
 
-  REQUIRE(sync.getHalfPingUpperBound() >= Approx(PING_2 * 1000).margin(100.0));
-  REQUIRE(sync.getPing() == Approx(PING_2 * 2000).margin(100.0));
+  REQUIRE(sync.getHalfPingUpperBound() >= Approx(PING_2 * 1000).margin(200.0));
+  REQUIRE(sync.getPing() == Approx(PING_2 * 2000).margin(200.0));
   REQUIRE(requesterTimeHandler->getTimeShift() ==
-          Approx(DRIFT * 1000).margin(100.0));
-  REQUIRE(sync.getOffset() == Approx(DRIFT * 1000).margin(100.0));
+          Approx(DRIFT * 1000).margin(200.0));
+  REQUIRE(sync.getOffset() == Approx(DRIFT * 1000).margin(200.0));
 }
 
 TEST_CASE("OneWay", "[ClockSynchronizer]") {
@@ -160,16 +160,16 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
   }
 
   REQUIRE(firstSync.getHalfPingUpperBound() >=
-          Approx(PING_2 * 1000).margin(100.0));
-  REQUIRE(firstSync.getPing() == Approx(PING_2 * 2000).margin(100.0));
+          Approx(PING_2 * 1000).margin(200.0));
+  REQUIRE(firstSync.getPing() == Approx(PING_2 * 2000).margin(200.0));
   REQUIRE(secondSync.getHalfPingUpperBound() >=
-          Approx(PING_2 * 1000).margin(100.0));
-  REQUIRE(secondSync.getPing() == Approx(PING_2 * 2000).margin(100.0));
+          Approx(PING_2 * 1000).margin(200.0));
+  REQUIRE(secondSync.getPing() == Approx(PING_2 * 2000).margin(200.0));
 
   REQUIRE(firstTimeHandler->getTimeShift() ==
-          Approx(secondTimeHandler->getTimeShift()).margin(100.0));
+          Approx(secondTimeHandler->getTimeShift()).margin(200.0));
   REQUIRE(firstSync.getOffset() ==
-          Approx(secondSync.getOffset()).margin(100.0));
+          Approx(secondSync.getOffset()).margin(200.0));
 }
 
 TEST_CASE("TwoWay", "[ClockSynchronizer]") {
@@ -276,18 +276,18 @@ inline void simulateN(vector<shared_ptr<FakeTimeHandler>> timeHandlers,
 
   for (auto clockSync : clockSyncs) {
     REQUIRE(clockSync->getHalfPingUpperBound() >=
-            Approx(PING_2 * 1000).margin(100.0));
-    REQUIRE(clockSync->getPing() == Approx(PING_2 * 2000).margin(100.0));
+            Approx(PING_2 * 1000).margin(200.0));
+    REQUIRE(clockSync->getPing() == Approx(PING_2 * 2000).margin(200.0));
     for (auto clockSync2 : clockSyncs) {
       REQUIRE(clockSync->getOffset() ==
-              Approx(clockSync2->getOffset()).margin(100.0));
+              Approx(clockSync2->getOffset()).margin(200.0));
     }
   }
 
   for (auto timeHandler : timeHandlers) {
     for (auto timeHandler2 : timeHandlers) {
       REQUIRE(timeHandler->getTimeShift() ==
-              Approx(timeHandler2->getTimeShift()).margin(100.0));
+              Approx(timeHandler2->getTimeShift()).margin(200.0));
     }
   }
 }
