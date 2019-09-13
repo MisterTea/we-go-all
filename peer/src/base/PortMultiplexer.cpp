@@ -24,12 +24,7 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
   }
   VLOG(2) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
-  if (receiveEndpoint == localSocket->local_endpoint() ||
-    (localSocket->local_endpoint().address().to_string() == string("0.0.0.0") &&
-    receiveEndpoint.address().to_string() == string("127.0.0.1") &&
-    localSocket->local_endpoint().port() == receiveEndpoint.port())) {
-    LOG(ERROR) << "Got packet from my own process.  Ignoring...";
-  } else if (bytesTransferred < WGA_MAGIC.length()) {
+  if (bytesTransferred < WGA_MAGIC.length()) {
     VLOG(2) << "Packet is too small to contain header: " << bytesTransferred;
   } else {
     string packetString(receiveBuffer.data(), bytesTransferred);

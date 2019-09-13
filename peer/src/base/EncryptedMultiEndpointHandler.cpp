@@ -79,7 +79,8 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     PublicKey publicKey =
         CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
     if (publicKey != cryptoHandler->getOtherPublicKey()) {
-      LOGFATAL << "Somehow got the wrong public key: " << CryptoHandler::keyToString(publicKey) << " != " << CryptoHandler::keyToString(cryptoHandler->getOtherPublicKey());
+      LOG(ERROR) << "Somehow got the wrong public key: " << CryptoHandler::keyToString(publicKey) << " != " << CryptoHandler::keyToString(cryptoHandler->getOtherPublicKey());
+      return;
     }
     EncryptedSessionKey encryptedSessionKey =
         CryptoHandler::stringToKey<EncryptedSessionKey>(
