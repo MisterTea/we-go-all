@@ -76,7 +76,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
       return;
     }
     MultiEndpointHandler::addIncomingRequest(idPayload);
-    MultiEndpointHandler::reply(idPayload.id, "OK");
+    reply(idPayload.id, "OK");
     return;
   }
 
@@ -117,7 +117,7 @@ void EncryptedMultiEndpointHandler::sendAcknowledge(const RpcId& uid) {
   writer.start();
   writer.writePrimitive<unsigned char>(ACKNOWLEDGE);
   writer.writeClass<RpcId>(uid);
-  writer.writePrimitive<string>("ACK_OK");
+  writer.writePrimitive<string>(cryptoHandler->encrypt("ACK_OK"));
   send(writer.finish());
 }
 

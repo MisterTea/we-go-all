@@ -78,7 +78,7 @@ optional<string> CryptoHandler::decrypt(const string& buffer) {
   if (incomingSessionKey == emptySessionKey) {
     LOGFATAL << "Tried to use a session key when one doesn't exist!";
   }
-  if (buffer.length() <=
+  if (buffer.length() <
       (crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES)) {
     return nullopt;
   }
