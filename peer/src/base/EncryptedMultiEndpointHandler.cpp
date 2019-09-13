@@ -134,7 +134,11 @@ void EncryptedMultiEndpointHandler::addIncomingReply(const RpcId& uid,
 }
 
 void EncryptedMultiEndpointHandler::send(const string& message) {
-  string messageWithHeader = WGA_MAGIC + message;
+  string header = WGA_MAGIC;
+  if (cryptoHandler->canEncrypt()) {
+    header = cryptoHandler->encrypt(WGA_MAGIC);
+  }
+  string messageWithHeader = header + message;
   MultiEndpointHandler::send(messageWithHeader);
 }
 
@@ -158,6 +162,8 @@ bool EncryptedMultiEndpointHandler::hasPublicKeyMatchInPayload(
   innerReader.load(payload);
   PublicKey publicKey = CryptoHandler::stringToKey<PublicKey>(
       innerReader.readPrimitive<string>());
-  return publicKey == cryptoHandler->getOtherPublicKey();
+  bool matched = (publicKey == cryptoHandler->getOtherPublicKey());
+  LOG(INFO) << "Match status: " << matched;
+  return matched;
 }
 }  // namespace wga

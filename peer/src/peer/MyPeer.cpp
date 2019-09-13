@@ -218,8 +218,6 @@ void MyPeer::update(const asio::error_code& error) {
     for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
          ++it) {
       std::cout << it.key() << " : " << it.value() << "\n";
-      PublicKey peerKey =
-          CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
       if (it.key() == userId) {
         continue;
       }

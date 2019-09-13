@@ -38,7 +38,7 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
       // We need to find out where this needs to go
       shared_ptr<EncryptedMultiEndpointHandler> recipient;
       for (auto& it : recipients) {
-        if (it->hasEndpointAndResurrectIfFound(receiveEndpoint) && it->canDecodeMagicHeader(magicHeader, packetContents)) {
+        if (it->canDecodeMagicHeader(magicHeader, packetContents) && it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
           recipient = it;
         }
       }
