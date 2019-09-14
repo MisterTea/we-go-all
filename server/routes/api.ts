@@ -18,7 +18,7 @@ router.get('/get_current_game_id/:peerId', asyncMiddleware(async (req, res, _nex
   var peerId = new ObjectId(req.params.peerId);
 
   console.log(peerId);
-  var game = await db.games.find({ peers: { $in: [peerId] }, active: true });
+  var game = await db.games.find({ peers: { $in: [peerId] }, active: true }).sort('-_id');
   console.log("RESULTS");
   console.log(game);
   console.log(game.length);
