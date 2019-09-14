@@ -31,7 +31,7 @@ void BiDirectionalRpc::initTimeShift() {
   // Send a bunch of heartbeats to stabilize any timeshift calculations
   // This has to be done in a separate thread from heartbeat()
   for (int a = 0; a < 1000; a++) {
-    auto reqId = request("");
+    auto reqId = request("PING");
     while (!hasIncomingReplyWithId(reqId)) {
       microsleep(1000);
     }
@@ -45,11 +45,11 @@ void BiDirectionalRpc::heartbeat() {
   // received data, flush a lot of data out
   VLOG(1) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
-    VLOG(1) << "RESENDING MESSAGE";
+    VLOG(1) << "RESENDING MESSAGES: " << outgoingReplies.size() << " " << outgoingRequests.size();
     resendRandomOutgoingMessage();
-  } else {
+  } else if(readyToSend()) {
     VLOG(1) << "SENDING HEARTBEAT";
-    requestOneWay("");
+    requestOneWay("PING");
   }
 }
 
@@ -67,7 +67,7 @@ void BiDirectionalRpc::resendRandomOutgoingMessage() {
   }
 }
 
-void BiDirectionalRpc::receive(const string& message) {
+bool BiDirectionalRpc::receive(const string& message) {
   lock_guard<recursive_mutex> guard(mutex);
   VLOG(1) << "Receiving message with length " << message.length();
   MessageReader reader;
@@ -83,6 +83,9 @@ void BiDirectionalRpc::receive(const string& message) {
         while (reader.sizeRemaining()) {
           RpcId rpcId = reader.readClass<RpcId>();
           string payload = reader.readPrimitive<string>();
+          if (!validatePacket(rpcId, payload)) {
+            return false;
+          }
           handleRequest(rpcId, payload);
         }
       } break;
@@ -92,14 +95,21 @@ void BiDirectionalRpc::receive(const string& message) {
           int64_t requestReceiveTime = reader.readPrimitive<int64_t>();
           int64_t replySendTime = reader.readPrimitive<int64_t>();
           string payload = reader.readPrimitive<string>();
+          if (!validatePacket(uid, payload)) {
+            return false;
+          }
           handleReply(uid, payload, requestReceiveTime, replySendTime);
         }
       } break;
       case ACKNOWLEDGE: {
         RpcId uid = reader.readClass<RpcId>();
+        string payload = reader.readPrimitive<string>();
+        if (!validatePacket(uid, payload)) {
+          return false;
+        }
         VLOG(1) << "ACK UID " << uid.str();
         for (auto it = outgoingReplies.begin(); it != outgoingReplies.end();
-             it++) {
+              it++) {
           VLOG(1) << "REPLY UID " << it->first.str();
           if (it->first == uid) {
             clockSynchronizer.eraseRequestRecieveTime(it->first);
@@ -127,6 +137,7 @@ void BiDirectionalRpc::receive(const string& message) {
       }
     }
   }
+  return true;
 }
 
 void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
@@ -147,16 +158,19 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
 
   if (!skip) {
     addIncomingRequest(IdPayload(rpcId, payload));
-    if (payload.size() == 0) {
-      // heartbeat, send empty reply right away
-      reply(rpcId, "");
+    auto it = incomingRequests.find(rpcId);
+    if (it != incomingRequests.end() && it->second == "PING") {
+      // heartbeat, send reply right away
+      reply(rpcId, "PONG");
       return;
     }
   }
 }
 
 void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload,
-    int64_t requestReceiveTime, int64_t replySendTime) {
+                                   int64_t requestReceiveTime,
+                                   int64_t replySendTime) {
+  VLOG(1) << "GOT REPLY: " << rpcId.id;
   bool skip = false;
   if (incomingReplies.find(rpcId) != incomingReplies.end() ||
       processedReplies.exists(rpcId)) {
@@ -342,6 +356,7 @@ void BiDirectionalRpc::sendAcknowledge(const RpcId& uid) {
   writer.start();
   writer.writePrimitive<unsigned char>(ACKNOWLEDGE);
   writer.writeClass<RpcId>(uid);
+  writer.writePrimitive<string>("ACK_OK");
   send(writer.finish());
 }
 

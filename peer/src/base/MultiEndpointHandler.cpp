@@ -52,6 +52,9 @@ void MultiEndpointHandler::send(const string& message) {
 bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
     const udp::endpoint& endpoint) {
   lock_guard<recursive_mutex> lock(mutex);
+  if (bannedEndpoints.find(endpoint) != bannedEndpoints.end()) {
+    return false;
+  }
   if (endpoint == activeEndpoint) {
     return true;
   }
@@ -87,28 +90,54 @@ void MultiEndpointHandler::update() {
   }
 
   if (lastUnrepliedSendTime + 5 < time(NULL)) {
-    auto previousEndpoint = activeEndpoint;
-    // We haven't got anything back for 5 seconds
-    deadEndpoints.insert(activeEndpoint);
-    if (!alternativeEndpoints.empty()) {
-      DRAW_FROM_UNORDERED(it, alternativeEndpoints);
-      activeEndpoint = *it;
-      alternativeEndpoints.erase(it);
-    } else {
-      // We have no alternatives, try a dead endpoint
-      DRAW_FROM_UNORDERED(it, deadEndpoints);
-      activeEndpoint = *it;
-      deadEndpoints.erase(it);
-    }
-    LOG(INFO) << "Trying new endpoint: "
-              << previousEndpoint.address().to_string() << ":"
-              << previousEndpoint.port() << " -> "
-              << activeEndpoint.address().to_string() << ":"
-              << activeEndpoint.port();
-    lastUnrepliedSendTime = time(NULL);
+    killEndpoint();
   } else {
     LOG(INFO) << "Connection hasn't been dead long enough: "
               << (lastUnrepliedSendTime + 5) << " < " << time(NULL);
+  }
+}
+
+void MultiEndpointHandler::killEndpoint() {
+  auto previousEndpoint = activeEndpoint;
+  // We haven't got anything back for 5 seconds
+  deadEndpoints.insert(activeEndpoint);
+  if (!alternativeEndpoints.empty()) {
+    DRAW_FROM_UNORDERED(it, alternativeEndpoints);
+    activeEndpoint = *it;
+    alternativeEndpoints.erase(it);
+  } else {
+    if (deadEndpoints.empty()) {
+      LOG(FATAL) << "No endpoints to try!";
+    }
+    // We have no alternatives, try a dead endpoint
+    DRAW_FROM_UNORDERED(it, deadEndpoints);
+    activeEndpoint = *it;
+    deadEndpoints.erase(it);
+  }
+  LOG(INFO) << "Trying new endpoint: " << previousEndpoint.address().to_string()
+            << ":" << previousEndpoint.port() << " -> "
+            << activeEndpoint.address().to_string() << ":"
+            << activeEndpoint.port();
+  lastUnrepliedSendTime = time(NULL);
+}
+
+void MultiEndpointHandler::banEndpoint(const udp::endpoint& newEndpoint) {
+  LOG(INFO) << "Banning endpoint: " << newEndpoint;
+  bannedEndpoints.insert(newEndpoint);
+  if (activeEndpoint == newEndpoint) {
+    killEndpoint();
+  }
+  {
+    auto it = alternativeEndpoints.find(newEndpoint);
+    if (it != alternativeEndpoints.end()) {
+      alternativeEndpoints.erase(it);
+    }
+  }
+  {
+    auto it = deadEndpoints.find(newEndpoint);
+    if (it != deadEndpoints.end()) {
+      deadEndpoints.erase(it);
+    }
   }
 }
 

@@ -20,10 +20,15 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }
-  bool readyToSend() {
+  virtual bool readyToSend() {
     lock_guard<recursive_mutex> guard(mutex);
     // Make sure rpc(0,1) is finished
     for (const auto& it : outgoingRequests) {
+      if (it.first == SESSION_KEY_RPCID) {
+        return false;
+      }
+    }
+    for (const auto& it : outgoingReplies) {
       if (it.first == SESSION_KEY_RPCID) {
         return false;
       }
@@ -36,29 +41,13 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
     return cryptoHandler->canDecrypt() && cryptoHandler->canEncrypt();
   }
 
-  bool canDecodeMagicHeader(const std::string& magicHeader,
-                            const std::string& remainder) {
-    if (!cryptoHandler->canDecrypt()) {
-      // This must be the session key, try to dive into the packet and fetch the
-      // public key
-      return hasPublicKeyMatchInPayload(remainder);
-    }
-
-    auto result = cryptoHandler->decrypt(magicHeader);
-    if (result) {
-      if (*result == WGA_MAGIC) {
-        return true;
-      }
-    }
-    return false;
-  }
-
  protected:
   shared_ptr<CryptoHandler> cryptoHandler;
   virtual void addIncomingRequest(const IdPayload& idPayload);
   virtual void addIncomingReply(const RpcId& uid, const string& payload);
   virtual void send(const string& message);
-  bool hasPublicKeyMatchInPayload(const string& remainder);
+  virtual void sendAcknowledge(const RpcId& uid);
+  bool validatePacket(const RpcId& rpcId, const string& payload);
 };
 }  // namespace wga
 

@@ -169,7 +169,6 @@ vector<string> LocalIpFetcher::fetch(int port, bool udp) {
   if (localIps.empty()) {
     LOGFATAL << "No ip addresses";
   }
-  // return vector<string>(localIps.begin(), localIps.end());
-  return vector<string>();
+  return vector<string>(localIps.begin(), localIps.end());
 }
 }  // namespace wga
