@@ -52,7 +52,7 @@ class UserDetails extends React.Component<{ appState: AppState }, { [newKey: str
           }
           return new Uint8Array(match.map(byte => parseInt(byte, 16)));
         }
-        let privateKey = fromHexString(sha256(event.target.value));
+        let privateKey = fromHexString(sha256(event.target.value + "/" + this.props.appState.userId));
         let publicKey = new Uint8Array(sodium.crypto_scalarmult_BYTES);
         console.log(sodium);
         console.dir(sodium);
