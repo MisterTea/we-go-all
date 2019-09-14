@@ -57,6 +57,8 @@ class MyPeer {
 
   string getGameName() { return gameName; }
 
+  bool isHosting() { return hosting; }
+
  protected:
   string userId;
   PrivateKey privateKey;
@@ -78,6 +80,7 @@ class MyPeer {
   string gameName;
   string name;
   bool timeShiftInitialized;
+  bool hosting;
 
   void updateEndpointServer();
 };

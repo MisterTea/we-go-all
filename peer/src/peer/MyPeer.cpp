@@ -34,6 +34,14 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
   json result = json::parse(response->content.string());
   gameId = result["gameId"].get<string>();
   LOG(INFO) << "GOT GAME ID: " << gameId;
+
+  {
+    string path = string("/api/get_game_info/") + gameId;
+    auto response = client->request("GET", path);
+    FATAL_FAIL_HTTP(response);
+    json result = json::parse(response->content.string());
+    hosting = (result["hostId"].get<string>() == userId);
+  }
 }
 
 void MyPeer::shutdown() {
