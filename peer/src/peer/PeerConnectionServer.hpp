@@ -30,6 +30,9 @@ class PeerConnectionServer {
     if (socket.get() == NULL) {
       return;
     }
+    if (error == asio::error::operation_aborted) {
+      return;
+    }
     socket->async_receive_from(
         asio::buffer(data), sender_endpoint,
         [this](std::error_code ec, std::size_t bytes_recvd) {

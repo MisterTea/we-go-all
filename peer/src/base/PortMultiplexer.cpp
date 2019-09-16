@@ -17,9 +17,16 @@ void PortMultiplexer::closeSocket() {
 void PortMultiplexer::handleReceive(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
   lock_guard<recursive_mutex> guard(mut);
+  if (error == asio::error::operation_aborted) {
+    return;
+  }
   if (error.value()) {
     LOG(ERROR) << "Got error when trying to receive packet: " << error.value()
                << ": " << error.message();
+    localSocket->async_receive_from(
+        asio::buffer(receiveBuffer), receiveEndpoint,
+        std::bind(&PortMultiplexer::handleReceive, this, std::placeholders::_1,
+                  std::placeholders::_2));
     return;
   }
   VLOG(2) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
