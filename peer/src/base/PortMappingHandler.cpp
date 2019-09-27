@@ -147,9 +147,7 @@ int PortMappingHandler::mapPort(int destinationPort,
     }
   }
 
-  // Monte carlo some source ports
-  for (int a = 0; a < 1000; a++) {
-    int sourcePort = sourcePortDistribution(generator);
+  int sourcePort = destinationPort;
 
     LOG(INFO) << "TRYING TO ADD PORT MAPPING";
     LOG(INFO) << upnp_urls->controlURL << " / " << upnp_data->first.servicetype
@@ -161,8 +159,8 @@ int PortMappingHandler::mapPort(int destinationPort,
         lanAddress.c_str(), description.c_str(), "UDP", NULL, "86400");
 
     if (error == 718) {
-      LOG(INFO) << "Mapping conflicts with another mapping.  Will retry...";
-      continue;
+      LOG(ERROR) << "Mapping conflicts with another mapping.";
+      return -1;
     }
 
     if (error) {
@@ -176,9 +174,9 @@ int PortMappingHandler::mapPort(int destinationPort,
         lanAddress.c_str(), description.c_str(), "TCP", NULL, "86400");
 
     if (error == 718) {
-      LOG(INFO) << "Mapping conflicts with another mapping.  Will retry...";
+      LOG(ERROR) << "Mapping conflicts with another mapping.";
       unmapPort(sourcePort);
-      continue;
+      return -1;
     }
 
     if (error) {
@@ -190,10 +188,6 @@ int PortMappingHandler::mapPort(int destinationPort,
     LOG(INFO) << "Successfully mapped " << wanAddress << ":" << sourcePort
               << " to " << lanAddress << ":" << destinationPort;
     return sourcePort;
-  }
-
-  LOG(INFO) << "Ran out of ports to try";
-  return -1;
 }
 
 void PortMappingHandler::unmapPort(int sourcePort) {

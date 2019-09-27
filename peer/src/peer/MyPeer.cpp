@@ -271,6 +271,10 @@ void MyPeer::update(const asio::error_code& error) {
       }
       endpointHandler->replyOneWay(idPayload.id);
     }
+    if (endpointHandler->hasIncomingReply()) {
+      auto idPayload = endpointHandler->getFirstIncomingReply();
+      // We don't need to handle replies
+    }
   }
 
   counter++;

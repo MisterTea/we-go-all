@@ -87,6 +87,12 @@ class BiDirectionalRpc {
     lock_guard<recursive_mutex> guard(mutex);
     return incomingReplies.find(rpcId) != incomingReplies.end();
   }
+
+  bool hasProcessedReplyWithId(const RpcId& rpcId) {
+    lock_guard<recursive_mutex> guard(mutex);
+    return processedReplies.exists(rpcId);
+  }
+
   string consumeIncomingReplyWithId(const RpcId& rpcId) {
     lock_guard<recursive_mutex> guard(mutex);
     auto it = incomingReplies.find(rpcId);

@@ -30,12 +30,12 @@ void BiDirectionalRpc::shutdown() {
 void BiDirectionalRpc::initTimeShift() {
   // Send a bunch of heartbeats to stabilize any timeshift calculations
   // This has to be done in a separate thread from heartbeat()
-  for (int a = 0; a < 1000; a++) {
+  for (int a = 0; a < 100; a++) {
+    LOG(INFO) << "ON INITIAL PING: " << a;
     auto reqId = request("PING");
-    while (!hasIncomingReplyWithId(reqId)) {
+    while (!hasIncomingReplyWithId(reqId) && !hasProcessedReplyWithId(reqId)) {
       microsleep(1000);
     }
-    consumeIncomingReplyWithId(reqId);
   }
 }
 

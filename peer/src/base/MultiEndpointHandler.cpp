@@ -58,16 +58,23 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
   if (endpoint == activeEndpoint) {
     return true;
   }
+  LOG(INFO) << "RESCURRECTING ENDPOINT: " << endpoint;
   for (auto it = alternativeEndpoints.begin(); it != alternativeEndpoints.end();
        it++) {
     if (*it == endpoint) {
+      // Promote alternative to active
+      alternativeEndpoints.insert(activeEndpoint);
+      alternativeEndpoints.erase(endpoint);
+      activeEndpoint = endpoint;
       return true;
     }
   }
   for (auto it = deadEndpoints.begin(); it != deadEndpoints.end(); it++) {
     if (*it == endpoint) {
+      // Promote dead to active
       deadEndpoints.erase(it);
-      alternativeEndpoints.insert(*it);
+      alternativeEndpoints.insert(activeEndpoint);
+      activeEndpoint = endpoint;
       return true;
     }
   }
