@@ -256,7 +256,7 @@ void MyPeer::update(const asio::error_code& error) {
       continue;
     }
     auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
-    if (endpointHandler->hasIncomingRequest()) {
+    while(endpointHandler->hasIncomingRequest()) {
       auto idPayload = endpointHandler->getFirstIncomingRequest();
       MessageReader reader;
       reader.load(idPayload.payload);
@@ -271,7 +271,7 @@ void MyPeer::update(const asio::error_code& error) {
       }
       endpointHandler->replyOneWay(idPayload.id);
     }
-    if (endpointHandler->hasIncomingReply()) {
+    while(endpointHandler->hasIncomingReply()) {
       auto idPayload = endpointHandler->getFirstIncomingReply();
       // We don't need to handle replies
     }

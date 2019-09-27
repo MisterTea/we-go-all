@@ -45,7 +45,7 @@ void BiDirectionalRpc::heartbeat() {
   // received data, flush a lot of data out
   VLOG(1) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
-    VLOG(1) << "RESENDING MESSAGES: " << outgoingReplies.size() << " " << outgoingRequests.size();
+    LOG(INFO) << "RESENDING MESSAGES: " << outgoingReplies.size() << " " << outgoingRequests.size();
     resendRandomOutgoingMessage();
   } else if(readyToSend()) {
     VLOG(1) << "SENDING HEARTBEAT";

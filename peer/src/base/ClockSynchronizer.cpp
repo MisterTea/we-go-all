@@ -16,8 +16,8 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                                     int64_t requestReceiptTime,
                                     int64_t replySendTime,
                                     int64_t replyReceiveTime) {
-  static int count=0;
-  if (count < 20) {
+  static int count = 0;
+  if (count < 10) {
     count++;
     return;
   }
@@ -29,12 +29,16 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                        int64_t(offsetEstimator.getMean());
   int64_t ping = (replyReceiveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
+  if (ping < 0 || ping > 1000000) {
+    // TODO: Do something better here
+    return;
+  }
   VLOG(1) << "Time offset: " << timeOffset << " "
           << int64_t(offsetEstimator.getMean()) << " " << requestReceiptTime
           << " " << requestSendTime << " " << replyReceiveTime << " "
           << replySendTime << " " << ping_2 << endl;
   pingEstimator.addSample(double(ping));
-  VLOG(1) << "Ping: " << ping << " " << pingEstimator.getMean() << " " << pingEstimator.getVariance() << endl;
+  LOG(INFO) << "Ping: " << ping << " " << pingEstimator.getMean() << " " << pingEstimator.getVariance() << endl;
   offsetEstimator.addSample(double(timeOffset));
   auto oldTimeShift = timeHandler->getTimeShift();
   timeHandler->setTimeShift(int64_t(offsetEstimator.getMean()));
