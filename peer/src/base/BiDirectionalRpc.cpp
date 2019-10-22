@@ -75,7 +75,6 @@ void BiDirectionalRpc::resendRandomOutgoingMessage() {
     DRAW_FROM_UNORDERED(it, outgoingRequests);
     sendRequest(it->first, it->second);
   } else {
-    LOG(FATAL) << "Should never get here";
   }
 }
 
