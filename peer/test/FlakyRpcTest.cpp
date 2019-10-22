@@ -53,7 +53,7 @@ class FlakyRpcTest {
     for (const auto& it : servers) {
       it->finish();
     }
-    microsleep(1000*1000);
+    microsleep(1000 * 1000);
     for (const auto& it : servers) {
       it->closeSocket();
     }
@@ -227,12 +227,12 @@ class FlakyRpcTest {
   vector<shared_ptr<RpcServer>> servers;
 };
 
-TEST_CASE("FlakyRpcTest", "[FlakyRpcTest]") {
+TEST_CASE("FlakyRpcTest") {
   FlakyRpcTest testClass;
   LOG(INFO) << "SETTING UP";
   testClass.SetUp();
 
-  SECTION("Two nodes") {
+  SECTION("Two Nodes") {
     const int numNodes = 2;
     const int numTrials = 100;
     testClass.initFullyConnectedMesh(numNodes);
@@ -240,7 +240,7 @@ TEST_CASE("FlakyRpcTest", "[FlakyRpcTest]") {
     testClass.runTest(numTrials);
   }
 
-  SECTION("Three nodes") {
+  SECTION("Three Nodes") {
     const int numNodes = 3;
     const int numTrials = 100;
     testClass.initFullyConnectedMesh(numNodes);
@@ -248,7 +248,7 @@ TEST_CASE("FlakyRpcTest", "[FlakyRpcTest]") {
     testClass.runTest(numTrials);
   }
 
-  SECTION("Ten nodes") {
+  SECTION("Ten Nodes") {
     const int numNodes = 10;
     const int numTrials = 100;
     testClass.initFullyConnectedMesh(numNodes);

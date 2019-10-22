@@ -9,7 +9,7 @@ BiDirectionalRpc::BiDirectionalRpc()
     : processedReplies(128 * 1024),
       onBarrier(0),
       onId(0),
-      flaky(false),
+      flaky(ALL_RPC_FLAKY),
       shuttingDown(false),
       clockSynchronizer(GlobalClock::timeHandler) {}
 
@@ -45,9 +45,10 @@ void BiDirectionalRpc::heartbeat() {
   // received data, flush a lot of data out
   VLOG(1) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
-    LOG(INFO) << "RESENDING MESSAGES: " << outgoingReplies.size() << " " << outgoingRequests.size();
+    VLOG(1) << "RESENDING MESSAGES: " << outgoingReplies.size() << " "
+            << outgoingRequests.size();
     resendRandomOutgoingMessage();
-  } else if(readyToSend()) {
+  } else if (readyToSend()) {
     VLOG(1) << "SENDING HEARTBEAT";
     requestOneWay("PING");
   }
@@ -73,7 +74,7 @@ bool BiDirectionalRpc::receive(const string& message) {
   MessageReader reader;
   reader.load(message);
   RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
-  if ((flaky || ALL_RPC_FLAKY) && rand() % 10 == 0) {
+  if (flaky && (rand() % 10 == 0)) {
     // Pretend we never got the message
     VLOG(1) << "FLAKE";
   } else {
@@ -109,7 +110,7 @@ bool BiDirectionalRpc::receive(const string& message) {
         }
         VLOG(1) << "ACK UID " << uid.str();
         for (auto it = outgoingReplies.begin(); it != outgoingReplies.end();
-              it++) {
+             it++) {
           VLOG(1) << "REPLY UID " << it->first.str();
           if (it->first == uid) {
             clockSynchronizer.eraseRequestRecieveTime(it->first);
@@ -287,6 +288,7 @@ void BiDirectionalRpc::sendRequest(const RpcId& id, const string& payload) {
   writer.writePrimitive<unsigned char>(REQUEST);
   writer.writeClass<RpcId>(id);
   writer.writePrimitive<string>(payload);
+#if 0
   // Try to attach more requests to this packet
   int i = 0;
   while (!outgoingRequests.empty() &&
@@ -308,6 +310,7 @@ void BiDirectionalRpc::sendRequest(const RpcId& id, const string& payload) {
     writer.writePrimitive<string>(it->second);
   }
   VLOG(1) << "Attached " << i << " extra packets";
+#endif
   send(writer.finish());
 }
 
@@ -325,6 +328,7 @@ void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
   writer.writePrimitive<int64_t>(replyDuration.first);
   writer.writePrimitive<int64_t>(replyDuration.second);
   writer.writePrimitive<string>(payload);
+#if 0
   // Try to attach more replies to this packet
   int i = 0;
   while (!outgoingReplies.empty() && rpcsSent.size() < outgoingReplies.size()) {
@@ -348,6 +352,7 @@ void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
     writer.writePrimitive<string>(it->second);
   }
   VLOG(1) << "Attached " << i << " extra packets";
+#endif
   send(writer.finish());
 }
 

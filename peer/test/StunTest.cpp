@@ -124,7 +124,7 @@ static const vector<Stun> public_stuns({{
                                         }});
 
 //------------------------------------------------------------------------------
-TEST_CASE("StunTestSimple", "[StunTest]") {
+TEST_CASE("StunTestSimple") {
   using namespace std::chrono_literals;
 
   using Iterator = udp::resolver::iterator;
@@ -133,10 +133,11 @@ TEST_CASE("StunTestSimple", "[StunTest]") {
   udp::resolver resolver(ios);
   asio::steady_timer timer(ios);
 
-  vector<Stun> stuns = {{
-      "stun.l.google.com",
-      "19302",
-  },
+  vector<Stun> stuns = {
+      {
+          "stun.l.google.com",
+          "19302",
+      },
       {
           "stun1.l.google.com",
           "19302",
@@ -162,23 +163,21 @@ TEST_CASE("StunTestSimple", "[StunTest]") {
 
       if (!stun_client) return;
 
-      stun_client->reflect(*iter,
-                           [&](error_code e, udp::endpoint reflective_ep) {
-                             if (e.value()) {
-                              cout << "ERROR: " << stun.url << ": "
-                                  << e.message() << " "
-                                  << reflective_ep << endl;
-                             } else {
-                              cout << "FINISHED: " << stun.url << ": "
-                                  << reflective_ep << endl;
-                             }
+      stun_client->reflect(
+          *iter, [&](error_code e, udp::endpoint reflective_ep) {
+            if (e.value()) {
+              cout << "ERROR: " << stun.url << ": " << e.message() << " "
+                   << reflective_ep << endl;
+            } else {
+              cout << "FINISHED: " << stun.url << ": " << reflective_ep << endl;
+            }
 
-                             if (!e && --wait_for == 0) {
-                               timer.cancel();
-                               stun_client.reset();
-                               resolver.cancel();
-                             }
-                           });
+            if (!e && --wait_for == 0) {
+              timer.cancel();
+              stun_client.reset();
+              resolver.cancel();
+            }
+          });
     });
   }
 
@@ -202,4 +201,3 @@ TEST_CASE("StunTestSimple", "[StunTest]") {
   REQUIRE(wait_for == 0);
 }
 }  // namespace wga
-

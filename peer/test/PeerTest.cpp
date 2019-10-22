@@ -189,16 +189,16 @@ TEST_CASE("ProtocolTest", "[ProtocolTest]") {
   testClass.TearDown();
 }
 
-TEST_CASE("PeerTest", "[PeerTest]") {
+TEST_CASE("PeerTest") {
   LOG(INFO) << "STARTING GAME SERVER";
   PeerTest testClass;
   testClass.SetUp();
 
-  SECTION("Two Peers") { testClass.initGameServer(2); }
+  SECTION("TwoPeers") { testClass.initGameServer(2); }
 
-  SECTION("Four Peers") { testClass.initGameServer(4); }
+  SECTION("FourPeers") { testClass.initGameServer(4); }
 
-  SECTION("Four Peers Flaky") {
+  SECTION("FourPeersFlaky") {
     GlobalClock::addNoise();
     ALL_RPC_FLAKY = true;
     testClass.initGameServer(4);

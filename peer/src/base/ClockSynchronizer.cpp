@@ -38,7 +38,8 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
           << " " << requestSendTime << " " << replyReceiveTime << " "
           << replySendTime << " " << ping_2 << endl;
   pingEstimator.addSample(double(ping));
-  LOG(INFO) << "Ping: " << ping << " " << pingEstimator.getMean() << " " << pingEstimator.getVariance() << endl;
+  VLOG(1) << "Ping: " << ping << " " << pingEstimator.getMean() << " "
+          << pingEstimator.getVariance() << endl;
   offsetEstimator.addSample(double(timeOffset));
   auto oldTimeShift = timeHandler->getTimeShift();
   timeHandler->setTimeShift(int64_t(offsetEstimator.getMean()));

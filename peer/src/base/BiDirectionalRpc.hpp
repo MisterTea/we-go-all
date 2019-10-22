@@ -129,11 +129,14 @@ class BiDirectionalRpc {
         return true;
       }
     }
+#if 0
+    // The person we are sending a reply to may have already left
     for (const auto& it : outgoingReplies) {
       if (!it.second.empty()) {
         return true;
       }
     }
+#endif
     for (const auto& it : incomingReplies) {
       if (!it.second.empty()) {
         return true;
@@ -156,9 +159,7 @@ class BiDirectionalRpc {
     return shuttingDown;
   }
 
-  virtual bool readyToSend() {
-    return true;
-  }
+  virtual bool readyToSend() { return true; }
 
   void resendRandomOutgoingMessage();
 

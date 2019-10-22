@@ -10,24 +10,18 @@
 
 using namespace wga;
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   srand(1);
-
-  cxxopts::Options options("Peer", "Peer Program for WGA");
-  options.allow_unrecognised_options();
-  options.add_options()  //
-      ("stress", "Enable stress tests",
-       cxxopts::value<bool>()->default_value("false"))  //
-      ("v,verbose", "Log verbosity",
-       cxxopts::value<int>()->default_value("0"))  //
-      ;
-  auto params = options.parse(argc, argv);
 
   // Setup easylogging configurations
   el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
   defaultConf.setGlobally(el::ConfigurationType::ToStandardOutput, "true");
   defaultConf.setGlobally(el::ConfigurationType::ToFile, "true");
-  el::Loggers::setVerboseLevel(params["verbose"].as<int>());
+  el::Loggers::setVerboseLevel(0);
+  LOG(INFO) << argc;
+  for (int a = 0; a < argc; a++) {
+    LOG(INFO) << argv[a];
+  }
 
 #ifdef WIN32
   string logPath = "/tmp/wga_test_log";

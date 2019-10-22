@@ -58,7 +58,7 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
   if (endpoint == activeEndpoint) {
     return true;
   }
-  LOG(INFO) << "RESCURRECTING ENDPOINT: " << endpoint;
+  VLOG(1) << "RESCURRECTING ENDPOINT: " << endpoint;
   for (auto it = alternativeEndpoints.begin(); it != alternativeEndpoints.end();
        it++) {
     if (*it == endpoint) {

@@ -67,7 +67,7 @@ inline void simulate(shared_ptr<FakeTimeHandler> requesterTimeHandler,
   REQUIRE(sync.getOffset() == Approx(DRIFT * 1000).margin(200.0));
 }
 
-TEST_CASE("OneWay", "[ClockSynchronizer]") {
+TEST_CASE("ClockSynchronizerOneWay") {
   shared_ptr<FakeTimeHandler> requesterTimeHandler(new FakeTimeHandler());
   shared_ptr<FakeTimeHandler> responderTimeHandler(new FakeTimeHandler());
   ClockSynchronizer sync(requesterTimeHandler);
@@ -172,7 +172,7 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
           Approx(secondSync.getOffset()).margin(200.0));
 }
 
-TEST_CASE("TwoWay", "[ClockSynchronizer]") {
+TEST_CASE("ClockSynchronizerTwoWay") {
   shared_ptr<FakeTimeHandler> firstTimeHandler(new FakeTimeHandler());
   ClockSynchronizer firstSync(firstTimeHandler);
 
@@ -292,7 +292,7 @@ inline void simulateN(vector<shared_ptr<FakeTimeHandler>> timeHandlers,
   }
 }
 
-TEST_CASE("EightWay", "[ClockSynchronizer]") {
+TEST_CASE("ClockSynchronizerEightWay") {
   const int NUM_CLOCKS = 8;
 
   vector<shared_ptr<FakeTimeHandler>> timeHandlers;

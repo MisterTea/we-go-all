@@ -43,7 +43,8 @@ void EncryptedMultiEndpointHandler::reply(const RpcId& rpcId,
   lock_guard<recursive_mutex> guard(mutex);
 
   if (!readyToReceive()) {
-    LOGFATAL << "Got reply before we were ready, something went wrong " << readyToReceive();
+    LOGFATAL << "Got reply before we were ready, something went wrong "
+             << readyToReceive();
   }
   string encryptedPayload = cryptoHandler->encrypt(payload);
   MultiEndpointHandler::reply(rpcId, encryptedPayload);
@@ -64,7 +65,10 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
     PublicKey publicKey =
         CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
     if (publicKey != cryptoHandler->getOtherPublicKey()) {
-      LOG(ERROR) << "Somehow got the wrong public key: " << CryptoHandler::keyToString(publicKey) << " != " << CryptoHandler::keyToString(cryptoHandler->getOtherPublicKey());
+      LOG(ERROR) << "Somehow got the wrong public key: "
+                 << CryptoHandler::keyToString(publicKey) << " != "
+                 << CryptoHandler::keyToString(
+                        cryptoHandler->getOtherPublicKey());
       return;
     }
     EncryptedSessionKey encryptedSessionKey =
@@ -87,7 +91,7 @@ void EncryptedMultiEndpointHandler::addIncomingRequest(
   auto decryptedString = cryptoHandler->decrypt(idPayload.payload);
   if (!decryptedString) {
     // Corrupt message, ignore
-    LOG(ERROR) << "Got a corrupt packet: " << idPayload.payload;
+    VLOG(1) << "Got a corrupt packet: " << idPayload.payload;
     return;
   }
   IdPayload decryptedIdPayload = IdPayload(idPayload.id, *decryptedString);
@@ -127,7 +131,8 @@ void EncryptedMultiEndpointHandler::send(const string& message) {
   MultiEndpointHandler::send(messageWithHeader);
 }
 
-bool EncryptedMultiEndpointHandler::validatePacket(const RpcId& rpcId, const string& payload) {
+bool EncryptedMultiEndpointHandler::validatePacket(const RpcId& rpcId,
+                                                   const string& payload) {
   if (rpcId == SESSION_KEY_RPCID) {
     return true;
   }
