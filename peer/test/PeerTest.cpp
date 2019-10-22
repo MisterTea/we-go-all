@@ -128,9 +128,11 @@ class PeerTest {
 
   void peerTest() {
     vector<shared_ptr<MyPeer>> peers;
-    for (int a = 0; a < peers.size(); a++) {
-      shared_ptr<MyPeer>(new MyPeer(netEngine, names[a], keys[a].second,
-                                    11000 + a, "localhost", 20000, names[a]));
+    for (int a = 0; a < keys.size(); a++) {
+      auto peer = shared_ptr<MyPeer>(new MyPeer(netEngine, names[a],
+                                                keys[a].second, 11000 + a,
+                                                "localhost", 20000, names[a]));
+      peers.push_back(peer);
     };
     for (int a = 0; a < peers.size(); a++) {
       if (!a) {
@@ -139,7 +141,7 @@ class PeerTest {
         peers[a]->join();
       }
     }
-    LOG(INFO) << "STARTING PEERS";
+    LOG(INFO) << "STARTING PEERS: " << peers.size();
     for (auto it : peers) {
       it->start();
     }
@@ -149,20 +151,25 @@ class PeerTest {
         microsleep(1000 * 1000);
       }
     }
-    for (int a = 0; a < peers.size(); a++) {
-      peers[a]->updateState(200, {{std::string("button") + std::to_string(a),
-                                   std::to_string(a)}});
-    }
-    for (int a = 0; a < peers.size(); a++) {
-      unordered_map<string, string> state = peers[a]->getFullState(199);
-      for (int b = 0; b < peers.size(); b++) {
-        auto buttonName = std::string("button") + std::to_string(a);
-        REQUIRE(state.find(buttonName) != state.end());
-        REQUIRE(state.find(buttonName)->second == std::to_string(a));
+    for (int64_t timestamp = 200; timestamp < 4000; timestamp += 200) {
+      LOG(INFO) << "UPDATING STATE: " << timestamp;
+      for (int a = 0; a < peers.size(); a++) {
+        peers[a]->updateState(
+            timestamp,
+            {{std::string("button") + std::to_string(a), std::to_string(a)}});
+      }
+      for (int a = 0; a < peers.size(); a++) {
+        unordered_map<string, string> state =
+            peers[a]->getFullState(timestamp - 1);
+        for (int b = 0; b < peers.size(); b++) {
+          auto buttonName = std::string("button") + std::to_string(a);
+          REQUIRE(state.find(buttonName) != state.end());
+          REQUIRE(state.find(buttonName)->second == std::to_string(a));
+        }
       }
     }
-    microsleep(5 * 1000 * 1000);
-    for (int a = 0; a < (int(peers.size()) - 1); a++) {
+    microsleep(1000 * 1000);
+    for (int a = 0; a < int(peers.size()); a++) {
       peers[a]->shutdown();
     }
     for (auto &it : peers) {
@@ -170,6 +177,7 @@ class PeerTest {
         microsleep(1000 * 1000);
       }
     }
+    microsleep(5 * 1000 * 1000);
   }
 
   vector<pair<PublicKey, PrivateKey>> keys;

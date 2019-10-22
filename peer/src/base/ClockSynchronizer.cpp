@@ -16,7 +16,6 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                                     int64_t requestReceiptTime,
                                     int64_t replySendTime,
                                     int64_t replyReceiveTime) {
-  static int count = 0;
   if (count < 10) {
     count++;
     return;

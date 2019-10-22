@@ -11,7 +11,7 @@ namespace wga {
 class ClockSynchronizer {
  public:
   ClockSynchronizer(shared_ptr<TimeHandler> _timeHandler)
-      : timeHandler(_timeHandler) {}
+      : timeHandler(_timeHandler), count(0) {}
 
   int64_t createRequest(const RpcId& id) {
     auto now = timeHandler->currentTimeMicros();
@@ -73,6 +73,7 @@ class ClockSynchronizer {
   unordered_map<RpcId, int64_t> requestReceiveTimeMap;
   WelfordEstimator offsetEstimator;
   WelfordEstimator pingEstimator;
+  int64_t count;
 };
 }  // namespace wga
 

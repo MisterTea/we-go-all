@@ -15,8 +15,8 @@ class MessageWriter {
     packHandler.pack(t);
   }
 
-  template <typename K, typename V>
-  inline void writeMap(const map<K,V>& m) {
+  template <typename MAP>
+  inline void writeMap(const MAP& m) {
     packHandler.pack_map(uint32_t(m.size()));
     for (auto& it : m) {
       writePrimitive(it.first);

@@ -2,12 +2,15 @@
 
 namespace wga {
 void UdpBiDirectionalRpc::send(const string& message) {
+  string localMessage = message;  // Needed to keep message in RAM
   auto timer = shared_ptr<asio::steady_timer>(
       netEngine->createTimer(std::chrono::steady_clock::now() +
                              std::chrono::milliseconds(flaky ? 200 : 0)));
-  timer->async_wait([this, message, timer](const asio::error_code& error) {
-    netEngine->post([this, message, timer]() {
-      string localMessage = message;  // Needed to keep message in RAM
+  timer->async_wait([this, localMessage, timer](const asio::error_code& error) {
+    if (error) {
+      return;
+    }
+    netEngine->post([this, localMessage, timer]() {
       lock_guard<recursive_mutex> guard(this->mutex);
       VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
               << this->activeEndpoint;

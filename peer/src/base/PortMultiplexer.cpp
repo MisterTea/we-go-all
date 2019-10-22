@@ -16,19 +16,20 @@ void PortMultiplexer::closeSocket() {
 
 void PortMultiplexer::handleReceive(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
-  lock_guard<recursive_mutex> guard(mut);
   if (error == asio::error::operation_aborted) {
     return;
   }
   if (error.value()) {
-    LOG(ERROR) << "Got error when trying to receive packet: " << error.value()
-               << ": " << error.message();
+    LOG(ERROR) << "Got error when trying to receive packet on "
+               << receiveEndpoint << ": " << error.value() << ": "
+               << error.message();
     localSocket->async_receive_from(
         asio::buffer(receiveBuffer), receiveEndpoint,
         std::bind(&PortMultiplexer::handleReceive, this, std::placeholders::_1,
                   std::placeholders::_2));
     return;
   }
+  lock_guard<recursive_mutex> guard(mut);
   VLOG(2) << "GOT PACKET FROM " << receiveEndpoint << " WITH SIZE "
           << bytesTransferred;
   if (bytesTransferred < WGA_MAGIC.length()) {
@@ -65,7 +66,7 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
       if (recipient.get() == NULL) {
         LOG(ERROR) << "Could not find receipient";
       } else {
-        if(!recipient->receive(packetContents)) {
+        if (!recipient->receive(packetContents)) {
           recipient->banEndpoint(receiveEndpoint);
         }
       }

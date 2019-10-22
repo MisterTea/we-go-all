@@ -30,10 +30,21 @@ void BiDirectionalRpc::shutdown() {
 void BiDirectionalRpc::initTimeShift() {
   // Send a bunch of heartbeats to stabilize any timeshift calculations
   // This has to be done in a separate thread from heartbeat()
-  for (int a = 0; a < 100; a++) {
+  for (int a = 0; a < 20; a++) {
     LOG(INFO) << "ON INITIAL PING: " << a;
-    auto reqId = request("PING");
-    while (!hasIncomingReplyWithId(reqId) && !hasProcessedReplyWithId(reqId)) {
+    RpcId reqId;
+    {
+      lock_guard<recursive_mutex> guard(mutex);
+      reqId = request("PING");
+    }
+    while (true) {
+      {
+        lock_guard<recursive_mutex> guard(mutex);
+        if (hasIncomingReplyWithId(reqId) || hasProcessedReplyWithId(reqId)) {
+          break;
+        }
+      }
+      VLOG(1) << "WAITING ON REPLY: " << reqId.id;
       microsleep(1000);
     }
   }
@@ -55,8 +66,7 @@ void BiDirectionalRpc::heartbeat() {
 }
 
 void BiDirectionalRpc::resendRandomOutgoingMessage() {
-  if (!outgoingReplies.empty() &&
-      (outgoingRequests.empty() || rand() % 2 == 0)) {
+  if (!outgoingReplies.empty()) {
     // Re-send a random reply
     DRAW_FROM_UNORDERED(it, outgoingReplies);
     sendReply(it->first, it->second);
@@ -65,6 +75,7 @@ void BiDirectionalRpc::resendRandomOutgoingMessage() {
     DRAW_FROM_UNORDERED(it, outgoingRequests);
     sendRequest(it->first, it->second);
   } else {
+    LOG(FATAL) << "Should never get here";
   }
 }
 
@@ -74,9 +85,9 @@ bool BiDirectionalRpc::receive(const string& message) {
   MessageReader reader;
   reader.load(message);
   RpcHeader header = (RpcHeader)reader.readPrimitive<unsigned char>();
-  if (flaky && (rand() % 10 == 0)) {
+  if (flaky && (rand() % 100 == 0)) {
     // Pretend we never got the message
-    VLOG(1) << "FLAKE";
+    LOG(INFO) << "FLAKE";
   } else {
     VLOG(1) << "GOT PACKET WITH HEADER " << header;
     switch (header) {
@@ -212,6 +223,7 @@ void BiDirectionalRpc::handleReply(const RpcId& rpcId, const string& payload,
 }
 
 RpcId BiDirectionalRpc::request(const string& payload) {
+  lock_guard<recursive_mutex> guard(mutex);
   auto fullUuid = sole::uuid4();
   auto uuid = RpcId(onBarrier, fullUuid.cd);
   auto idPayload = IdPayload(uuid, payload);

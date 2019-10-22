@@ -4,6 +4,8 @@
 #include "EncryptedMultiEndpointHandler.hpp"
 #include "LocalIpFetcher.hpp"
 
+#define INPUT_SEND_WINDOW_SIZE (3)
+
 namespace wga {
 MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
                const PrivateKey& _privateKey, int _serverPort,
@@ -16,7 +18,8 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
       lobbyHost(_lobbyHost),
       lobbyPort(_lobbyPort),
       name(_name),
-      timeShiftInitialized(false) {
+      timeShiftInitialized(false),
+      updateCounter(0) {
   publicKey = CryptoHandler::makePublicFromPrivate(_privateKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(netEngine->startUdpServer(serverPort));
@@ -208,13 +211,15 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
 
 void MyPeer::update(const asio::error_code& error) {
   if (error == asio::error::operation_aborted) {
+    LOG(ERROR) << "PEER UPDATE FINISHED";
     return;
+  }
+  if (error) {
+    LOG(FATAL) << "Peer Update error: " << error.message();
   }
   lock_guard<recursive_mutex> guard(peerDataMutex);
 
-  static int counter = 0;
-
-  if (counter % 1000 == 0) {
+  if (updateCounter % 1000 == 0) {
     // Per-second update
     updateEndpointServer();
     LOG(INFO) << "UPDATING";
@@ -245,7 +250,7 @@ void MyPeer::update(const asio::error_code& error) {
     }
   }
 
-  if (counter % 100 == 0) {
+  if (updateCounter % 100 == 0) {
     VLOG(1) << "CALLING HEARTBEAT";
     rpcServer->heartbeat();
   }
@@ -256,34 +261,38 @@ void MyPeer::update(const asio::error_code& error) {
       continue;
     }
     auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
-    while(endpointHandler->hasIncomingRequest()) {
+    while (endpointHandler->hasIncomingRequest()) {
       auto idPayload = endpointHandler->getFirstIncomingRequest();
       MessageReader reader;
       reader.load(idPayload.payload);
-      int64_t startTime = reader.readPrimitive<int64_t>();
-      int64_t endTime = reader.readPrimitive<int64_t>();
-      map<string, string> m = reader.readMap<string, string>();
-      VLOG(1) << "GOT INPUTS: " << startTime << " " << endTime;
-      unordered_map<string, string> mHashed(m.begin(), m.end());
-      {
-        lock_guard<recursive_mutex> guard(peerDataMutex);
-        peerData[peerKey]->playerInputData.put(startTime, endTime, mHashed);
+      for (int a = 0; a < INPUT_SEND_WINDOW_SIZE; a++) {
+        int64_t startTime = reader.readPrimitive<int64_t>();
+        int64_t endTime = reader.readPrimitive<int64_t>();
+        unordered_map<string, string> m =
+            reader.readMap<unordered_map<string, string>>();
+        VLOG(1) << "GOT INPUTS: " << peerKey << " " << startTime << " " << endTime;
+        {
+          lock_guard<recursive_mutex> guard(peerDataMutex);
+          peerData[peerKey]->playerInputData.put(startTime, endTime, m);
+        }
       }
       endpointHandler->replyOneWay(idPayload.id);
     }
-    while(endpointHandler->hasIncomingReply()) {
+    while (endpointHandler->hasIncomingReply()) {
       auto idPayload = endpointHandler->getFirstIncomingReply();
       // We don't need to handle replies
     }
   }
 
-  counter++;
+  updateCounter++;
 
   if (!shuttingDown) {
     updateTimer->expires_at(updateTimer->expires_at() +
                             asio::chrono::milliseconds(1));
     updateTimer->async_wait(
         std::bind(&MyPeer::update, this, std::placeholders::_1));
+  } else {
+    LOG(ERROR) << "Shutting down, stopping updates";
   }
 }
 
@@ -331,18 +340,31 @@ vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
 }
 
 void MyPeer::updateState(int64_t timestamp,
-                         unordered_map<string, string> data) {
+                         const unordered_map<string, string>& data) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
   int64_t lastExpirationTime = myData->playerInputData.getExpirationTime();
   myData->playerInputData.put(lastExpirationTime, timestamp, data);
+  lastSendBuffer.push_front(make_tuple(lastExpirationTime, timestamp, data));
+  while (lastSendBuffer.size() > INPUT_SEND_WINDOW_SIZE) {
+    lastSendBuffer.pop_back();
+  }
   VLOG(1) << "CREATING CHRONOMAP FOR TIME: " << lastExpirationTime << " -> "
-            << timestamp;
+          << timestamp;
   MessageWriter writer;
   writer.start();
-  writer.writePrimitive(lastExpirationTime);
-  writer.writePrimitive(timestamp);
-  map<string, string> m(data.begin(), data.end());
-  writer.writeMap(m);
+  int numMaps = 0;
+  for (const auto& it : lastSendBuffer) {
+    writer.writePrimitive(get<0>(it) /*lastExpirationTime*/);
+    writer.writePrimitive(get<1>(it) /*timestamp*/);
+    writer.writeMap(get<2>(it) /*data*/);
+    numMaps++;
+  }
+  for (int a = numMaps; a < INPUT_SEND_WINDOW_SIZE; a++) {
+    writer.writePrimitive(get<0>(lastSendBuffer.back()) /*lastExpirationTime*/);
+    writer.writePrimitive(get<1>(lastSendBuffer.back()) /*timestamp*/);
+    writer.writeMap(get<2>(lastSendBuffer.back()) /*data*/);
+    numMaps++;
+  }
   string s = writer.finish();
   rpcServer->broadcast(s);
 }
@@ -354,6 +376,8 @@ unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
       lock_guard<recursive_mutex> guard(peerDataMutex);
       auto expirationTime = it.second->playerInputData.getExpirationTime();
       if (timestamp < expirationTime) {
+        VLOG(1) << "GOT STATE: " << it.first << " " << timestamp << " "
+                  << expirationTime;
         unordered_map<string, string> peerState =
             it.second->playerInputData.getAll(timestamp);
         state.insert(peerState.begin(), peerState.end());

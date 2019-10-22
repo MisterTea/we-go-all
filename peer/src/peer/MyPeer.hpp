@@ -35,7 +35,7 @@ class MyPeer {
 
   bool initialized();
 
-  void updateState(int64_t timestamp, unordered_map<string, string> data);
+  void updateState(int64_t timestamp, const unordered_map<string, string>& data);
 
   vector<string> getAllInputValues(int64_t timestamp, const string& key);
 
@@ -75,12 +75,14 @@ class MyPeer {
   shared_ptr<PlayerData> myData;
   shared_ptr<udp::socket> localSocket;
   shared_ptr<asio::steady_timer> updateTimer;
+  deque<tuple<int64_t, int64_t, unordered_map<string,string>>> lastSendBuffer;
   string lobbyHost;
   int lobbyPort;
   string gameName;
   string name;
   bool timeShiftInitialized;
   bool hosting;
+  int updateCounter;
 
   void updateEndpointServer();
 };

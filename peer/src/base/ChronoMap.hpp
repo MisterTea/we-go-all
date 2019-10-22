@@ -20,26 +20,23 @@ class ChronoMap {
     return false;
   }
 
-  void put(int64_t lastExpirationTime, int64_t newExpirationTime,
-           unordered_map<K, V> data) {
+  void put(int64_t startTime, int64_t endTime, unordered_map<K, V> data) {
     lock_guard<mutex> lk(dataReadyMutex);
-    if (lastExpirationTime < 0) {
+    if (startTime < 0) {
       LOGFATAL << "Tried to put before start time";
     }
-    if (lastExpirationTime < expirationTime) {
+    if (startTime < expirationTime) {
       VLOG(1) << "Tried to add a time interval that overlaps";
       return;
     }
-    if (lastExpirationTime >= newExpirationTime) {
-      LOGFATAL << "Invalid start/end time: " << lastExpirationTime << " "
-               << newExpirationTime;
+    if (startTime >= endTime) {
+      LOGFATAL << "Invalid start/end time: " << startTime << " " << endTime;
     }
-    if (lastExpirationTime != expirationTime) {
+    if (startTime != expirationTime) {
       futureData.insert(
-          make_pair(lastExpirationTime,
-                    make_tuple(lastExpirationTime, newExpirationTime, data)));
+          make_pair(startTime, make_tuple(startTime, endTime, data)));
     } else {
-      addNextTimeBlock(lastExpirationTime, newExpirationTime, data);
+      addNextTimeBlock(startTime, endTime, data);
     }
   }
 
@@ -115,26 +112,26 @@ class ChronoMap {
   int64_t expirationTime;
   map<int64_t, tuple<int64_t, int64_t, unordered_map<K, V>>> futureData;
 
-  void addNextTimeBlock(int64_t lastExpirationTime, int64_t newExpirationTime,
+  void addNextTimeBlock(int64_t startTime, int64_t endTime,
                         unordered_map<K, V> newData) {
-    if (expirationTime != lastExpirationTime) {
+    if (expirationTime != startTime) {
       LOGFATAL << "Tried to add an invalid time block";
     }
-    if (data.empty() && lastExpirationTime != 0) {
+    if (data.empty() && startTime != 0) {
       LOGFATAL << "Inserting into an empty map should always use 0";
     }
 
     for (auto& it : newData) {
       if (data.find(it.first) == data.end()) {
         // New key.
-        data[it.first] = {{lastExpirationTime, it.second}};
+        data[it.first] = {{startTime, it.second}};
       } else if (!(data[it.first].rbegin()->second == it.second)) {
         // Updated data.  Add new information.
-        data[it.first][lastExpirationTime] = it.second;
+        data[it.first][startTime] = it.second;
       }
     }
 
-    expirationTime = newExpirationTime;
+    expirationTime = endTime;
     dataReady.notify_all();
 
     if (futureData.empty()) {

@@ -46,9 +46,9 @@ class SingleGameServer {
       LOG(ERROR) << "Could not find peer: " << id;
       return;
     }
-    LOG(INFO) << "SETTING ENDPOINTS";
+    VLOG(1) << "SETTING ENDPOINTS";
     for (auto& endpoint : endpoints) {
-      LOG(INFO) << "SETTING ENDPOINT: " << endpoint;
+      VLOG(1) << "SETTING ENDPOINT: " << endpoint;
       it->second.endpoints.insert(endpoint);
     }
   }
