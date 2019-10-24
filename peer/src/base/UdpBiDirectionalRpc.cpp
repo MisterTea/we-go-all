@@ -3,9 +3,19 @@
 namespace wga {
 void UdpBiDirectionalRpc::send(const string& message) {
   string localMessage = message;  // Needed to keep message in RAM
+  int64_t delay = 0;
+  if (flaky) {
+    while (true) {
+      int64_t number = int64_t(flakyDelayDist(generator));
+      if (number > 0 && number < 300) {
+        delay = number;
+        break;
+      }
+    }
+  }
   auto timer = shared_ptr<asio::steady_timer>(
       netEngine->createTimer(std::chrono::steady_clock::now() +
-                             std::chrono::milliseconds(flaky ? 200 : 0)));
+                             std::chrono::milliseconds(delay)));
   timer->async_wait([this, localMessage, timer](const asio::error_code& error) {
     if (error) {
       return;

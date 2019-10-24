@@ -9,7 +9,7 @@ class UdpBiDirectionalRpc : public BiDirectionalRpc {
  public:
   UdpBiDirectionalRpc(shared_ptr<NetEngine> _netEngine,
                       shared_ptr<udp::socket> _localSocket)
-      : netEngine(_netEngine), localSocket(_localSocket) {}
+      : netEngine(_netEngine), localSocket(_localSocket), flakyDelayDist(100,50) {}
 
   virtual ~UdpBiDirectionalRpc() {}
 
@@ -23,6 +23,8 @@ class UdpBiDirectionalRpc : public BiDirectionalRpc {
   shared_ptr<NetEngine> netEngine;
   shared_ptr<udp::socket> localSocket;
   udp::endpoint activeEndpoint;
+  normal_distribution<double> flakyDelayDist;
+  default_random_engine generator;
 };
 }  // namespace wga
 
