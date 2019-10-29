@@ -3,6 +3,7 @@
 #include "CryptoHandler.hpp"
 #include "EncryptedMultiEndpointHandler.hpp"
 #include "LocalIpFetcher.hpp"
+#include "StunClient.hpp"
 
 #define INPUT_SEND_WINDOW_SIZE (3)
 
@@ -20,6 +21,100 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
       name(_name),
       timeShiftInitialized(false),
       updateCounter(0) {
+  {
+    // Use STUN to get public IPs
+    LOG(INFO) << "GETTTING PUBLIC IPs";
+
+    using namespace std::chrono_literals;
+
+    using Iterator = udp::resolver::iterator;
+
+    asio::io_service ios;
+    udp::resolver resolver(ios);
+    asio::steady_timer timer(ios);
+
+    struct Stun {
+      std::string url;
+      std::string port;
+    };
+
+    vector<Stun> stuns = {
+        {
+            "stun.l.google.com",
+            "19302",
+        },
+        {
+            "stun1.l.google.com",
+            "19302",
+        },
+    };
+
+    udp::socket socket_to_reflect(ios, udp::endpoint(udp::v4(), serverPort));
+    auto stun_client =
+        std::unique_ptr<StunClient>(new StunClient(socket_to_reflect));
+
+    constexpr int N = 2;
+    int wait_for = N;
+
+    for (const auto& stun : stuns) {
+      udp::resolver::query q(stun.url, stun.port);
+      resolver.async_resolve(q, [&](error_code e, Iterator iter) {
+        if (e || iter == Iterator()) {
+          if (e != asio::error::operation_aborted) {
+            cout << "Can't resolve " << stun.url << " " << e.message() << endl;
+          }
+          return;
+        }
+
+        stun_client->reflect(*iter, [&](error_code e,
+                                        udp::endpoint reflective_ep) {
+          if (e.value()) {
+            cout << "ERROR: " << stun.url << ": " << e.message() << " "
+                 << reflective_ep << endl;
+          } else {
+            cout << "FINISHED: " << stun.url << ": " << reflective_ep << endl;
+            stunEndpoints.insert(reflective_ep);
+          }
+
+          if (!e && --wait_for == 0) {
+            timer.cancel();
+            stun_client.reset();
+            resolver.cancel();
+          }
+        });
+      });
+    }
+
+    timer.expires_from_now(5s);
+    timer.async_wait([&](error_code ec) {
+      stun_client.reset();
+      resolver.cancel();
+    });
+
+    ios.run();
+
+    if (wait_for != 0) {
+      std::cerr << "stun_client test failed: make sure at least " << N
+                << " stun servers are running on the following addresses."
+                << std::endl;
+      for (const auto& stun : stuns) {
+        std::cerr << "    " << stun.url << ":" << stun.port << std::endl;
+      }
+    } else {
+      int port = -1;
+      for (const auto& it : stunEndpoints) {
+        if (port == -1) {
+          port = it.port();
+        } else {
+          if (port != it.port()) {
+            LOG(ERROR) << "Stun returned two different ports: Likely a "
+                          "symmetric NAT.  It may be difficult to play games.";
+          }
+        }
+      }
+    }
+  }
+
   publicKey = CryptoHandler::makePublicFromPrivate(_privateKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(netEngine->startUdpServer(serverPort));
@@ -116,6 +211,10 @@ void MyPeer::updateEndpointServer() {
   auto serverEndpoint = serverEndpoints[rand() % serverEndpoints.size()];
   auto localIps = LocalIpFetcher::fetch(serverPort, true);
   string ipAddressPacket = userId;
+  for (const auto& stunIp : stunEndpoints) {
+    ipAddressPacket +=
+        "_" + stunIp.address().to_string() + ":" + to_string(stunIp.port());
+  }
   for (auto it : localIps) {
     ipAddressPacket += "_" + it + ":" + to_string(serverPort);
   }
@@ -270,7 +369,8 @@ void MyPeer::update(const asio::error_code& error) {
         int64_t endTime = reader.readPrimitive<int64_t>();
         unordered_map<string, string> m =
             reader.readMap<unordered_map<string, string>>();
-        VLOG(1) << "GOT INPUTS: " << peerKey << " " << startTime << " " << endTime;
+        VLOG(1) << "GOT INPUTS: " << peerKey << " " << startTime << " "
+                << endTime;
         {
           lock_guard<recursive_mutex> guard(peerDataMutex);
           peerData[peerKey]->playerInputData.put(startTime, endTime, m);
@@ -377,7 +477,7 @@ unordered_map<string, string> MyPeer::getFullState(int64_t timestamp) {
       auto expirationTime = it.second->playerInputData.getExpirationTime();
       if (timestamp < expirationTime) {
         VLOG(1) << "GOT STATE: " << it.first << " " << timestamp << " "
-                  << expirationTime;
+                << expirationTime;
         unordered_map<string, string> peerState =
             it.second->playerInputData.getAll(timestamp);
         state.insert(peerState.begin(), peerState.end());

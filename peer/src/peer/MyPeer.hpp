@@ -83,6 +83,7 @@ class MyPeer {
   bool timeShiftInitialized;
   bool hosting;
   int updateCounter;
+  set<udp::endpoint> stunEndpoints;
 
   void updateEndpointServer();
 };
