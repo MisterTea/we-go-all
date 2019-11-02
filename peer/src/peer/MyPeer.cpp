@@ -40,11 +40,11 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
 
     vector<Stun> stuns = {
         {
-            "stun.l.google.com",
+            "stun1.l.google.com",
             "19302",
         },
         {
-            "stun1.l.google.com",
+            "stun2.l.google.com",
             "19302",
         },
     };
@@ -100,6 +100,7 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
       for (const auto& stun : stuns) {
         std::cerr << "    " << stun.url << ":" << stun.port << std::endl;
       }
+      LOG(FATAL) << "Stun test failed.  Did not receive packets from STUN server";
     } else {
       int port = -1;
       for (const auto& it : stunEndpoints) {
