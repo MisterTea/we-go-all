@@ -76,6 +76,7 @@
 #include "nlohmann/json.hpp"
 #include "sole/sole.hpp"
 
+#pragma warning(disable : 4996) //_CRT_SECURE_NO_WARNINGS
 #include "SimpleWebServer/client_http.hpp"
 #include "SimpleWebServer/server_http.hpp"
 

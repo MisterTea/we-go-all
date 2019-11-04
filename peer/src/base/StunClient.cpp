@@ -388,7 +388,7 @@ struct StunClient::Request {
 
   void exec(asio::error_code error, Endpoint reflected_endpoint) {
     timer.cancel();
-    auto h = move(handler);
+    auto h = handler;
     ios.post([=]() { h(error, reflected_endpoint); });
   }
 };
@@ -454,11 +454,12 @@ void StunClient::reflect(Endpoint server_endpoint, Handler handler) {
   for (auto& i : id) i = rand();
 
   auto request = make_shared<Request>(_socket.get_io_service(), id,
-                                      server_endpoint, move(handler));
+                                      server_endpoint, handler);
 
   auto ri = _state->requests.find(server_endpoint);
 
   if (ri != _state->requests.end()) {
+    LOG(INFO) << "Tried to call stunclient on the same endpoint twice: " << server_endpoint;
     return execute(ri, asio::error::operation_aborted);
   }
 
@@ -476,10 +477,10 @@ void StunClient::start_sending(RequestPtr request) {
   lock_guard<recursive_mutex> guard(_state->mutex);
   static const uint16_t size = 0;
 
-  auto& buf = request->tx_buffer;
-  buf.resize(HEADER_SIZE, '\0');
+  shared_ptr<vector<unsigned char>> buf = make_shared<vector<unsigned char>>();
+  buf->resize(HEADER_SIZE, '\0');
 
-  uint8_t* writer = &buf[0];
+  uint8_t* writer = &(*buf)[0];
   uint16_t swappedBind = htons(BIND_METHOD);
   memcpy(writer, &swappedBind, sizeof(uint16_t));
   writer += sizeof(uint16_t);
@@ -491,26 +492,33 @@ void StunClient::start_sending(RequestPtr request) {
   writer += sizeof(uint32_t);
   memcpy(writer, request->id.data(), request->id.size());
   writer += request->id.size();
-  if (int(writer - &buf[0]) != HEADER_SIZE) {
-    LOG(FATAL) << "Invalid header size: " << int(writer - &buf[0]) << endl;
+  if (int(writer - &(*buf)[0]) != HEADER_SIZE) {
+    LOG(FATAL) << "Invalid header size: " << int(writer - &(*buf)[0]) << endl;
   }
 
   auto state = _state;
-  _socket.async_send_to(asio::buffer(buf), request->tx_endpoint,
-                        [this, state, request](asio::error_code error, size_t) {
+  auto asioBuffer = asio::buffer(*buf);
+  _socket.async_send_to(asioBuffer, request->tx_endpoint,
+                        [this, buf, state, request](asio::error_code error, size_t size) {
                           lock_guard<recursive_mutex> guard(state->mutex);
-                          on_send(error, move(request));
+                          on_send(error, request);
                         });
 }
 
 //------------------------------------------------------------------------------
 void StunClient::on_send(asio::error_code ec, RequestPtr request) {
   if (!request->handler) {
+    LOG(ERROR) << "MISSING HANDLER";
     return;
   }
 
   if (ec == asio::error::operation_aborted) {
+    LOG(ERROR) << "OPERATION ABORTED";
     return;
+  }
+
+  if (ec) {
+    LOG(ERROR) << "SENDING FAILED: " << ec.message();
   }
 
   uint64_t timeout = 250 * (2 << request->resend_count++);
@@ -522,8 +530,11 @@ void StunClient::on_send(asio::error_code ec, RequestPtr request) {
       return;
     }
     lock_guard<recursive_mutex> guard(state->mutex);
-    if (!request->handler) return;
-    start_sending(move(request));
+    if (!request->handler) {
+      LOG(ERROR) << "MISSING HANDLER";
+      return;
+    }
+    start_sending(request);
   });
 }
 
@@ -532,7 +543,7 @@ void StunClient::start_receiving(StatePtr state) {
   _socket.async_receive_from(asio::buffer(state->rx_buffer), state->rx_endpoint,
                              [this, state](asio::error_code error, size_t size) {
                                lock_guard<recursive_mutex> guard(state->mutex);
-                               on_recv(error, size, move(state));
+                               on_recv(error, size, state);
                              });
 }
 
@@ -545,17 +556,19 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   auto& rx_buf = state->rx_buffer;
 
   if (error) {
+    LOG(ERROR) << "GOT AN ERROR ON RECEIVE: " << error;
     return state->destroy_requests(error);
   }
 
   auto request_i = _state->requests.find(state->rx_endpoint);
 
   if (request_i == _state->requests.end()) {
-    return start_receiving(move(state));
+    return start_receiving(state);
   }
 
   if (size < HEADER_SIZE) {
-    if (--_request_count) start_receiving(move(state));
+    if (--_request_count) start_receiving(state);
+    LOG(ERROR) << "Invalid size of return packet";
     return execute(request_i, asio::error::fault);
   }
 
@@ -570,29 +583,30 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   header_d.skip(12);
 
   if (header_d.error()) {
-    if (--_request_count) start_receiving(move(state));
-    // TODO: Better error mapping.
+    if (--_request_count) start_receiving(state);
+    LOG(ERROR) << "Error in stun response decode: " << header_d.error();
     return execute(request_i, asio::error::operation_not_supported);
   }
 
   if (plex != bitset<2>("00")) {
-    return start_receiving(move(state));
+    return start_receiving(state);
   }
 
   if (cookie != COOKIE) {
-    if (--_request_count) start_receiving(move(state));
-    // TODO: Better error mapping.
+    if (--_request_count) start_receiving(state);
+    LOG(ERROR) << "Cookie doesn't match";
     return execute(request_i, asio::error::fault);
   }
 
   if (method != BIND_METHOD) {
-    if (--_request_count) start_receiving(move(state));
+    if (--_request_count) start_receiving(state);
+    LOG(ERROR) << "Method doesn't match";
     return execute(request_i, asio::error::operation_not_supported);
   }
 
   if (class_ != SUCCESS_CLASS) {
-    if (--_request_count) start_receiving(move(state));
-    // TODO: Better error mapping.
+    if (--_request_count) start_receiving(state);
+    LOG(ERROR) << "STUN did not succeed: " << class_;
     return execute(request_i, asio::error::fault);
   }
 
@@ -623,7 +637,7 @@ void StunClient::on_recv(asio::error_code error, size_t size, StatePtr state) {
   }
 
   if (--_request_count) {
-    start_receiving(move(state));
+    start_receiving(state);
   }
 
   return;
@@ -633,6 +647,9 @@ void StunClient::execute(Requests::iterator ri, asio::error_code error,
                          Endpoint endpoint) {
   if (error && !(endpoint == Endpoint())) {
     LOG(FATAL) << "Error: " << error;
+  }
+  else if (error) {
+    LOG(ERROR) << "Error: " << error.message();
   }
   auto r = ri->second;
   _state->requests.erase(ri);
