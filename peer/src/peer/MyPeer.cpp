@@ -57,7 +57,7 @@ MyPeer::MyPeer(shared_ptr<NetEngine> _netEngine, const string& _userId,
     int wait_for = N;
 
     for (const auto& stun : stuns) {
-      udp::resolver::query q(stun.url, stun.port);
+      udp::resolver::query q(udp::v4(), stun.url, stun.port);
       resolver.async_resolve(q, [&](error_code e, Iterator iter) {
         if (e || iter == Iterator()) {
           if (e != asio::error::operation_aborted) {
