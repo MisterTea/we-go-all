@@ -26,7 +26,9 @@ class MessageReader {
   template <typename T>
   inline T readPrimitive() {
     msgpack::object_handle oh;
-    FATAL_IF_FALSE(unpackHandler.next(oh));
+    if (!unpackHandler.next(oh)) {
+      throw std::runtime_error("Read failed");
+    }
     T t = oh.get().convert();
     return t;
   }

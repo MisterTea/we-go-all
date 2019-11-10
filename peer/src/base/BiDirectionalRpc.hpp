@@ -147,11 +147,11 @@ class BiDirectionalRpc {
 
   pair<double, double> getLatency() {
     return make_pair(clockSynchronizer.getPing(),
-                     clockSynchronizer.getHalfPingUpperBound());
+                     clockSynchronizer.getHalfPingUpperBound(1));
   }
 
   double getHalfPingUpperBound() {
-    return clockSynchronizer.getHalfPingUpperBound();
+    return clockSynchronizer.getHalfPingUpperBound(1);
   }
 
   inline bool isShuttingDown() {
@@ -186,8 +186,8 @@ class BiDirectionalRpc {
   virtual void handleReply(const RpcId& rpcId, const string& payload,
                            int64_t requestReceiveTime, int64_t replySendTime);
   void tryToSendBarrier();
-  void sendRequest(const RpcId& id, const string& payload);
-  void sendReply(const RpcId& id, const string& payload);
+  void sendRequest(const RpcId& id, const string& payload, bool batch);
+  void sendReply(const RpcId& id, const string& payload, bool batch);
   virtual void sendAcknowledge(const RpcId& uid);
   virtual void addIncomingRequest(const IdPayload& idPayload);
   virtual void addIncomingReply(const RpcId& uid, const string& payload) {

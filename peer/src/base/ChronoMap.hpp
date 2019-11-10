@@ -87,6 +87,21 @@ class ChronoMap {
     return retval;
   }
 
+  unordered_map<K, V> getChanges(unordered_map<K, V> futureData) const {
+    unordered_map<K, V> changes;
+    lock_guard<mutex> lk(dataReadyMutex);
+    {
+      for (auto& it : futureData) {
+        auto itInData = data.find(it.first);
+        if (itInData == data.end() || itInData->second.rbegin()->second != it.second) {
+          LOG(INFO) << "GOT NEW VALUE: " << it.first << " = " << it.second;
+          changes[it.first] = it.second;
+        }
+      }
+    }
+    return changes;
+  }
+
   V getOrDie(int64_t timestamp, const K& key) const {
     auto v = get(timestamp, key);
     if (v == nullopt) {

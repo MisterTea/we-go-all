@@ -370,7 +370,7 @@ void MyPeer::update(const asio::error_code& error) {
         int64_t endTime = reader.readPrimitive<int64_t>();
         unordered_map<string, string> m =
             reader.readMap<unordered_map<string, string>>();
-        VLOG(1) << "GOT INPUTS: " << peerKey << " " << startTime << " "
+        LOG_EVERY_N(60, INFO) << "GOT INPUTS: " << peerKey << " " << startTime << " "
                 << endTime;
         {
           lock_guard<recursive_mutex> guard(peerDataMutex);
@@ -425,6 +425,7 @@ vector<string> MyPeer::getAllInputValues(int64_t timestamp, const string& key) {
   vector<string> values;
   for (auto& it : peerData) {
     while (true) {
+      LOG_EVERY_N(60, INFO) << "WAITING FOR EXPIRATION TIME: " << timestamp << " > " << it.second->playerInputData.getExpirationTime();
       if (it.second->playerInputData.waitForExpirationTime(timestamp)) {
         lock_guard<recursive_mutex> guard(peerDataMutex);
         values.push_back(it.second->playerInputData.getOrDie(timestamp, key));
@@ -444,8 +445,9 @@ void MyPeer::updateState(int64_t timestamp,
                          const unordered_map<string, string>& data) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
   int64_t lastExpirationTime = myData->playerInputData.getExpirationTime();
-  myData->playerInputData.put(lastExpirationTime, timestamp, data);
-  lastSendBuffer.push_front(make_tuple(lastExpirationTime, timestamp, data));
+  auto changedData = myData->playerInputData.getChanges(data);
+  myData->playerInputData.put(lastExpirationTime, timestamp, changedData);
+  lastSendBuffer.push_front(make_tuple(lastExpirationTime, timestamp, changedData));
   while (lastSendBuffer.size() > INPUT_SEND_WINDOW_SIZE) {
     lastSendBuffer.pop_back();
   }

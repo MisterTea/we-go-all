@@ -54,13 +54,13 @@ void BiDirectionalRpc::heartbeat() {
   lock_guard<recursive_mutex> guard(mutex);
   // TODO: If the outgoingReplies/requests is high, and we have recently
   // received data, flush a lot of data out
-  VLOG(1) << "BEAT: " << int64_t(this);
+  LOG(INFO) << "BEAT: " << int64_t(this);
   if (!outgoingReplies.empty() || !outgoingRequests.empty()) {
-    VLOG(1) << "RESENDING MESSAGES: " << outgoingReplies.size() << " "
-            << outgoingRequests.size();
+    LOG(INFO) << "RESENDING MESSAGES: " << outgoingRequests.size() << " "
+            << outgoingReplies.size();
     resendRandomOutgoingMessage();
   } else if (readyToSend()) {
-    VLOG(1) << "SENDING HEARTBEAT";
+    LOG(INFO) << "SENDING HEARTBEAT";
     requestOneWay("PING");
   }
 }
@@ -69,11 +69,11 @@ void BiDirectionalRpc::resendRandomOutgoingMessage() {
   if (!outgoingReplies.empty()) {
     // Re-send a random reply
     DRAW_FROM_UNORDERED(it, outgoingReplies);
-    sendReply(it->first, it->second);
+    sendReply(it->first, it->second, true);
   } else if (!outgoingRequests.empty()) {
     // Re-send a random request
     DRAW_FROM_UNORDERED(it, outgoingRequests);
-    sendRequest(it->first, it->second);
+    sendRequest(it->first, it->second, true);
   } else {
   }
 }
@@ -161,7 +161,7 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
       if (it.first == rpcId) {
         // We already processed this request.  Send the reply again
         skip = true;
-        sendReply(it.first, it.second);
+        sendReply(it.first, it.second, false);
         break;
       }
     }
@@ -246,7 +246,7 @@ void BiDirectionalRpc::requestWithId(const IdPayload& idPayload) {
     // We can send the request immediately
     outgoingRequests[idPayload.id] = idPayload.payload;
     clockSynchronizer.createRequest(idPayload.id);
-    sendRequest(idPayload.id, idPayload.payload);
+    sendRequest(idPayload.id, idPayload.payload, false);
   } else {
     // We have to wait for existing requests from an older barrier
     delayedRequests[idPayload.id] = idPayload.payload;
@@ -261,7 +261,7 @@ void BiDirectionalRpc::reply(const RpcId& rpcId, const string& payload) {
   }
   incomingRequests.erase(it);
   outgoingReplies[rpcId] = payload;
-  sendReply(rpcId, payload);
+  sendReply(rpcId, payload, false);
 }
 
 void BiDirectionalRpc::tryToSendBarrier() {
@@ -280,7 +280,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
       if (it->first.barrier == lowestBarrier) {
         outgoingRequests[it->first] = it->second;
         clockSynchronizer.createRequest(it->first);
-        sendRequest(it->first, it->second);
+        sendRequest(it->first, it->second, false);
         it = delayedRequests.erase(it);
       } else {
         it++;
@@ -289,7 +289,7 @@ void BiDirectionalRpc::tryToSendBarrier() {
   }
 }
 
-void BiDirectionalRpc::sendRequest(const RpcId& id, const string& payload) {
+void BiDirectionalRpc::sendRequest(const RpcId& id, const string& payload, bool batch) {
   VLOG(1) << "SENDING REQUEST: " << id.str();
   MessageWriter writer;
   writer.start();
@@ -299,33 +299,33 @@ void BiDirectionalRpc::sendRequest(const RpcId& id, const string& payload) {
   writer.writePrimitive<unsigned char>(REQUEST);
   writer.writeClass<RpcId>(id);
   writer.writePrimitive<string>(payload);
-#if 0
-  // Try to attach more requests to this packet
-  int i = 0;
-  while (!outgoingRequests.empty() &&
-         rpcsSent.size() < outgoingRequests.size()) {
-    DRAW_FROM_UNORDERED(it, outgoingRequests);
-    if (rpcsSent.find(it->first) != rpcsSent.end()) {
-      // Drew an rpc that's already in the packet.  Just bail for now, maybe in
-      // the future do something more clever.
-      break;
+  if (batch) {
+    // Try to attach more requests to this packet
+    int i = 0;
+    while (!outgoingRequests.empty() &&
+      rpcsSent.size() < outgoingRequests.size()) {
+      DRAW_FROM_UNORDERED(it, outgoingRequests);
+      if (rpcsSent.find(it->first) != rpcsSent.end()) {
+        // Drew an rpc that's already in the packet.  Just bail for now, maybe in
+        // the future do something more clever.
+        break;
+      }
+      int size = int(sizeof(RpcId) + it->second.length());
+      if (size + writer.size() > 400) {
+        // Too big
+        break;
+      }
+      i++;
+      rpcsSent.insert(it->first);
+      writer.writeClass<RpcId>(it->first);
+      writer.writePrimitive<string>(it->second);
     }
-    int size = int(sizeof(RpcId) + it->second.length());
-    if (size + writer.size() > 400) {
-      // Too big
-      break;
-    }
-    i++;
-    rpcsSent.insert(it->first);
-    writer.writeClass<RpcId>(it->first);
-    writer.writePrimitive<string>(it->second);
+    VLOG(1) << "Attached " << i << " extra packets";
   }
-  VLOG(1) << "Attached " << i << " extra packets";
-#endif
   send(writer.finish());
 }
 
-void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
+void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload, bool batch) {
   lock_guard<recursive_mutex> guard(mutex);
   VLOG(1) << "SENDING REPLY: " << id.str();
   set<RpcId> rpcsSent;
@@ -339,31 +339,31 @@ void BiDirectionalRpc::sendReply(const RpcId& id, const string& payload) {
   writer.writePrimitive<int64_t>(replyDuration.first);
   writer.writePrimitive<int64_t>(replyDuration.second);
   writer.writePrimitive<string>(payload);
-#if 0
-  // Try to attach more replies to this packet
-  int i = 0;
-  while (!outgoingReplies.empty() && rpcsSent.size() < outgoingReplies.size()) {
-    DRAW_FROM_UNORDERED(it, outgoingReplies);
-    if (rpcsSent.find(it->first) != rpcsSent.end()) {
-      // Drew an rpc that's already in the packet.  Just bail for now, maybe in
-      // the future do something more clever.
-      break;
+  if (batch) {
+    // Try to attach more replies to this packet
+    int i = 0;
+    while (!outgoingReplies.empty() && rpcsSent.size() < outgoingReplies.size()) {
+      DRAW_FROM_UNORDERED(it, outgoingReplies);
+      if (rpcsSent.find(it->first) != rpcsSent.end()) {
+        // Drew an rpc that's already in the packet.  Just bail for now, maybe in
+        // the future do something more clever.
+        break;
+      }
+      int size = int(sizeof(RpcId) + it->second.length());
+      if (size + writer.size() > 400) {
+        // Too big
+        break;
+      }
+      i++;
+      rpcsSent.insert(it->first);
+      writer.writeClass<RpcId>(it->first);
+      auto replyDuration = clockSynchronizer.getReplyDuration(it->first);
+      writer.writePrimitive<int64_t>(replyDuration.first);
+      writer.writePrimitive<int64_t>(replyDuration.second);
+      writer.writePrimitive<string>(it->second);
     }
-    int size = int(sizeof(RpcId) + it->second.length());
-    if (size + writer.size() > 400) {
-      // Too big
-      break;
-    }
-    i++;
-    rpcsSent.insert(it->first);
-    writer.writeClass<RpcId>(it->first);
-    auto replyDuration = clockSynchronizer.getReplyDuration(it->first);
-    writer.writePrimitive<int64_t>(replyDuration.first);
-    writer.writePrimitive<int64_t>(replyDuration.second);
-    writer.writePrimitive<string>(it->second);
+    VLOG(1) << "Attached " << i << " extra packets";
   }
-  VLOG(1) << "Attached " << i << " extra packets";
-#endif
   send(writer.finish());
 }
 

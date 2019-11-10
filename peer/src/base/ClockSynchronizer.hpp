@@ -57,9 +57,9 @@ class ClockSynchronizer {
     return offsetEstimator.getMean();
   }
 
-  double getHalfPingUpperBound() {
+  double getHalfPingUpperBound(float sigma) {
     return (pingEstimator.getMean() / 2.0) +
-           ((sqrt(pingEstimator.getVariance() / 4.0) * 3.0));
+           ((sqrt(pingEstimator.getVariance() / 4.0) * sigma));
   }
 
  protected:
