@@ -5,7 +5,7 @@
 
 namespace wga {
 SlidingWindowEstimator offsetEstimator;
-AdamOptimizer offsetOptimizer(0, 0.1);
+AdamOptimizer offsetOptimizer(0, 1.0);
 void ClockSynchronizer::handleReply(const RpcId& id, int64_t requestReceiveTime,
                                     int64_t replySendTime) {
   int64_t requestSendTime = requestSendTimeMap.at(id);
@@ -48,18 +48,18 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
       baselineOffset += timeOffset;
       baselineOffset /= count;
     } else {
-      offsetOptimizer.updateWithLabel(timeOffset - baselineOffset);
+      offsetOptimizer.updateWithLabel((timeOffset - baselineOffset) / 1000.0);
       offsetEstimator.addSample(double(timeOffset - baselineOffset));
     }
     auto oldTimeShift = timeHandler->getTimeShift();
     // auto newTimeShift = int64_t(offsetEstimator.getMean()) + baselineOffset;
     auto newTimeShift =
-        int64_t(offsetOptimizer.getCurrentValue()) + baselineOffset;
+        int64_t((1000*offsetOptimizer.getCurrentValue())) + baselineOffset;
     timeHandler->setTimeShift(newTimeShift);
     auto timeShiftDifference = newTimeShift - oldTimeShift;
     LOG_EVERY_N(100, INFO) << "Time offset changed by " << timeShiftDifference;
     LOG_EVERY_N(100, INFO) << "Time offsets " << offsetEstimator.getMean()
-                           << " vs " << offsetOptimizer.getCurrentValue();
+                           << " vs " << 1000*offsetOptimizer.getCurrentValue();
   }
 #if 0
   for (auto& it : requestSendTimeMap) {

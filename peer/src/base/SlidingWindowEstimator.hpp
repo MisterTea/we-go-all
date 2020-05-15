@@ -42,7 +42,7 @@ class SlidingWindowEstimator {
     int upperBoundIndex = int(samples.size()*0.99);
     double retval = sortedSamples[upperBoundIndex];
     if (retval < mean) {
-      LOG(ERROR) << "UPPER BOUND IS WORSE THAN MEAN? " << mean << " " << retval << endl;
+      VLOG(1) << "UPPER BOUND IS WORSE THAN MEAN? " << mean << " " << retval << endl;
     }
     return retval;
   }
