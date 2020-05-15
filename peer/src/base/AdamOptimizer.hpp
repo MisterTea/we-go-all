@@ -9,8 +9,7 @@ class AdamOptimizer {
       : learningRate(_learningRate),
         averageGradient(0),
         averageSquaredGradient(0),
-        normFactor(_initialValue),
-        currentValue(1.0) {}
+        currentValue(_initialValue) {}
 
   void update(double gradient) {
     averageGradient = (BETA1 * averageGradient) + (ONE_MINUS_BETA1 * gradient);
@@ -21,23 +20,21 @@ class AdamOptimizer {
   }
 
   void updateWithLabel(double label) {
-    //LOG(INFO) << "L1 LOSS: " << currentValue - (label/normFactor);
+    //LOG(INFO) << "L1 LOSS: " << currentValue - label;
     double oldValue = currentValue;
-    update(currentValue - (label/normFactor));
+    update(currentValue - label);
   }
 
   void force(double value) { 
-    normFactor=value;
-    currentValue = 1.0;
+    currentValue = value;
   }
 
-  double getCurrentValue() { return currentValue*normFactor; }
+  double getCurrentValue() { return currentValue; }
 
  protected:
   double learningRate;
   double averageGradient;
   double averageSquaredGradient;
-  double normFactor;
   double currentValue;
   constexpr static double BETA1 = 0.9;
   constexpr static double ONE_MINUS_BETA1 = 1.0 - BETA1;

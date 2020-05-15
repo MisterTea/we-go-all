@@ -41,15 +41,21 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
   count++;
   if (connectedToHost) {
     if (count < 10) {
-      offsetOptimizer.force(timeOffset);
+      // offsetOptimizer.force(timeOffset);
+      baselineOffset += timeOffset;
+    } else if (count == 10) {
+      // Average to get final baseline
+      baselineOffset += timeOffset;
+      baselineOffset /= count;
     } else {
-      offsetOptimizer.updateWithLabel(timeOffset);
-      offsetEstimator.addSample(double(timeOffset));
+      offsetOptimizer.updateWithLabel(timeOffset - baselineOffset);
+      offsetEstimator.addSample(double(timeOffset - baselineOffset));
     }
     auto oldTimeShift = timeHandler->getTimeShift();
-    // timeHandler->setTimeShift(int64_t(offsetEstimator.getMean()));
-    timeHandler->setTimeShift(int64_t(offsetOptimizer.getCurrentValue()));
-    auto newTimeShift = timeHandler->getTimeShift();
+    // auto newTimeShift = int64_t(offsetEstimator.getMean()) + baselineOffset;
+    auto newTimeShift =
+        int64_t(offsetOptimizer.getCurrentValue()) + baselineOffset;
+    timeHandler->setTimeShift(newTimeShift);
     auto timeShiftDifference = newTimeShift - oldTimeShift;
     LOG_EVERY_N(100, INFO) << "Time offset changed by " << timeShiftDifference;
     LOG_EVERY_N(100, INFO) << "Time offsets " << offsetEstimator.getMean()

@@ -12,7 +12,7 @@ namespace wga {
 class ClockSynchronizer {
  public:
   ClockSynchronizer(shared_ptr<TimeHandler> _timeHandler, bool _connectedToHost)
-      : timeHandler(_timeHandler), count(0), connectedToHost(_connectedToHost) {}
+      : timeHandler(_timeHandler), count(0), connectedToHost(_connectedToHost), baselineOffset(0) {}
 
   int64_t createRequest(const RpcId& id) {
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
@@ -72,6 +72,7 @@ class ClockSynchronizer {
   SlidingWindowEstimator pingEstimator;
   int64_t count;
   bool connectedToHost;
+  int64_t baselineOffset;
 };
 }  // namespace wga
 
