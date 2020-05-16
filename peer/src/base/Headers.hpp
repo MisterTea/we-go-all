@@ -3,6 +3,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define ELPP_THREAD_SAFE (1)
+#define ELPP_FORCE_USE_STD_THREAD (1)
 
 // Enable standalone asio
 #ifndef ASIO_STANDALONE

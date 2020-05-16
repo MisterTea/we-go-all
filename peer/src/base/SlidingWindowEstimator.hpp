@@ -8,7 +8,6 @@ class SlidingWindowEstimator {
   SlidingWindowEstimator() : mean(0), variance(0) {}
 
   void addSample(double sample) {
-    lock_guard<mutex> guard(estimatorMutex);
     samples.push_back(sample);
     while (samples.size() > MAX_COUNT) {
       samples.pop_front();
@@ -26,11 +25,9 @@ class SlidingWindowEstimator {
   }
 
   double getMean() {
-    lock_guard<mutex> guard(estimatorMutex);
     return mean;
   }
   double getVariance() {
-    lock_guard<mutex> guard(estimatorMutex);
     return variance;
   }
   double getUpperBound() {
@@ -52,6 +49,5 @@ class SlidingWindowEstimator {
   double variance;
   deque<double> samples;
   constexpr static int MAX_COUNT = 3600;
-  mutex estimatorMutex;
 };
 }  // namespace wga

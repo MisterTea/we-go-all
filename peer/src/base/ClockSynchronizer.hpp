@@ -15,6 +15,7 @@ class ClockSynchronizer {
       : timeHandler(_timeHandler), count(0), connectedToHost(_connectedToHost), baselineOffset(0) {}
 
   int64_t createRequest(const RpcId& id) {
+    lock_guard<mutex> guard(clockMutex);
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
     if (requestSendTimeMap.find(id) != requestSendTimeMap.end()) {
       LOG(FATAL) << "Duplicate request";
@@ -24,6 +25,7 @@ class ClockSynchronizer {
   }
 
   int64_t receiveRequest(const RpcId& id) {
+    lock_guard<mutex> guard(clockMutex);
     if (requestReceiveTimeMap.find(id) != requestReceiveTimeMap.end()) {
       LOG(FATAL) << "Duplicate request";
     }
@@ -34,12 +36,14 @@ class ClockSynchronizer {
 
   pair<int64_t, int64_t> getReplyDuration(
       const RpcId& id) {
+    lock_guard<mutex> guard(clockMutex);
     int64_t sendTime = requestReceiveTimeMap.at(id);
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
     return make_pair(sendTime, now);
   }
 
   void eraseRequestRecieveTime(const RpcId& id) {
+    lock_guard<mutex> guard(clockMutex);
     auto it = requestReceiveTimeMap.find(id);
     if (it == requestReceiveTimeMap.end()) {
       LOG(FATAL) << "Tried to remove request time that didn't exist";
@@ -51,12 +55,14 @@ class ClockSynchronizer {
                    );
 
   double getPing() {
+    lock_guard<mutex> guard(clockMutex);
     return pingEstimator.getMean();
   }
 
   double getOffset();
 
   double getHalfPingUpperBound() {
+    lock_guard<mutex> guard(clockMutex);
     return pingEstimator.getUpperBound() / 2.0;
   }
 
@@ -73,6 +79,7 @@ class ClockSynchronizer {
   int64_t count;
   bool connectedToHost;
   int64_t baselineOffset;
+  mutex clockMutex;
 };
 }  // namespace wga
 

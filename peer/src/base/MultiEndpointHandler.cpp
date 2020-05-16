@@ -109,7 +109,7 @@ void MultiEndpointHandler::update() {
   if ((lastUnrepliedSendTime + 5) < time(NULL)) {
     killEndpoint();
   } else {
-    LOG(INFO) << "Connection hasn't been dead long enough: "
+    VLOG(1) << "Connection hasn't been dead long enough: "
               << (lastUnrepliedSendTime + 5) << " < " << time(NULL);
   }
 }

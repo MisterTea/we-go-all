@@ -125,8 +125,12 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   publicKey = CryptoHandler::makePublicFromPrivate(_privateKey);
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(netEngine->startUdpServer(serverPort));
-  asio::socket_base::reuse_address option(true);
-  localSocket->set_option(option);
+  try {
+    asio::socket_base::reuse_address option(true);
+    localSocket->set_option(option);
+  } catch (...) {
+    LOG(ERROR) << "Setting reuse failed.  Socket may be bocked after exiting";
+  }
   rpcServer.reset(new RpcServer(netEngine, localSocket));
   LOG(INFO) << "STARTED SERVER ON PORT: " << serverPort;
 
@@ -359,7 +363,8 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
         new CryptoHandler(privateKey, peerKey));
     shared_ptr<EncryptedMultiEndpointHandler> endpointHandler(
         new EncryptedMultiEndpointHandler(localSocket, netEngine,
-                                          peerCryptoHandler, endpoints, (id == hostId)));
+                                          peerCryptoHandler, endpoints,
+                                          (id == hostId)));
     rpcServer->addEndpoint(id, endpointHandler);
   }
 
@@ -393,7 +398,8 @@ void MyPeer::update(const asio::error_code& error) {
     updateEndpointServer();
     LOG(INFO) << "UPDATING";
     string path = string("/api/get_game_info/") + gameId;
-    // TODO: This doesn't work yet because async calls require external io_service
+    // TODO: This doesn't work yet because async calls require external
+    // io_service
     client->request(
         "GET", path,
         [this](shared_ptr<HttpClient::Response> response,
@@ -503,7 +509,8 @@ bool MyPeer::initialized() {
   return true;
 }
 
-unordered_map<string,vector<string>> MyPeer::getAllInputValues(int64_t timestamp) {
+unordered_map<string, vector<string>> MyPeer::getAllInputValues(
+    int64_t timestamp) {
   unordered_map<string, vector<string>> values;
   for (auto& it : peerData) {
     auto peerId = it.first;
@@ -511,11 +518,11 @@ unordered_map<string,vector<string>> MyPeer::getAllInputValues(int64_t timestamp
       continue;
     }
     while (true) {
-      LOG_EVERY_N(60, INFO)
+      LOG_EVERY_N(600, INFO)
           << "WAITING FOR EXPIRATION TIME: " << timestamp << " > "
           << it.second->playerInputData.getExpirationTime();
       if (it.second->playerInputData.waitForExpirationTime(timestamp)) {
-        LOG_EVERY_N(60, INFO)
+        LOG_EVERY_N(600, INFO)
             << "GOT EXPIRATION TIME: " << timestamp << " > "
             << it.second->playerInputData.getExpirationTime();
         lock_guard<recursive_mutex> guard(peerDataMutex);

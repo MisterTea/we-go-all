@@ -5,9 +5,10 @@
 
 namespace wga {
 SlidingWindowEstimator offsetEstimator;
-AdamOptimizer offsetOptimizer(0, 1.0);
+AdamOptimizer offsetOptimizer(0, 0.1);
 void ClockSynchronizer::handleReply(const RpcId& id, int64_t requestReceiveTime,
                                     int64_t replySendTime) {
+  lock_guard<mutex> guard(clockMutex);
   int64_t requestSendTime = requestSendTimeMap.at(id);
   requestSendTimeMap.erase(requestSendTimeMap.find(id));
   int64_t replyReceiveTime =
@@ -16,7 +17,10 @@ void ClockSynchronizer::handleReply(const RpcId& id, int64_t requestReceiveTime,
               replyReceiveTime);
 }
 
-double ClockSynchronizer::getOffset() { return offsetEstimator.getMean(); }
+double ClockSynchronizer::getOffset() {
+  lock_guard<mutex> guard(clockMutex);
+  return offsetEstimator.getMean();
+}
 
 void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                                     int64_t requestReceiptTime,
@@ -48,18 +52,20 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
       baselineOffset += timeOffset;
       baselineOffset /= count;
     } else {
-      offsetOptimizer.updateWithLabel((timeOffset - baselineOffset) / 1000.0);
+      offsetOptimizer.updateWithLabel((timeOffset - baselineOffset) /
+                                      1000000.0);
       offsetEstimator.addSample(double(timeOffset - baselineOffset));
     }
     auto oldTimeShift = timeHandler->getTimeShift();
     // auto newTimeShift = int64_t(offsetEstimator.getMean()) + baselineOffset;
     auto newTimeShift =
-        int64_t((1000*offsetOptimizer.getCurrentValue())) + baselineOffset;
+        int64_t((1000000 * offsetOptimizer.getCurrentValue())) + baselineOffset;
     timeHandler->setTimeShift(newTimeShift);
     auto timeShiftDifference = newTimeShift - oldTimeShift;
     LOG_EVERY_N(100, INFO) << "Time offset changed by " << timeShiftDifference;
     LOG_EVERY_N(100, INFO) << "Time offsets " << offsetEstimator.getMean()
-                           << " vs " << 1000*offsetOptimizer.getCurrentValue();
+                           << " vs "
+                           << 1000000 * offsetOptimizer.getCurrentValue();
   }
 #if 0
   for (auto& it : requestSendTimeMap) {
