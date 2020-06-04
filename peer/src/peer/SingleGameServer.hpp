@@ -32,6 +32,7 @@ class SingleGameServer {
                    const string& _hostId, const PublicKey& _hostKey,
                    const string& hostName, int _numPlayers);
 
+  void start();
   void shutdown();
 
   virtual ~SingleGameServer() {}

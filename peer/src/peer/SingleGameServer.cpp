@@ -84,7 +84,9 @@ SingleGameServer::SingleGameServer(shared_ptr<NetEngine> netEngine, int _port,
         json retval = {{"status", "OK"}};
         response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
       };
+}
 
+void SingleGameServer::start() {
   serverThread.reset(new thread([this]() { server.start(); }));
 }
 

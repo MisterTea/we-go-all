@@ -5,26 +5,20 @@
 #define ELPP_THREAD_SAFE (1)
 #define ELPP_FORCE_USE_STD_THREAD (1)
 
-// Enable standalone asio
-#ifndef ASIO_STANDALONE
+#ifdef WGA_MAMEHUB
+// Use mame's asio
+#include "asio.h"
+#else
 #define ASIO_STANDALONE (1)
-#endif
-#ifndef USE_STANDALONE_ASIO
-#define USE_STANDALONE_ASIO (1)
+#define _WIN32_WINNT _WIN32_WINNT_WIN7
+#include "asio.hpp"
 #endif
 
-#ifdef WIN32
-#ifndef _WIN32_WINNT
-// Require win7 or higher
-#define _WIN32_WINNT _WIN32_WINNT_WIN7
-#endif
-#endif
+#define USE_STANDALONE_ASIO (1) //JJG: Add define for simplehttpserver
 
 #ifdef __FreeBSD__
 #define _WITH_GETLINE
 #endif
-
-#include "asio.hpp"
 
 #ifdef __NetBSD__
 #include <util.h>
