@@ -2,7 +2,6 @@
 #include "Headers.hpp"
 #include "MyPeer.hpp"
 #include "NetEngine.hpp"
-#include "PeerConnectionServer.hpp"
 #include "SingleGameServer.hpp"
 #include "TimeHandler.hpp"
 
@@ -33,9 +32,6 @@ class PeerTest {
     server.reset(new SingleGameServer(netEngine, 20000, names[0], keys[0].first,
                                       names[0], numPlayers));
 
-    peerConnectionServer.reset(
-        new PeerConnectionServer(netEngine, 20000, server));
-
     netEngine->start();
 
     this_thread::sleep_for(chrono::seconds(1));
@@ -46,14 +42,10 @@ class PeerTest {
   }
 
   void TearDown() {
-    netEngine->post([this] {
-      server->shutdown();
-      peerConnectionServer->shutdown();
-    });
+    netEngine->post([this] { server->shutdown(); });
     netEngine->shutdown();
 
     server.reset();
-    peerConnectionServer.reset();
     netEngine.reset();
   }
 
@@ -189,7 +181,6 @@ class PeerTest {
   vector<string> names = {"A", "B", "C", "D"};
   shared_ptr<SingleGameServer> server;
   shared_ptr<NetEngine> netEngine;
-  shared_ptr<PeerConnectionServer> peerConnectionServer;
 };
 
 TEST_CASE("ProtocolTest", "[ProtocolTest]") {

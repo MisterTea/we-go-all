@@ -1,16 +1,14 @@
-#include "Headers.hpp"
+#include <cxxopts/include/cxxopts.hpp>
 
 #include "CryptoHandler.hpp"
+#include "Headers.hpp"
 #include "LogHandler.hpp"
 #include "MyPeer.hpp"
 #include "NetEngine.hpp"
-#include "PeerConnectionServer.hpp"
 #include "PlayerData.hpp"
 #include "PortMappingHandler.hpp"
 #include "SingleGameServer.hpp"
 #include "TimeHandler.hpp"
-
-#include <cxxopts/include/cxxopts.hpp>
 
 namespace wga {
 class ExamplePeer {
@@ -61,16 +59,13 @@ class ExamplePeer {
 
     if (params["selflobby"].as<bool>()) {
       LOG(INFO) << "Running local lobby";
-      server.reset(
-          new SingleGameServer(netEngine, lobbyPort, "Host", publicKey, "Host", 2));
-      peerConnectionServer.reset(
-          new PeerConnectionServer(netEngine, lobbyPort, server));
+      server.reset(new SingleGameServer(netEngine, lobbyPort, "Host", publicKey,
+                                        "Host", 2));
     }
 
-    myPeer.reset(new MyPeer(host ? "Host" : "Client", privateKey,
-                            params["localport"].as<int>(),
-                            params["lobbyhost"].as<string>(), lobbyPort,
-                            host ? "Host" : "Client"));
+    myPeer.reset(new MyPeer(
+        host ? "Host" : "Client", privateKey, params["localport"].as<int>(),
+        params["lobbyhost"].as<string>(), lobbyPort, host ? "Host" : "Client"));
     if (host) {
       myPeer->host("Starwars");
     } else {
@@ -130,7 +125,6 @@ class ExamplePeer {
   PrivateKey privateKey;
   shared_ptr<MyPeer> myPeer;
   shared_ptr<SingleGameServer> server;
-  shared_ptr<PeerConnectionServer> peerConnectionServer;
 };
 }  // namespace wga
 

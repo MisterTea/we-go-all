@@ -1,9 +1,8 @@
 #ifndef __MYPEER_H__
 #define __MYPEER_H__
 
-#include "Headers.hpp"
-
 #include "CryptoHandler.hpp"
+#include "Headers.hpp"
 #include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
 #include "PlayerData.hpp"
@@ -34,11 +33,12 @@ class MyPeer {
 
   bool initialized();
 
-  unordered_map<string, string> getStateChanges(const unordered_map<string, string>& data);
+  unordered_map<string, string> getStateChanges(
+      const unordered_map<string, string>& data);
   void updateState(int64_t timestamp,
                    const unordered_map<string, string>& data);
 
-  unordered_map<string,vector<string>> getAllInputValues(int64_t timestamp);
+  unordered_map<string, vector<string>> getAllInputValues(int64_t timestamp);
 
   // TODO: This causes collisions and should be removed
   unordered_map<string, string> getFullState(int64_t timestamp);
@@ -92,7 +92,6 @@ class MyPeer {
   set<udp::endpoint> stunEndpoints;
   int position;
 
-  void updateEndpointServer();
   void updateEndpointServerHttp();
   void getInitialPosition();
 };

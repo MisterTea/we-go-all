@@ -1,14 +1,12 @@
-#include "Headers.hpp"
+#include <cxxopts/include/cxxopts.hpp>
 
 #include "CryptoHandler.hpp"
+#include "Headers.hpp"
 #include "LogHandler.hpp"
 #include "MyPeer.hpp"
 #include "NetEngine.hpp"
-#include "PeerConnectionServer.hpp"
 #include "PlayerData.hpp"
 #include "SingleGameServer.hpp"
-
-#include <cxxopts/include/cxxopts.hpp>
 
 namespace wga {
 class ExampleLobby {
@@ -38,8 +36,7 @@ class ExampleLobby {
     shared_ptr<NetEngine> netEngine(new NetEngine());
 
     server.reset(new SingleGameServer(
-      netEngine,
-        params["port"].as<int>(), "Host",
+        netEngine, params["port"].as<int>(), "Host",
         CryptoHandler::makePublicFromPrivate(
             CryptoHandler::stringToKey<PrivateKey>(
                 "ZFhRa1dVWGhiQzc5UGt2YWkySFQ0RHZyQXpSYkxEdmg=")),
@@ -49,9 +46,6 @@ class ExampleLobby {
                         CryptoHandler::stringToKey<PrivateKey>(
                             "M0JVZTd4aTN0M3dyUXdYQnlMNTdmQU1pRHZnaU9ITU8=")),
                     "Client");
-
-    peerConnectionServer.reset(
-        new PeerConnectionServer(netEngine, params["port"].as<int>(), server));
 
     netEngine->start();
 
@@ -63,7 +57,6 @@ class ExampleLobby {
 
   shared_ptr<SingleGameServer> server;
   shared_ptr<NetEngine> netEngine;
-  shared_ptr<PeerConnectionServer> peerConnectionServer;
 };
 }  // namespace wga
 

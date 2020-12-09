@@ -144,7 +144,6 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   gameId = result["gameId"].get<string>();
   LOG(INFO) << "GOT GAME ID: " << gameId;
 
-  updateEndpointServerHttp();
   LOG(INFO) << "Updated endpoints";
 
   {
@@ -261,7 +260,7 @@ void MyPeer::getInitialPosition() {
 }
 
 void MyPeer::start() {
-  updateEndpointServer();
+  updateEndpointServerHttp();
 
   updateTimer.reset(netEngine->createTimer(std::chrono::steady_clock::now() +
                                            std::chrono::seconds(1)));
@@ -296,28 +295,6 @@ void MyPeer::updateEndpointServerHttp() {
   FATAL_FAIL_HTTP(response);
 }
 
-void MyPeer::updateEndpointServer() {
-  auto serverEndpoints = netEngine->resolve(lobbyHost, to_string(lobbyPort));
-  auto serverEndpoint = serverEndpoints[rand() % serverEndpoints.size()];
-  auto localIps = LocalIpFetcher::fetch(serverPort, true);
-  string ipAddressPacket = userId;
-  for (const auto& stunIp : stunEndpoints) {
-    ipAddressPacket +=
-        "_" + stunIp.address().to_string() + ":" + to_string(stunIp.port());
-  }
-  for (auto it : localIps) {
-    ipAddressPacket += "_" + it + ":" + to_string(serverPort);
-  }
-  auto localSocketStack = localSocket;
-  LOG(INFO) << "SENDING ENDPOINT PACKET: " << ipAddressPacket;
-  netEngine->post([localSocketStack, serverEndpoint, ipAddressPacket]() {
-    LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-    int bytesSent = localSocketStack->send_to(asio::buffer(ipAddressPacket),
-                                              serverEndpoint);
-    LOG(INFO) << bytesSent << " bytes sent";
-  });
-}
-
 void MyPeer::checkForEndpoints(const asio::error_code& error) {
   LOG(INFO) << "CHECKING FOR ENDPOINTS";
   if (error == asio::error::operation_aborted) {
@@ -327,7 +304,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   lock_guard<recursive_mutex> guard(peerDataMutex);
   LOG(INFO) << "CHECKING FOR ENDPOINTS";
 
-  updateEndpointServer();
+  // updateEndpointServerHttp();
 
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
@@ -418,7 +395,7 @@ void MyPeer::update(const asio::error_code& error) {
 
   if (updateCounter % 1000 == 0) {
     // Per-second update
-    updateEndpointServer();
+    // updateEndpointServerHttp();
     LOG(INFO) << "UPDATING";
     string path = string("/api/get_game_info/") + gameId;
     // TODO: This doesn't work yet because async calls require external
