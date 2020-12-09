@@ -278,7 +278,7 @@ void MyPeer::start() {
 
 void MyPeer::updateEndpointServerHttp() {
   auto myIps = LocalIpFetcher::fetch(serverPort, true);
-  for (uint a = 0; a < myIps.size(); a++) {
+  for (unsigned int a = 0; a < myIps.size(); a++) {
     myIps[a] = myIps[a] + ":" + to_string(serverPort);
   }
   for (const auto& stunIp : stunEndpoints) {
