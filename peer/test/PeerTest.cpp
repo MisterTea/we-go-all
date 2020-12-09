@@ -1,6 +1,5 @@
-#include "Headers.hpp"
-
 #include "CryptoHandler.hpp"
+#include "Headers.hpp"
 #include "MyPeer.hpp"
 #include "NetEngine.hpp"
 #include "PeerConnectionServer.hpp"
@@ -38,6 +37,10 @@ class PeerTest {
         new PeerConnectionServer(netEngine, 20000, server));
 
     netEngine->start();
+
+    this_thread::sleep_for(chrono::seconds(1));
+
+    server->start();
 
     this_thread::sleep_for(chrono::seconds(1));
   }

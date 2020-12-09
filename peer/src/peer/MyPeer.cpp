@@ -209,6 +209,7 @@ void MyPeer::shutdown() {
       stunEndpoints.clear();
     });
 
+    microsleep(1000 * 1000);
     netEngine->shutdown();
     netEngine.reset();
     LOG(INFO) << "SHUT DOWN FINISHED";
@@ -278,6 +279,9 @@ void MyPeer::start() {
 
 void MyPeer::updateEndpointServerHttp() {
   auto myIps = LocalIpFetcher::fetch(serverPort, true);
+  for (uint a = 0; a < myIps.size(); a++) {
+    myIps[a] = myIps[a] + ":" + to_string(serverPort);
+  }
   for (const auto& stunIp : stunEndpoints) {
     myIps.push_back(stunIp.address().to_string() + ":" +
                     to_string(stunIp.port()));
