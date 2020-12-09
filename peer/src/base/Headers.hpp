@@ -9,12 +9,11 @@
 // Use mame's asio
 #include "asio.h"
 #else
-#define ASIO_STANDALONE (1)
 #define _WIN32_WINNT _WIN32_WINNT_WIN7
 #include "asio.hpp"
 #endif
 
-#define USE_STANDALONE_ASIO (1) //JJG: Add define for simplehttpserver
+#define USE_STANDALONE_ASIO (1)  // JJG: Add define for simplehttpserver
 
 #ifdef __FreeBSD__
 #define _WITH_GETLINE
@@ -38,6 +37,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -159,7 +159,7 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
 
 namespace wga {
 template <typename Out>
-inline void split(const std::string& s, char delim, Out result) {
+inline void split(const std::string &s, char delim, Out result) {
   std::stringstream ss;
   ss.str(s);
   std::string item;
@@ -168,14 +168,14 @@ inline void split(const std::string& s, char delim, Out result) {
   }
 }
 
-inline std::vector<std::string> split(const std::string& s, char delim) {
+inline std::vector<std::string> split(const std::string &s, char delim) {
   std::vector<std::string> elems;
   split(s, delim, std::back_inserter(elems));
   return elems;
 }
 
 #ifndef _MSC_VER
-inline std::string SystemToStr(const char* cmd) {
+inline std::string SystemToStr(const char *cmd) {
   std::array<char, 128> buffer;
   std::string result;
   std::shared_ptr<FILE> pipe(popen(cmd, "r"), pclose);
@@ -188,16 +188,16 @@ inline std::string SystemToStr(const char* cmd) {
 }
 #endif
 
-inline bool replace(std::string& str, const std::string& from,
-                    const std::string& to) {
+inline bool replace(std::string &str, const std::string &from,
+                    const std::string &to) {
   size_t start_pos = str.find(from);
   if (start_pos == std::string::npos) return false;
   str.replace(start_pos, from.length(), to);
   return true;
 }
 
-inline int replaceAll(std::string& str, const std::string& from,
-                      const std::string& to) {
+inline int replaceAll(std::string &str, const std::string &from,
+                      const std::string &to) {
   if (from.empty()) return 0;
   int retval = 0;
   size_t start_pos = 0;
@@ -211,7 +211,7 @@ inline int replaceAll(std::string& str, const std::string& from,
 }
 
 template <class T, size_t N, class V>
-std::array<T, N> stringToArray(const V& v) {
+std::array<T, N> stringToArray(const V &v) {
   assert(v.size() == N);
   std::array<T, N> d;
   using std::begin;

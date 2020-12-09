@@ -11,7 +11,7 @@ BiDirectionalRpc::BiDirectionalRpc(bool connectedToHost)
       onId(0),
       flaky(ALL_RPC_FLAKY),
       shuttingDown(false),
-      clockSynchronizer(GlobalClock::timeHandler, connectedToHost) {}
+      clockSynchronizer(GlobalClock::timeHandler, connectedToHost, true) {}
 
 BiDirectionalRpc::~BiDirectionalRpc() {}
 

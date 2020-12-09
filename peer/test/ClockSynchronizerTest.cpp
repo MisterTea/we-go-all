@@ -70,7 +70,7 @@ inline void simulate(shared_ptr<FakeTimeHandler> requesterTimeHandler,
 TEST_CASE("ClockSynchronizerOneWay") {
   shared_ptr<FakeTimeHandler> requesterTimeHandler(new FakeTimeHandler());
   shared_ptr<FakeTimeHandler> responderTimeHandler(new FakeTimeHandler());
-  ClockSynchronizer sync(requesterTimeHandler, true);
+  ClockSynchronizer sync(requesterTimeHandler, true, false);
 
   int PING_2 = 0;
   int PROCESS_TIME = 10;
@@ -174,10 +174,10 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
 
 TEST_CASE("ClockSynchronizerTwoWay") {
   shared_ptr<FakeTimeHandler> firstTimeHandler(new FakeTimeHandler());
-  ClockSynchronizer firstSync(firstTimeHandler, true);
+  ClockSynchronizer firstSync(firstTimeHandler, true, false);
 
   shared_ptr<FakeTimeHandler> secondTimeHandler(new FakeTimeHandler());
-  ClockSynchronizer secondSync(secondTimeHandler, true);
+  ClockSynchronizer secondSync(secondTimeHandler, true, false);
 
   int PING_2 = 0;
   int PROCESS_TIME = 10;
@@ -300,7 +300,7 @@ TEST_CASE("ClockSynchronizerEightWay") {
 
   for (int a = 0; a < NUM_CLOCKS; a++) {
     timeHandlers.push_back(make_shared<FakeTimeHandler>());
-    clockSyncs.push_back(make_shared<ClockSynchronizer>(timeHandlers[a], true));
+    clockSyncs.push_back(make_shared<ClockSynchronizer>(timeHandlers[a], true, false));
   }
 
   int PING_2 = 0;

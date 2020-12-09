@@ -34,6 +34,7 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
   int64_t ping = (replyReceiveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
   pingEstimator.addSample(double(ping));
+  if (log) {
   LOG_EVERY_N(100, INFO) << "Time offset: " << timeOffset << " "
                          << int64_t(offsetEstimator.getMean()) << " "
                          << requestReceiptTime << " " << requestSendTime << " "
@@ -41,6 +42,7 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                          << ping_2 << endl;
   LOG_EVERY_N(100, INFO) << "Ping: " << ping << " " << pingEstimator.getMean()
                          << " " << pingEstimator.getVariance() << endl;
+  }
   auto oldMean = offsetEstimator.getMean();
   count++;
   if (connectedToHost) {
@@ -61,11 +63,13 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
     auto newTimeShift =
         int64_t((1000000 * offsetOptimizer.getCurrentValue())) + baselineOffset;
     timeHandler->setTimeShift(newTimeShift);
+    if (log) {
     auto timeShiftDifference = newTimeShift - oldTimeShift;
     LOG_EVERY_N(100, INFO) << "Time offset changed by " << timeShiftDifference;
     LOG_EVERY_N(100, INFO) << "Time offsets " << offsetEstimator.getMean()
                            << " vs "
                            << 1000000 * offsetOptimizer.getCurrentValue();
+    }
   }
 #if 0
   for (auto& it : requestSendTimeMap) {

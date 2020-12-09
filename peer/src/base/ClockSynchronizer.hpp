@@ -11,8 +11,8 @@
 namespace wga {
 class ClockSynchronizer {
  public:
-  ClockSynchronizer(shared_ptr<TimeHandler> _timeHandler, bool _connectedToHost)
-      : timeHandler(_timeHandler), count(0), connectedToHost(_connectedToHost), baselineOffset(0) {}
+  ClockSynchronizer(shared_ptr<TimeHandler> _timeHandler, bool _connectedToHost, bool _log)
+      : timeHandler(_timeHandler), count(0), connectedToHost(_connectedToHost), log(_log), baselineOffset(0) {}
 
   int64_t createRequest(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
@@ -78,6 +78,7 @@ class ClockSynchronizer {
   SlidingWindowEstimator pingEstimator;
   int64_t count;
   bool connectedToHost;
+  bool log;
   int64_t baselineOffset;
   mutex clockMutex;
 };

@@ -56,7 +56,8 @@ SingleGameServer::SingleGameServer(shared_ptr<NetEngine> netEngine, int _port,
         // Here we would use signing to make sure the message is legit
 
         if (content["hostId"].get<string>() != hostId) {
-          LOGFATAL << "Host ID does not match: " << hostId << " != " << content["hostId"].get<string>();
+          LOGFATAL << "Host ID does not match: " << hostId
+                   << " != " << content["hostId"].get<string>();
         }
         if (content["gameId"].get<string>() != gameId) {
           LOGFATAL << "Game ID does not match";
@@ -80,6 +81,21 @@ SingleGameServer::SingleGameServer(shared_ptr<NetEngine> netEngine, int _port,
           LOGFATAL << "Tried to add a peer that already exists";
         }
         addPeer(peerId, peerKey, name);
+
+        json retval = {{"status", "OK"}};
+        response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));
+      };
+
+  server.resource["^/api/update_endpoints$"]["POST"] =
+      [this](shared_ptr<HttpServer::Response> response,
+             shared_ptr<HttpServer::Request> request) {
+        auto content = json::parse(request->content.string());
+
+        LOG(INFO) << "GOT ENDPOINT DATA: " << content;
+        string id = content["peerId"].get<string>();
+        auto allEndpoints = vector<string>(content["endpoints"].begin(),
+                                           content["endpoints"].end());
+        setPeerEndpoints(id, allEndpoints);
 
         json retval = {{"status", "OK"}};
         response->write(SimpleWeb::StatusCode::success_ok, retval.dump(2));

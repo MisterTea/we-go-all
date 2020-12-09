@@ -144,6 +144,9 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   gameId = result["gameId"].get<string>();
   LOG(INFO) << "GOT GAME ID: " << gameId;
 
+  updateEndpointServerHttp();
+  LOG(INFO) << "Updated endpoints";
+
   {
     string path = string("/api/get_game_info/") + gameId;
     auto response = client->request("GET", path);
@@ -271,6 +274,22 @@ void MyPeer::start() {
             << std::chrono::duration_cast<std::chrono::seconds>(
                    std::chrono::high_resolution_clock::now().time_since_epoch())
                    .count();
+}
+
+void MyPeer::updateEndpointServerHttp() {
+  auto myIps = LocalIpFetcher::fetch(serverPort, true);
+  for (const auto& stunIp : stunEndpoints) {
+    myIps.push_back(stunIp.address().to_string() + ":" +
+                    to_string(stunIp.port()));
+  }
+
+  string path = string("/api/update_endpoints");
+  json request = {{"endpoints", myIps}, {"peerId", userId}};
+  LOG(INFO) << "SENDING ENDPOINT PACKET (HTTP): " << request;
+  SimpleWeb::CaseInsensitiveMultimap header;
+  header.insert(make_pair("Content-Type", "application/json"));
+  auto response = client->request("POST", path, request.dump(2), header);
+  FATAL_FAIL_HTTP(response);
 }
 
 void MyPeer::updateEndpointServer() {

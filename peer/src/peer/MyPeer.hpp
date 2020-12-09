@@ -93,6 +93,7 @@ class MyPeer {
   int position;
 
   void updateEndpointServer();
+  void updateEndpointServerHttp();
   void getInitialPosition();
 };
 }  // namespace wga

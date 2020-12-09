@@ -13,6 +13,12 @@ class NetEngine {
     work.emplace(*ioService);
   }
 
+  ~NetEngine() {
+    if (work) {
+      shutdown();
+    }
+  }
+
   void start() {
     ioServiceThread.reset(new std::thread([this]() {
       LOG(ERROR) << "NET ENGINE STARTING";
