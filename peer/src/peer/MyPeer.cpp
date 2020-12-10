@@ -291,6 +291,7 @@ void MyPeer::updateEndpointServerHttp() {
   LOG(INFO) << "SENDING ENDPOINT PACKET (HTTP): " << request;
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
+  header.insert(make_pair("Cookie", string("peerId=") + userId));
   auto response = client->request("POST", path, request.dump(2), header);
   FATAL_FAIL_HTTP(response);
 }
