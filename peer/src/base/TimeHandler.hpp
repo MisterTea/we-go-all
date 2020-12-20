@@ -1,20 +1,22 @@
 #ifndef __TIME_HANDLER_H__
 #define __TIME_HANDLER_H__
 
+#include "AdamOptimizer.hpp"
 #include "Headers.hpp"
+#include "SlidingWindowEstimator.hpp"
 
 namespace wga {
 class TimeHandler {
  public:
-  TimeHandler() : noiseShift(0), timeShift(0) {}
+  TimeHandler() : noiseShift(0), timeShift(0), offsetOptimizer(0, 0.1) {}
 
   virtual ~TimeHandler() {}
 
   void addNoise() {
     lock_guard<recursive_mutex> guard(timeHandlerMutex);
     noiseShift = -1 * chrono::duration_cast<chrono::microseconds>(
-                     chrono::seconds(rand() % 300))
-                     .count();
+                          chrono::seconds(rand() % 300))
+                          .count();
   }
 
   int64_t currentTimeMs() { return currentTimeMicros() / 1000; }
@@ -34,12 +36,18 @@ class TimeHandler {
     timeShift = _timeShift;
   }
 
+  AdamOptimizer* getOffsetOptimizer() { return &offsetOptimizer; }
+
+  SlidingWindowEstimator* getOffsetEstimator() { return &offsetEstimator; }
+
  protected:
   virtual int64_t now() = 0;
 
   int64_t noiseShift;
   int64_t timeShift;
   recursive_mutex timeHandlerMutex;
+  SlidingWindowEstimator offsetEstimator;
+  AdamOptimizer offsetOptimizer;
 };
 
 class FakeTimeHandler : public TimeHandler {

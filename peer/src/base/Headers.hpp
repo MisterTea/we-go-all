@@ -3,6 +3,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define ELPP_THREAD_SAFE (1)
+#define DELPP_FEATURE_CRASH_LOG (1)
 #define ELPP_FORCE_USE_STD_THREAD (1)
 
 #ifdef WGA_MAMEHUB
@@ -63,7 +64,7 @@
 #include "UniversalStacktrace/ust/ust.hpp"
 #include "easyloggingpp/src/easylogging++.h"
 
-#define LOGFATAL (LOG(ERROR) << "\n" << ust::generate(), LOG(FATAL))
+#define LOGFATAL LOG(ERROR) << ust::generate() << "\n", LOG(FATAL)
 
 #include "CTPL/ctpl_stl.h"
 #include "cppcodec/cppcodec/base64_default_rfc4648.hpp"
@@ -76,6 +77,7 @@
 #endif
 
 #include "SimpleWebServer/client_http.hpp"
+#include "SimpleWebServer/client_https.hpp"
 #include "SimpleWebServer/server_http.hpp"
 
 #define STATS_GO_INLINE
@@ -95,6 +97,7 @@ using namespace cache;
 using namespace sole;
 
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
+using HttpsClient = SimpleWeb::Client<SimpleWeb::HTTPS>;
 using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
 using namespace std;

@@ -1,6 +1,5 @@
-#include "Headers.hpp"
-
 #include "EncryptedMultiEndpointHandler.hpp"
+#include "Headers.hpp"
 #include "LogHandler.hpp"
 #include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
@@ -42,14 +41,16 @@ class FlakyRpcTest {
         if (it->hasWork()) {
           done = false;
         }
+        LOG(ERROR) << "Can't teardown, still has work";
         it->resendRandomOutgoingMessage();
       }
       if (done) {
         break;
       } else {
-        microsleep(1000 * 1000);
+        microsleep(100 * 1000);
       }
     }
+    LOG(INFO) << "Finished work";
     for (const auto& it : servers) {
       it->finish();
     }
@@ -106,7 +107,7 @@ class FlakyRpcTest {
         shared_ptr<EncryptedMultiEndpointHandler> endpointHandler(
             new EncryptedMultiEndpointHandler(servers[a]->getLocalSocket(),
                                               netEngine, cryptoHandlers[a][b],
-                                              {remoteEndpoint}, b==0));
+                                              {remoteEndpoint}, b == 0));
         endpointHandler->setFlaky(true);
         servers[a]->addEndpoint(to_string(b), endpointHandler);
       }

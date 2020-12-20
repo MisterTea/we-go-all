@@ -3,6 +3,7 @@
 
 #include "CryptoHandler.hpp"
 #include "Headers.hpp"
+#include "HttpClientMuxer.hpp"
 #include "MultiEndpointHandler.hpp"
 #include "NetEngine.hpp"
 #include "PlayerData.hpp"
@@ -71,7 +72,7 @@ class MyPeer {
   bool shuttingDown;
   bool updateFinished;
   shared_ptr<NetEngine> netEngine;
-  shared_ptr<HttpClient> client;
+  shared_ptr<HttpClientMuxer> client;
   string gameId;
   int serverPort;
   string hostId;

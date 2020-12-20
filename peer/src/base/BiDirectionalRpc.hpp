@@ -169,6 +169,7 @@ class BiDirectionalRpc {
   unordered_map<RpcId, string> outgoingReplies;
   unordered_map<RpcId, string> incomingReplies;
 
+  lru_cache<RpcId, bool> processedRequests;
   lru_cache<RpcId, bool> processedReplies;
 
   int64_t onBarrier;

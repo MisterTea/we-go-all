@@ -134,13 +134,11 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   rpcServer.reset(new RpcServer(netEngine, localSocket));
   LOG(INFO) << "STARTED SERVER ON PORT: " << serverPort;
 
-  client.reset(new HttpClient(lobbyHost + ":" + to_string(lobbyPort)));
+  client.reset(new HttpClientMuxer(lobbyHost + ":" + to_string(lobbyPort)));
 
   LOG(INFO) << "GETTING GAME ID";
   string path = string("/api/get_current_game_id/") + userId;
-  auto response = client->request("GET", path);
-  FATAL_FAIL_HTTP(response);
-  json result = json::parse(response->content.string());
+  json result = client->request("GET", path);
   gameId = result["gameId"].get<string>();
   LOG(INFO) << "GOT GAME ID: " << gameId;
 
@@ -148,9 +146,7 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
 
   {
     string path = string("/api/get_game_info/") + gameId;
-    auto response = client->request("GET", path);
-    FATAL_FAIL_HTTP(response);
-    json result = json::parse(response->content.string());
+    json result = client->request("GET", path);
     hosting = (result["hostId"].get<string>() == userId);
     hostId = result["hostId"].get<string>();
   }
@@ -221,8 +217,7 @@ void MyPeer::host(const string& gameName) {
       {"hostId", userId}, {"gameId", gameId}, {"gameName", gameName}};
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
-  auto response = client->request("POST", path, request.dump(2), header);
-  FATAL_FAIL_HTTP(response);
+  json result = client->request("POST", path, request.dump(2), header);
   getInitialPosition();
 }
 
@@ -233,16 +228,13 @@ void MyPeer::join() {
                   {"peerKey", CryptoHandler::keyToString(publicKey)}};
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
-  auto response = client->request("POST", path, request.dump(2), header);
-  FATAL_FAIL_HTTP(response);
+  json result = client->request("POST", path, request.dump(2), header);
   getInitialPosition();
 }
 
 void MyPeer::getInitialPosition() {
   string path = string("/api/get_game_info/") + gameId;
-  auto response = client->request("GET", path);
-  FATAL_FAIL_HTTP(response);
-  json result = json::parse(response->content.string());
+  json result = client->request("GET", path);
   hosting = (result["hostId"].get<string>() == userId);
   position = -1;
   auto peerData = result["peerData"];
@@ -291,8 +283,7 @@ void MyPeer::updateEndpointServerHttp() {
   LOG(INFO) << "SENDING ENDPOINT PACKET (HTTP): " << request;
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
-  auto response = client->request("POST", path, request.dump(2), header);
-  FATAL_FAIL_HTTP(response);
+  json result = client->request("POST", path, request.dump(2), header);
 }
 
 void MyPeer::checkForEndpoints(const asio::error_code& error) {
@@ -309,9 +300,7 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
   string path = string("/api/get_game_info/") + gameId;
-  auto response = client->request("GET", path);
-  FATAL_FAIL_HTTP(response);
-  json result = json::parse(response->content.string());
+  json result = client->request("GET", path);
   LOG(INFO) << "GOT RESULT: " << result;
   if (!result["ready"].get<bool>()) {
     updateTimer->expires_at(updateTimer->expires_at() +
@@ -400,6 +389,7 @@ void MyPeer::update(const asio::error_code& error) {
     string path = string("/api/get_game_info/") + gameId;
     // TODO: This doesn't work yet because async calls require external
     // io_service
+    /*
     client->request(
         "GET", path,
         [this](shared_ptr<HttpClient::Response> response,
@@ -431,6 +421,7 @@ void MyPeer::update(const asio::error_code& error) {
             endpointHandler->addEndpoints(endpoints);
           }
         });
+        */
   }
 
   if (updateCounter % 100 == 0) {

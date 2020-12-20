@@ -6,7 +6,8 @@ namespace wga {
 bool ALL_RPC_FLAKY = false;
 
 BiDirectionalRpc::BiDirectionalRpc(bool connectedToHost)
-    : processedReplies(128 * 1024),
+    : processedRequests(128 * 1024),
+      processedReplies(128 * 1024),
       onBarrier(0),
       onId(0),
       flaky(ALL_RPC_FLAKY),
@@ -147,6 +148,7 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
   VLOG(1) << "GOT REQUEST: " << rpcId.str();
 
   bool skip = (incomingRequests.find(rpcId) != incomingRequests.end());
+  skip |= processedRequests.exists(rpcId);
   if (!skip) {
     for (const auto& it : outgoingReplies) {
       if (it.first == rpcId) {
@@ -258,6 +260,7 @@ void BiDirectionalRpc::reply(const RpcId& rpcId, const string& payload) {
     LOGFATAL << "Tried to reply but had no request: " << rpcId.id;
   }
   incomingRequests.erase(it);
+  processedRequests.put(rpcId, true);
   outgoingReplies[rpcId] = payload;
   sendReply(rpcId, payload, false);
 }

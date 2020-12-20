@@ -1,18 +1,23 @@
 #ifndef __CLOCK_SYNCHRONIZER_HPP__
 #define __CLOCK_SYNCHRONIZER_HPP__
 
+#include "AdamOptimizer.hpp"
 #include "Headers.hpp"
-
 #include "RpcId.hpp"
+#include "SlidingWindowEstimator.hpp"
 #include "TimeHandler.hpp"
 #include "WelfordEstimator.hpp"
-#include "SlidingWindowEstimator.hpp"
 
 namespace wga {
 class ClockSynchronizer {
  public:
-  ClockSynchronizer(shared_ptr<TimeHandler> _timeHandler, bool _connectedToHost, bool _log)
-      : timeHandler(_timeHandler), count(0), connectedToHost(_connectedToHost), log(_log), baselineOffset(0) {}
+  ClockSynchronizer(shared_ptr<TimeHandler> _timeHandler, bool _connectedToHost,
+                    bool _log)
+      : timeHandler(_timeHandler),
+        count(0),
+        connectedToHost(_connectedToHost),
+        log(_log),
+        baselineOffset(0) {}
 
   int64_t createRequest(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
@@ -34,8 +39,7 @@ class ClockSynchronizer {
     return now;
   }
 
-  pair<int64_t, int64_t> getReplyDuration(
-      const RpcId& id) {
+  pair<int64_t, int64_t> getReplyDuration(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
     int64_t sendTime = requestReceiveTimeMap.at(id);
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
@@ -51,8 +55,8 @@ class ClockSynchronizer {
     requestReceiveTimeMap.erase(it);
   }
 
-  void handleReply(const RpcId& id, int64_t requestReceiveTime, int64_t replySendTime
-                   );
+  void handleReply(const RpcId& id, int64_t requestReceiveTime,
+                   int64_t replySendTime);
 
   double getPing() {
     lock_guard<mutex> guard(clockMutex);
@@ -67,10 +71,8 @@ class ClockSynchronizer {
   }
 
  protected:
-  void updateDrift(int64_t requestSendTime,
-                   int64_t requestReceiptTime,
-                   int64_t replySendTime,
-                   int64_t replyReceiveTime);
+  void updateDrift(int64_t requestSendTime, int64_t requestReceiptTime,
+                   int64_t replySendTime, int64_t replyReceiveTime);
 
   shared_ptr<TimeHandler> timeHandler;
   unordered_map<RpcId, int64_t> requestSendTimeMap;

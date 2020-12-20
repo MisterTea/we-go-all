@@ -1,11 +1,8 @@
 #include "ClockSynchronizer.hpp"
 
-#include "AdamOptimizer.hpp"
 #include "TimeHandler.hpp"
 
 namespace wga {
-SlidingWindowEstimator offsetEstimator;
-AdamOptimizer offsetOptimizer(0, 0.1);
 void ClockSynchronizer::handleReply(const RpcId& id, int64_t requestReceiveTime,
                                     int64_t replySendTime) {
   lock_guard<mutex> guard(clockMutex);
@@ -19,7 +16,7 @@ void ClockSynchronizer::handleReply(const RpcId& id, int64_t requestReceiveTime,
 
 double ClockSynchronizer::getOffset() {
   lock_guard<mutex> guard(clockMutex);
-  return offsetEstimator.getMean();
+  return timeHandler->getOffsetEstimator()->getMean();
 }
 
 void ClockSynchronizer::updateDrift(int64_t requestSendTime,
@@ -35,40 +32,47 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                  (replySendTime - requestReceiptTime);
   pingEstimator.addSample(double(ping));
   if (log) {
-  LOG_EVERY_N(100, INFO) << "Time offset: " << timeOffset << " "
-                         << int64_t(offsetEstimator.getMean()) << " "
-                         << requestReceiptTime << " " << requestSendTime << " "
-                         << replyReceiveTime << " " << replySendTime << " "
-                         << ping_2 << endl;
-  LOG_EVERY_N(100, INFO) << "Ping: " << ping << " " << pingEstimator.getMean()
-                         << " " << pingEstimator.getVariance() << endl;
+    LOG_EVERY_N(100, INFO) << "Time offset: " << timeOffset << " "
+                           << int64_t(
+                                  timeHandler->getOffsetEstimator()->getMean())
+                           << " " << requestReceiptTime << " "
+                           << requestSendTime << " " << replyReceiveTime << " "
+                           << replySendTime << " " << ping_2 << endl;
+    LOG_EVERY_N(100, INFO) << "Ping: " << ping << " " << pingEstimator.getMean()
+                           << " " << pingEstimator.getVariance() << endl;
   }
-  auto oldMean = offsetEstimator.getMean();
+  auto oldMean = timeHandler->getOffsetEstimator()->getMean();
   count++;
   if (connectedToHost) {
     if (count < 10) {
-      // offsetOptimizer.force(timeOffset);
+      // timeHandler->getOffsetOptimizer()->force(timeOffset);
       baselineOffset += timeOffset;
     } else if (count == 10) {
       // Average to get final baseline
       baselineOffset += timeOffset;
       baselineOffset /= count;
     } else {
-      offsetOptimizer.updateWithLabel((timeOffset - baselineOffset) /
-                                      1000000.0);
-      offsetEstimator.addSample(double(timeOffset - baselineOffset));
+      timeHandler->getOffsetOptimizer()->updateWithLabel(
+          (timeOffset - baselineOffset) / 1000000.0);
+      timeHandler->getOffsetEstimator()->addSample(
+          double(timeOffset - baselineOffset));
     }
     auto oldTimeShift = timeHandler->getTimeShift();
-    // auto newTimeShift = int64_t(offsetEstimator.getMean()) + baselineOffset;
+    // auto newTimeShift = int64_t(timeHandler->getOffsetEstimator()->getMean())
+    // + baselineOffset;
     auto newTimeShift =
-        int64_t((1000000 * offsetOptimizer.getCurrentValue())) + baselineOffset;
+        int64_t(
+            (1000000 * timeHandler->getOffsetOptimizer()->getCurrentValue())) +
+        baselineOffset;
     timeHandler->setTimeShift(newTimeShift);
     if (log) {
-    auto timeShiftDifference = newTimeShift - oldTimeShift;
-    LOG_EVERY_N(100, INFO) << "Time offset changed by " << timeShiftDifference;
-    LOG_EVERY_N(100, INFO) << "Time offsets " << offsetEstimator.getMean()
-                           << " vs "
-                           << 1000000 * offsetOptimizer.getCurrentValue();
+      auto timeShiftDifference = newTimeShift - oldTimeShift;
+      LOG_EVERY_N(100, INFO)
+          << "Time offset changed by " << timeShiftDifference;
+      LOG_EVERY_N(100, INFO)
+          << "Time offsets " << timeHandler->getOffsetEstimator()->getMean()
+          << " vs "
+          << 1000000 * timeHandler->getOffsetOptimizer()->getCurrentValue();
     }
   }
 #if 0

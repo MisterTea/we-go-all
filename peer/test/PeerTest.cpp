@@ -29,8 +29,10 @@ class PeerTest {
         keys.push_back(CryptoHandler::generateKey());
       }
     }
+    LOG(INFO) << "Spinning up sgs";
     server.reset(new SingleGameServer(netEngine, 20000, names[0], keys[0].first,
                                       names[0], numPlayers));
+    LOG(INFO) << "Done";
 
     netEngine->start();
 
@@ -43,7 +45,12 @@ class PeerTest {
 
   void TearDown() {
     netEngine->post([this] { server->shutdown(); });
+
+    this_thread::sleep_for(chrono::seconds(1));
+
     netEngine->shutdown();
+
+    this_thread::sleep_for(chrono::seconds(1));
 
     server.reset();
     netEngine.reset();
@@ -88,23 +95,17 @@ class PeerTest {
       REQUIRE(result["peerData"][id]["endpoints"].size() == 0);
     }
 
-    shared_ptr<udp::socket> localSocket(netEngine->startUdpServer(12345));
-    udp::endpoint serverEndpoint = netEngine->resolve("127.0.0.1", "20000")[0];
-    string ipAddressPacket = names[0] + "_" + "192.168.0.1:" + to_string(12345);
-    netEngine->post([localSocket, serverEndpoint, ipAddressPacket]() {
-      LOG(INFO) << "IN SEND LAMBDA: " << ipAddressPacket.length();
-      int bytesSent =
-          localSocket->send_to(asio::buffer(ipAddressPacket), serverEndpoint);
-      LOG(INFO) << bytesSent << " bytes sent";
-    });
-    microsleep(1000 * 1000);
-
-    netEngine->post([localSocket]() mutable { localSocket->close(); });
-    microsleep(1000 * 1000);
+    for (int a = 0; a < 4; a++) {
+      path = string("/api/update_endpoints");
+      json request = {{"peerId", names[a]}, {"endpoints", {"127.0.0.1:12345"}}};
+      response = client.request("POST", path, request.dump(2));
+      REQUIRE(response->status_code == "200 OK");
+    }
 
     path = string("/api/get_game_info/") + gameId;
     response = client.request("GET", path);
     result = json::parse(response->content.string());
+    LOG(ERROR) << "GOT RESULT: " << result;
     REQUIRE(result["gameName"] == "Starwars");
     REQUIRE(result["hostId"] == names[0]);
     for (int a = 0; a < 4; a++) {
@@ -113,11 +114,7 @@ class PeerTest {
       REQUIRE(result["peerData"][id]["id"].get<string>() == id);
       REQUIRE(result["peerData"][id]["key"].get<string>() == stringKey);
       REQUIRE(result["peerData"][id]["name"].get<string>() == names[a]);
-      if (a == 0) {
-        REQUIRE(result["peerData"][id]["endpoints"].size() == 2);
-      } else {
-        REQUIRE(result["peerData"][id]["endpoints"].size() == 0);
-      }
+      REQUIRE(result["peerData"][id]["endpoints"].size() == 1);
     }
   }
 
@@ -128,7 +125,7 @@ class PeerTest {
           names[a], keys[a].second, 11000 + a, "localhost", 20000, names[a]));
       peers.push_back(peer);
     };
-    for (int a = 0; a < peers.size(); a++) {
+    for (int a = 0; a < int(peers.size()); a++) {
       if (!a) {
         peers[a]->host("Starwars");
       } else {
@@ -139,7 +136,7 @@ class PeerTest {
     for (auto it : peers) {
       it->start();
     }
-    for (int a = 0; a < peers.size(); a++) {
+    for (int a = 0; a < int(peers.size()); a++) {
       while (!peers[a]->initialized()) {
         LOG(INFO) << "Waiting for initialization for peer " << a << " ...";
         microsleep(1000 * 1000);
@@ -147,12 +144,12 @@ class PeerTest {
     }
     for (int64_t timestamp = 200; timestamp < 4000; timestamp += 200) {
       LOG(INFO) << "UPDATING STATE: " << timestamp;
-      for (int a = 0; a < peers.size(); a++) {
+      for (int a = 0; a < int(peers.size()); a++) {
         peers[a]->updateState(
             timestamp,
             {{std::string("button") + std::to_string(a), std::to_string(a)}});
       }
-      for (int a = 0; a < peers.size(); a++) {
+      for (int a = 0; a < int(peers.size()); a++) {
         unordered_map<string, string> state =
             peers[a]->getFullState(timestamp - 1);
         for (int b = 0; b < peers.size(); b++) {
@@ -162,7 +159,7 @@ class PeerTest {
         }
       }
     }
-    microsleep(1000 * 1000);
+    microsleep(10 * 1000 * 1000);
     for (int a = 0; a < int(peers.size()); a++) {
       peers[a]->shutdown();
       LOG(INFO) << "PEER SHUT DOWN";

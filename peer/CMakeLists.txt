@@ -54,6 +54,7 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Required packages
 find_package(Threads REQUIRED)
 find_package(Sodium REQUIRED)
+FIND_PACKAGE(OpenSSL REQUIRED)
 
 IF(MINGW)
   set(CORE_LIBRARIES Ws2_32 iphlpapi)
@@ -201,6 +202,7 @@ target_link_libraries (
   wga-lib
   upnp
   ${sodium_LIBRARY_RELEASE}
+  OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
   )
@@ -217,6 +219,7 @@ target_link_libraries (
   wga-lib
   upnp
   ${sodium_LIBRARY_RELEASE}
+  OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
   )
@@ -245,6 +248,7 @@ target_link_libraries(
   wga-lib
   upnp
   ${sodium_LIBRARY_RELEASE}
+  OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
   )

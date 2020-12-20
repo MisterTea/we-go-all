@@ -15,19 +15,17 @@ class AdamOptimizer {
     averageGradient = (BETA1 * averageGradient) + (ONE_MINUS_BETA1 * gradient);
     averageSquaredGradient = (BETA2 * averageSquaredGradient) +
                              (ONE_MINUS_BETA2 * (gradient * gradient));
-    currentValue -= learningRate *
-                    (averageGradient / sqrt(averageSquaredGradient) + EPSILON);
+    currentValue -= learningRate * (averageGradient /
+                                    (sqrt(averageSquaredGradient) + EPSILON));
   }
 
   void updateWithLabel(double label) {
-    //LOG(INFO) << "L1 LOSS: " << currentValue - label;
-    double oldValue = currentValue;
+    // LOG(INFO) << "L1 LOSS: " << currentValue - label;
+    // double oldValue = currentValue;
     update(currentValue - label);
   }
 
-  void force(double value) { 
-    currentValue = value;
-  }
+  void force(double value) { currentValue = value; }
 
   double getCurrentValue() { return currentValue; }
 
