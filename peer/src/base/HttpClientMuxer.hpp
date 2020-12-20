@@ -7,7 +7,7 @@ class HttpClientMuxer {
  public:
   HttpClientMuxer(const string &serverPortPath) : sslWorks(false) {
     client.reset(new HttpClient(serverPortPath));
-    secureClient.reset(new HttpsClient(serverPortPath, true));
+    secureClient.reset(new HttpsClient(serverPortPath, false));
   }
 
   json request(const std::string &method, const std::string &path = {"/"},
