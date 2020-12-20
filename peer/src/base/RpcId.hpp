@@ -26,7 +26,7 @@ class RpcId {
 
 namespace std {
 template <>
-struct hash<wga::RpcId> : public std::unary_function<wga::RpcId, size_t> {
+struct hash<wga::RpcId> {
  public:
   // hash functor: hash uuid to size_t value by pseudorandomizing transform
   size_t operator()(const wga::RpcId& rpcId) const {

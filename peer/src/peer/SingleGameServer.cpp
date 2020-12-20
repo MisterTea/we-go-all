@@ -93,8 +93,10 @@ SingleGameServer::SingleGameServer(shared_ptr<NetEngine> netEngine, int _port,
 
         LOG(INFO) << "GOT ENDPOINT DATA: " << content;
         string id = content["peerId"].get<string>();
-        auto allEndpoints = vector<string>(content["endpoints"].begin(),
-                                           content["endpoints"].end());
+        vector<string> allEndpoints;
+        for (auto it = content["endpoints"].begin(); it != content["endpoints"].end(); it++) {
+          allEndpoints.push_back(it->get<string>());
+        }
         setPeerEndpoints(id, allEndpoints);
 
         json retval = {{"status", "OK"}};
