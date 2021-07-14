@@ -18,6 +18,10 @@ class HttpClientMuxer {
       try {
         auto response = secureClient->request(method, path, content, header);
         FATAL_FAIL_HTTP(response);
+        if (response->status_code == "308 Permanent Redirect") {
+          auto newUrl = response->header.find("Location")->second;
+          return request(method, newUrl, content, header);
+        }
         json result = json::parse(response->content.string());
         sslWorks = true;
         return result;
@@ -30,6 +34,10 @@ class HttpClientMuxer {
           try {
             auto response2 = client->request(method, path, content, header);
             FATAL_FAIL_HTTP(response2);
+            if (response2->status_code == "308 Permanent Redirect") {
+              auto newUrl = response2->header.find("Location")->second;
+              return request(method, newUrl, content, header);
+            }
             json result = json::parse(response2->content.string());
             secureClient.reset();
             return result;
@@ -42,6 +50,10 @@ class HttpClientMuxer {
       try {
         auto response = client->request(method, path, content, header);
         FATAL_FAIL_HTTP(response);
+        if (response->status_code == "308 Permanent Redirect") {
+          auto newUrl = response->header.find("Location")->second;
+          return request(method, newUrl, content, header);
+        }
         json result = json::parse(response->content.string());
         return result;
       } catch (const std::exception &ex) {

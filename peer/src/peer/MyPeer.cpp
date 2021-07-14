@@ -136,7 +136,7 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
 
   client.reset(new HttpClientMuxer(lobbyHost + ":" + to_string(lobbyPort)));
 
-  LOG(INFO) << "GETTING GAME ID";
+  LOG(INFO) << "GETTING GAME ID FROM " << lobbyHost << ":" << lobbyPort;
   string path = string("/api/get_current_game_id/") + userId;
   json result = client->request("GET", path);
   gameId = result["gameId"].get<string>();

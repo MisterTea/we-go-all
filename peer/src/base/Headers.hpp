@@ -152,7 +152,7 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
   }
 
 #define FATAL_FAIL_HTTP(RESPONSE)                                              \
-  if (RESPONSE->status_code != "200 OK")                                       \
+  if (RESPONSE->status_code != "200 OK" && RESPONSE->status_code != "308 Permanent Redirect")                                       \
     LOGFATAL << "Error making http request: " << RESPONSE->status_code << "\n" \
              << RESPONSE->content.string();
 
