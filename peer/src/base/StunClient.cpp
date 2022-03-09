@@ -406,7 +406,7 @@ struct StunClient::State {
       : ios(ios), rx_buffer(512), was_destroyed(false) {}
 
   void destroy_requests(asio::error_code error) {
-    for (const auto it : requests) {
+    for (const auto& it : requests) {
       auto request = it.second;
       if (!request->handler) continue;
       request->exec(error, Endpoint());
@@ -418,7 +418,8 @@ struct StunClient::State {
 //------------------------------------------------------------------------------
 StunClient::StunClient(udp::socket& socket)
     : _socket(socket),
-      _state(make_shared<State>(socket.get_io_service())),
+      _state(make_shared<State>(
+          (asio::io_service&)socket.get_executor().context())),
       _request_count(0) {
   lock_guard<recursive_mutex> guard(_state->mutex);
 
@@ -453,13 +454,15 @@ void StunClient::reflect(Endpoint server_endpoint, Handler handler) {
 
   for (auto& i : id) i = rand();
 
-  auto request = make_shared<Request>(_socket.get_io_service(), id,
-                                      server_endpoint, handler);
+  auto request =
+      make_shared<Request>((asio::io_service&)_socket.get_executor().context(),
+                           id, server_endpoint, handler);
 
   auto ri = _state->requests.find(server_endpoint);
 
   if (ri != _state->requests.end()) {
-    LOG(INFO) << "Tried to call stunclient on the same endpoint twice: " << server_endpoint;
+    LOG(INFO) << "Tried to call stunclient on the same endpoint twice: "
+              << server_endpoint;
     return execute(ri, asio::error::operation_aborted);
   }
 
@@ -498,11 +501,12 @@ void StunClient::start_sending(RequestPtr request) {
 
   auto state = _state;
   auto asioBuffer = asio::buffer(*buf);
-  _socket.async_send_to(asioBuffer, request->tx_endpoint,
-                        [this, buf, state, request](asio::error_code error, size_t size) {
-                          lock_guard<recursive_mutex> guard(state->mutex);
-                          on_send(error, request);
-                        });
+  _socket.async_send_to(
+      asioBuffer, request->tx_endpoint,
+      [this, buf, state, request](asio::error_code error, size_t size) {
+        lock_guard<recursive_mutex> guard(state->mutex);
+        on_send(error, request);
+      });
 }
 
 //------------------------------------------------------------------------------
@@ -540,11 +544,12 @@ void StunClient::on_send(asio::error_code ec, RequestPtr request) {
 
 //------------------------------------------------------------------------------
 void StunClient::start_receiving(StatePtr state) {
-  _socket.async_receive_from(asio::buffer(state->rx_buffer), state->rx_endpoint,
-                             [this, state](asio::error_code error, size_t size) {
-                               lock_guard<recursive_mutex> guard(state->mutex);
-                               on_recv(error, size, state);
-                             });
+  _socket.async_receive_from(
+      asio::buffer(state->rx_buffer), state->rx_endpoint,
+      [this, state](asio::error_code error, size_t size) {
+        lock_guard<recursive_mutex> guard(state->mutex);
+        on_recv(error, size, state);
+      });
 }
 
 //------------------------------------------------------------------------------
@@ -647,8 +652,7 @@ void StunClient::execute(Requests::iterator ri, asio::error_code error,
                          Endpoint endpoint) {
   if (error && !(endpoint == Endpoint())) {
     LOG(FATAL) << "Error: " << error;
-  }
-  else if (error) {
+  } else if (error) {
     LOG(ERROR) << "Error: " << error.message();
   }
   auto r = ri->second;
