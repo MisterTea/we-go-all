@@ -57,4 +57,4 @@
 	url = https://github.com/lamerman/cpp-lru-cache.git
 [submodule "peer/external/sanitizers-cmake"]
 	path = peer/external/sanitizers-cmake
-	url = git://github.com/arsenm/sanitizers-cmake.git
+	url = https://github.com/arsenm/sanitizers-cmake.git
