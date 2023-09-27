@@ -123,6 +123,8 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   }
 
   publicKey = CryptoHandler::makePublicFromPrivate(_privateKey);
+  string publicKeyB64 = b64::Base64::Encode(
+      std::string(std::begin(publicKey), std::end(publicKey)));
   LOG(INFO) << "STARTING SERVER ON PORT: " << serverPort;
   localSocket.reset(netEngine->startUdpServer(serverPort));
   try {
@@ -149,6 +151,23 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
     json result = client->request("GET", path);
     hosting = (result["hostId"].get<string>() == userId);
     hostId = result["hostId"].get<string>();
+
+    // Make sure our public key is somewhere in the peer data
+    int position = -1;
+    auto peerData = result["peerData"];
+    int a = 0;
+    for (auto& element : peerData.items()) {
+      auto peerData = element.value();
+      if (peerData["key"] == publicKeyB64) {
+        position = a;
+        break;
+      }
+      a++;
+    }
+    if (position == -1) {
+      LOGFATAL << "Could not find peer key " << publicKeyB64
+               << " in game info: " << result;
+    }
   }
 }
 

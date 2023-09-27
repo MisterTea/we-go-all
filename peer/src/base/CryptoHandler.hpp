@@ -1,9 +1,9 @@
 #ifndef __WGA_CRYPTO_HANDLER__
 #define __WGA_CRYPTO_HANDLER__
 
-#include "Headers.hpp"
-
 #include <sodium.h>
+
+#include "Headers.hpp"
 
 #define SODIUM_FAIL(X)                                         \
   {                                                            \
@@ -26,6 +26,19 @@ class CryptoHandler {
   CryptoHandler(const PrivateKey& _myPrivateKey,
                 const PublicKey& _otherPublicKey);
   ~CryptoHandler();
+
+  static PrivateKey makePrivateKeyFromB64(const string& b64PrivateKey) {
+    auto decodedKey = b64::Base64::Decode(b64PrivateKey);
+    if (decodedKey.length() != crypto_box_SECRETKEYBYTES) {
+      throw std::runtime_error(std::string("Invalid decoded key length: ") +
+                               std::to_string(decodedKey.length()));
+    }
+    PrivateKey privateKey;
+    for (int a = 0; a < crypto_box_SECRETKEYBYTES; a++) {
+      privateKey[a] = decodedKey[a];
+    }
+    return privateKey;
+  }
 
   static PrivateKey makePrivateKeyFromPassword(const string& password) {
     PrivateKey privateKey;

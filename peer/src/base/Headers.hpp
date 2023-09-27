@@ -61,6 +61,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "Base64.hpp"
 #include "UniversalStacktrace/ust/ust.hpp"
 #include "easyloggingpp/src/easylogging++.h"
 
@@ -152,7 +153,8 @@ static const unsigned char SERVER_CLIENT_NONCE_MSB = 1;
   }
 
 #define FATAL_FAIL_HTTP(RESPONSE)                                              \
-  if (RESPONSE->status_code != "200 OK" && RESPONSE->status_code != "308 Permanent Redirect")                                       \
+  if (RESPONSE->status_code != "200 OK" &&                                     \
+      RESPONSE->status_code != "308 Permanent Redirect")                       \
     LOGFATAL << "Error making http request: " << RESPONSE->status_code << "\n" \
              << RESPONSE->content.string();
 
