@@ -20,7 +20,8 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
       lobbyPort(_lobbyPort),
       name(_name),
       timeShiftInitialized(false),
-      updateCounter(0) {
+      updateCounter(0),
+      position(-1) {
   {
     netEngine.reset(new NetEngine());
     netEngine->start();
@@ -151,23 +152,6 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
     json result = client->request("GET", path);
     hosting = (result["hostId"].get<string>() == userId);
     hostId = result["hostId"].get<string>();
-
-    // Make sure our public key is somewhere in the peer data
-    int position = -1;
-    auto peerData = result["peerData"];
-    int a = 0;
-    for (auto& element : peerData.items()) {
-      auto peerData = element.value();
-      if (peerData["key"] == publicKeyB64) {
-        position = a;
-        break;
-      }
-      a++;
-    }
-    if (position == -1) {
-      LOGFATAL << "Could not find peer key " << publicKeyB64
-               << " in game info: " << result;
-    }
   }
 }
 
@@ -257,10 +241,21 @@ void MyPeer::getInitialPosition() {
   hosting = (result["hostId"].get<string>() == userId);
   position = -1;
   auto peerData = result["peerData"];
+  string publicKeyB64 = b64::Base64::Encode(
+      std::string(std::begin(publicKey), std::end(publicKey)));
   int a = 0;
   for (auto& element : peerData.items()) {
     auto peerId = element.key();
     if (peerId == userId) {
+      if (position != -1) {
+        LOGFATAL << "Got multiple peers with the same user id: " << peerId
+                 << endl;
+      }
+      if (element.value()["key"] != publicKeyB64) {
+        LOGFATAL << "Got userid match " << peerId
+                 << " but public key doesn't match: " << element.value()["key"]
+                 << " != " << publicKeyB64;
+      }
       position = a;
     }
     a++;
