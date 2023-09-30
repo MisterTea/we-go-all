@@ -7,8 +7,8 @@ class SlidingWindowEstimator {
  public:
   SlidingWindowEstimator() : mean(0), variance(0) {}
 
-  void addSample(double sample) {
-    samples.push_back(sample);
+  void addSample(double newSample) {
+    samples.push_back(newSample);
     while (samples.size() > MAX_COUNT) {
       samples.pop_front();
     }

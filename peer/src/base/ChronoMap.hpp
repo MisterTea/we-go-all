@@ -93,7 +93,8 @@ class ChronoMap {
     {
       for (auto& it : futureData) {
         auto itInData = data.find(it.first);
-        if (itInData == data.end() || itInData->second.rbegin()->second != it.second) {
+        if (itInData == data.end() ||
+            itInData->second.rbegin()->second != it.second) {
           VLOG(1) << "GOT NEW VALUE: " << it.first << " = " << it.second;
           changes[it.first] = it.second;
         }

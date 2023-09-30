@@ -1,17 +1,85 @@
-cmake_minimum_required (VERSION 3.0.2)
-project (WeGoAll VERSION 0.0.1)
+cmake_minimum_required(VERSION 3.15.0)
+
+# Enable vcpkg
+set(CMAKE_TOOLCHAIN_FILE
+  "${CMAKE_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake")
+
+# Set the triplet
+if(WIN32)
+  set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "VCPKG Triplet")
+elseif(APPLE)
+  execute_process(
+    COMMAND uname -m
+    COMMAND tr -d '\n'
+    OUTPUT_VARIABLE VCPKG_ARCHITECTURE)
+  message(STATUS "Architecture: ${VCPKG_ARCHITECTURE}")
+
+  if(${VCPKG_ARCHITECTURE} STREQUAL "arm64") # Apple Silicon
+    set(VCPKG_TARGET_TRIPLET "arm64-osx" CACHE STRING "VCPKG Triplet")
+  else()
+    set(VCPKG_TARGET_TRIPLET "x64-osx" CACHE STRING "VCPKG Triplet")
+  endif()
+else()
+  execute_process(
+    COMMAND uname -m
+    COMMAND tr -d '\n'
+    OUTPUT_VARIABLE VCPKG_ARCHITECTURE)
+  message(STATUS "Architecture: ${VCPKG_ARCHITECTURE}")
+
+  if(${VCPKG_ARCHITECTURE} STREQUAL "x86_64")
+    set(VCPKG_TARGET_TRIPLET "x64-linux" CACHE STRING "VCPKG Triplet")
+  elseif(${VCPKG_ARCHITECTURE} STREQUAL "x86_86")
+    set(VCPKG_TARGET_TRIPLET "x86-linux" CACHE STRING "VCPKG Triplet")
+  elseif(${VCPKG_ARCHITECTURE} STREQUAL "aarch64")
+    set(VCPKG_TARGET_TRIPLET "arm64-linux" CACHE STRING "VCPKG Triplet")
+  elseif(${VCPKG_ARCHITECTURE} STREQUAL "arm64")
+    set(VCPKG_TARGET_TRIPLET "arm64-linux" CACHE STRING "VCPKG Triplet")
+  elseif(${VCPKG_ARCHITECTURE} MATCHES "arm.*")
+    set(VCPKG_TARGET_TRIPLET "arm-linux" CACHE STRING "VCPKG Triplet")
+  else()
+    set(VCPKG_TARGET_TRIPLET "${VCPKG_ARCHITECTURE}-linux" CACHE STRING "VCPKG Triplet")
+  endif()
+endif()
+
+# Some hacks to fix vcpkg
+if(WIN32)
+  set(ZLIB_LIBRARY_RELEASE
+    "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/zlib.lib"
+  )
+  set(ZLIB_LIBRARY_DEBUG
+    "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib/zlibd.lib"
+  )
+else()
+  # Make BoostConfig.cmake able to check its inputs
+  cmake_policy(SET CMP0057 NEW)
+
+  # Honor the visibility properties for all target types, including
+  # object libraries and static libraries.
+  cmake_policy(SET CMP0063 NEW)
+
+  # Don't ignore <PackageName>_ROOT variables
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
+project(WeGoAll VERSION 0.0.1)
+
+SET(OPENSSL_USE_STATIC_LIBS TRUE)
+SET(OPENSSL_ROOT_DIR "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}")
+
+# Enable C++-17
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/external/sanitizers-cmake/cmake" ${CMAKE_MODULE_PATH})
 FIND_PACKAGE(Sanitizers)
 
 option(CODE_COVERAGE "Enable code coverage" OFF)
 
-# Enable C++-17
 if(UNIX)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
-	# Enable debug info
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+  # Enable debug info
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 
 # Flags for miniupnpc
@@ -21,13 +89,11 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMINIUPNPC_SET_SOCKET_TIMEOUT -DMINIUPNPC_G
 # Flags for libnat-pmp
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_STRNATPMPERR")
 
-
 IF(APPLE)
-SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+  SET(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
 
-# Turn off address randomizing to get debug prints
-SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-pie")
-
+  # Turn off address randomizing to get debug prints
+  SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-pie")
 ENDIF()
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DWGA_VERSION='\"${PROJECT_VERSION}\"'")
@@ -38,34 +104,34 @@ IF(CODE_COVERAGE)
   endif()
 ENDIF(CODE_COVERAGE)
 
-#Using FreeBSD?
-if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
-    set(FREEBSD TRUE)
-endif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+# Using FreeBSD?
+if(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+  set(FREEBSD TRUE)
+endif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 
-#Using NetBSD?
-if (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
+# Using NetBSD?
+if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
   set(NETBSD TRUE)
-endif (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
+endif(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
 
 # Add cmake script directory.
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Required packages
 find_package(Threads REQUIRED)
-find_package(Sodium REQUIRED)
-FIND_PACKAGE(OpenSSL REQUIRED)
+find_package(sodium MODULE REQUIRED)
+FIND_PACKAGE(OpenSSL MODULE REQUIRED)
 
 IF(MINGW)
   set(CORE_LIBRARIES Ws2_32 iphlpapi)
 ELSEIF(WIN32)
   set(
-  CORE_LIBRARIES
+    CORE_LIBRARIES
 
-  Ws2_32
-  iphlpapi
-  Shlwapi
-  dbghelp)
+    Ws2_32
+    iphlpapi
+    Shlwapi
+    dbghelp)
 ELSEIF(FREEBSD)
   set(CORE_LIBRARIES util execinfo)
 ELSEIF(NETBSD)
@@ -83,7 +149,7 @@ include_directories(
   external/msgpack-c/include
   external/Eigen
   ${sodium_INCLUDE_DIR}
-  )
+)
 
 add_library(
   upnp
@@ -188,15 +254,15 @@ add_library(
 
   src/peer/MyPeer.cpp
   src/peer/SingleGameServer.cpp
-  )
+)
 add_sanitizers(wga-lib)
-  
-add_executable (
+
+add_executable(
   examplepeer
 
   src/example/ExamplePeer.cpp
-  )
-target_link_libraries (
+)
+target_link_libraries(
   examplepeer
   LINK_PUBLIC
   wga-lib
@@ -205,15 +271,15 @@ target_link_libraries (
   OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
-  )
+)
 add_sanitizers(examplepeer)
 
-add_executable (
+add_executable(
   examplelobby
 
   src/example/ExampleLobby.cpp
-  )
-target_link_libraries (
+)
+target_link_libraries(
   examplelobby
   LINK_PUBLIC
   wga-lib
@@ -222,7 +288,7 @@ target_link_libraries (
   OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
-  )
+)
 add_sanitizers(examplelobby)
 
 enable_testing()
@@ -237,12 +303,12 @@ add_executable(
   test/FlakyRpcTest.cpp
   test/PeerTest.cpp
   test/StunTest.cpp
-  )
+)
 add_dependencies(
   wga-test
   wga-lib
   upnp
-  )
+)
 target_link_libraries(
   wga-test
   wga-lib
@@ -251,9 +317,9 @@ target_link_libraries(
   OpenSSL::SSL
   ${CMAKE_THREAD_LIBS_INIT}
   ${CORE_LIBRARIES}
-  )
+)
 add_test(
   wga-test
   wga-test
-  )
+)
 add_sanitizers(wga-test)

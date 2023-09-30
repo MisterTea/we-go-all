@@ -58,3 +58,6 @@
 [submodule "peer/external/sanitizers-cmake"]
 	path = peer/external/sanitizers-cmake
 	url = https://github.com/arsenm/sanitizers-cmake.git
+[submodule "peer/external/vcpkg"]
+	path = peer/external/vcpkg
+	url = https://github.com/microsoft/vcpkg.git

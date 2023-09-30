@@ -1,0 +1,5 @@
+{
+  "name": "we-go-all",
+  "version-string": "1.0.0",
+  "dependencies": ["libsodium", "openssl"]
+}

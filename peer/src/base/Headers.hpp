@@ -85,12 +85,7 @@
 #define STATS_ENABLE_STDVEC_WRAPPERS
 #include "stats/include/stats.hpp"
 
-#if __cplusplus >= 201703L
 #include <optional>
-#else
-#include "Optional/optional.hpp"
-using namespace std::experimental;
-#endif
 
 #include "cpp-lru-cache/include/lrucache.hpp"
 using namespace cache;
