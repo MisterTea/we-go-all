@@ -347,10 +347,11 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     string id = it.key();
     PublicKey peerKey =
         CryptoHandler::stringToKey<PublicKey>(it.value()["key"]);
-    string name = it.value()["name"];
-    peerData[id] = shared_ptr<PlayerData>(new PlayerData(peerKey, name));
+    string peerName = it.value()["name"];
+    peerData[id] = shared_ptr<PlayerData>(new PlayerData(peerKey, peerName));
     if (id == userId) {
-      // Don't need to set up endpoint for myself
+      // Don't need to set up endpoint for myself, but update my user name
+      name = peerName;
       continue;
     }
     vector<udp::endpoint> endpoints;
@@ -515,9 +516,9 @@ bool MyPeer::initialized() {
   return true;
 }
 
-unordered_map<string, vector<string>> MyPeer::getAllInputValues(
+unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
     int64_t timestamp) {
-  unordered_map<string, vector<string>> values;
+  unordered_map<string, map<string, string>> values;
   for (auto& it : peerData) {
     auto peerId = it.first;
     if (rpcServer->isPeerShutDown(peerId)) {
@@ -532,10 +533,10 @@ unordered_map<string, vector<string>> MyPeer::getAllInputValues(
             << "GOT EXPIRATION TIME: " << timestamp << " > "
             << it.second->playerInputData.getExpirationTime();
         lock_guard<recursive_mutex> guard(peerDataMutex);
-        auto allValuesForPeer = it.second->playerInputData.getAll(timestamp);
-        for (auto it : allValuesForPeer) {
+        auto allKeyValuesForPeer = it.second->playerInputData.getAll(timestamp);
+        for (auto it2 : allKeyValuesForPeer) {
           // [] operator creates a vector if needed
-          values[it.first].push_back(it.second);
+          values[it2.first].insert(make_pair(it.first, it2.second));
         }
         break;
       }

@@ -25,6 +25,8 @@ class MyPeer {
     }
   }
 
+  int getTotalPeerCount() { return peerData.size(); }
+
   void host(const string& gameName);
   void join();
 
@@ -39,7 +41,8 @@ class MyPeer {
   void updateState(int64_t timestamp,
                    const unordered_map<string, string>& data);
 
-  unordered_map<string, vector<string>> getAllInputValues(int64_t timestamp);
+  unordered_map<string, map<string, string>> getAllInputValues(
+      int64_t timestamp);
 
   // TODO: This causes collisions and should be removed
   unordered_map<string, string> getFullState(int64_t timestamp);
@@ -64,6 +67,8 @@ class MyPeer {
   bool isHosting() { return hosting; }
 
   int getPosition() { return position; }
+
+  string getMyUserName() { return name; }
 
  protected:
   string userId;

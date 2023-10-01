@@ -82,7 +82,10 @@ class ChronoMap {
     }
     unordered_map<K, V> retval;
     for (auto& it : keys) {
-      retval[it] = getOrDie(timestamp, it);
+      auto value = get(timestamp, it);
+      if (value != nullopt) {
+        retval[it] = *value;
+      }
     }
     return retval;
   }
