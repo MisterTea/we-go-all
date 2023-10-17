@@ -41,18 +41,7 @@ class SingleGameServer {
     peerData[id] = ServerPeerData(id, key, name);
   }
 
-  void setPeerEndpoints(const string& id, const vector<string>& endpoints) {
-    auto it = peerData.find(id);
-    if (it == peerData.end()) {
-      LOG(ERROR) << "Could not find peer: " << id;
-      return;
-    }
-    VLOG(1) << "SETTING ENDPOINTS";
-    for (auto& endpoint : endpoints) {
-      VLOG(1) << "SETTING ENDPOINT: " << endpoint;
-      it->second.endpoints.insert(endpoint);
-    }
-  }
+  void setPeerEndpoints(const string& id, const vector<string> &endpointsWithDuplicatesInOtherPeers);
 
   string getGameId() { return gameId; }
 

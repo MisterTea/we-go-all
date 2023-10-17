@@ -115,4 +115,34 @@ void SingleGameServer::shutdown() {
   }
 }
 
+void SingleGameServer::setPeerEndpoints(const string& id, const vector<string> &endpointsWithDuplicatesInOtherPeers) {
+  // Remove any endpoints that exist in other peers.  We really should remove both endpoints but then we need to keep track of removed endpoints.
+  vector<string> endpointsWithoutDuplicates;
+  for (auto& endpoint : endpointsWithDuplicatesInOtherPeers) {
+    bool gotDupe = false;
+    for (auto &entry : peerData) {
+      if (entry.first == id) {
+        continue;
+      }
+      if (entry.second.endpoints.find(endpoint) != entry.second.endpoints.end()) {
+        // Found the same endpoint in another peer.
+        gotDupe = true;
+      }
+    }
+    if (!gotDupe) {
+      endpointsWithoutDuplicates.push_back(endpoint);
+    }
+  }
+  auto it = peerData.find(id);
+  if (it == peerData.end()) {
+    LOG(ERROR) << "Could not find peer: " << id;
+    return;
+  }
+  VLOG(1) << "SETTING ENDPOINTS";
+  for (auto& endpoint : endpointsWithoutDuplicates) {
+    VLOG(1) << "SETTING ENDPOINT: " << endpoint;
+    it->second.endpoints.insert(endpoint);
+  }
+}
+
 }  // namespace wga
