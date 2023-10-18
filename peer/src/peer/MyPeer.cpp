@@ -535,6 +535,9 @@ unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
     if (rpcServer->isPeerShutDown(peerId)) {
       continue;
     }
+    if (timestamp >= it.second->playerInputData.getExpirationTime()) {
+      LOG_EVERY_N(1, INFO) << "WE GOT AN INPUT TOO LATE: " << timestamp << " >= " << it.second->playerInputData.getExpirationTime();
+    }
     while (true) {
       LOG_EVERY_N(600, INFO)
           << "WAITING FOR EXPIRATION TIME: " << timestamp << " > "

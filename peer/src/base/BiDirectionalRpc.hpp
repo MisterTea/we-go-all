@@ -107,7 +107,7 @@ class BiDirectionalRpc {
 
   virtual bool receive(const string& message);
 
-  bool hasWork() {
+  virtual bool hasWork() {
     lock_guard<recursive_mutex> guard(mutex);
     for (const auto& it : delayedRequests) {
       if (!it.second.empty()) {

@@ -31,6 +31,8 @@ class UdpBiDirectionalRpc : public BiDirectionalRpc {
   default_random_engine generator;
   time_t lastSendTime = 0;
   int sendBytes = 0;
+  bool doubleSends = true;
+  void _send(const string& message);
 };
 }  // namespace wga
 

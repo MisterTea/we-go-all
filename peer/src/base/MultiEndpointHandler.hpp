@@ -38,10 +38,21 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
   bool isEndpointBanned(const udp::endpoint& newEndpoint) {
     return bannedEndpoints.find(newEndpoint) != bannedEndpoints.end();
   }
+  bool isConnectionDead() {
+    return (lastUnrepliedSendTime + 5) < time(NULL);
+  }
+  virtual bool hasWork() {
+    lock_guard<recursive_mutex> guard(mutex);
+    if (isConnectionDead()) {
+      return false;
+    }
+    return UdpBiDirectionalRpc::hasWork();
+  }
 
  protected:
   time_t lastUpdateTime;
   time_t lastUnrepliedSendTime;
+  time_t lastUnrepliedSendOrKillTime;
   set<udp::endpoint> alternativeEndpoints;
   set<udp::endpoint> deadEndpoints;
   set<udp::endpoint> bannedEndpoints;

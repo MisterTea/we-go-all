@@ -15,7 +15,7 @@ class TimeHandler {
   void addNoise() {
     lock_guard<recursive_mutex> guard(timeHandlerMutex);
     noiseShift = -1 * chrono::duration_cast<chrono::microseconds>(
-                          chrono::seconds(rand() % 300))
+                          chrono::seconds(rand() % 30))
                           .count();
   }
 

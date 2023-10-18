@@ -6,7 +6,8 @@ MultiEndpointHandler::MultiEndpointHandler(
     const vector<udp::endpoint>& endpoints, bool connectedToHost)
     : UdpBiDirectionalRpc(_netEngine, _localSocket, connectedToHost),
       lastUpdateTime(time(NULL)),
-      lastUnrepliedSendTime(0) {
+      lastUnrepliedSendTime(0),
+      lastUnrepliedSendOrKillTime(0) {
   if (endpoints.empty()) {
     LOGFATAL << "Passed an empty endpoints array";
   }
@@ -22,7 +23,7 @@ void MultiEndpointHandler::handleReply(const RpcId& rpcId,
                                        int64_t requestReceiveTime,
                                        int64_t replySendTime) {
   lock_guard<recursive_mutex> lock(mutex);
-  lastUnrepliedSendTime = 0;
+  lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = 0;
   BiDirectionalRpc::handleReply(rpcId, payload, requestReceiveTime,
                                 replySendTime);
 }
@@ -31,7 +32,7 @@ void MultiEndpointHandler::send(const string& message) {
   // LOG(INFO) << "SENDING MESSAGE: " << message;
   lock_guard<recursive_mutex> lock(mutex);
   if (lastUnrepliedSendTime == 0) {
-    lastUnrepliedSendTime = time(NULL);
+    lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = time(NULL);
   }
 
   if (time(NULL) != lastUpdateTime) {
@@ -55,7 +56,7 @@ void MultiEndpointHandler::send(const string& message) {
   */
 
   if (lastUnrepliedSendTime == 0) {
-    lastUnrepliedSendTime = time(NULL);
+    lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = time(NULL);
   }
 }
 
@@ -106,11 +107,11 @@ void MultiEndpointHandler::update() {
     return;
   }
 
-  if ((lastUnrepliedSendTime + 5) < time(NULL)) {
+  if ((lastUnrepliedSendOrKillTime + 5) < time(NULL)) {
     killEndpoint();
   } else {
     VLOG(1) << "Connection hasn't been dead long enough: "
-              << (lastUnrepliedSendTime + 5) << " < " << time(NULL);
+              << (lastUnrepliedSendOrKillTime + 5) << " < " << time(NULL);
   }
 }
 
@@ -135,7 +136,7 @@ void MultiEndpointHandler::killEndpoint() {
             << ":" << previousEndpoint.port() << " -> "
             << activeEndpoint.address().to_string() << ":"
             << activeEndpoint.port();
-  lastUnrepliedSendTime = time(NULL);
+  lastUnrepliedSendOrKillTime = time(NULL);
 }
 
 void MultiEndpointHandler::banEndpoint(const udp::endpoint& newEndpoint) {

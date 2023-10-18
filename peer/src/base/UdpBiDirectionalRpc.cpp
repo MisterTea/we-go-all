@@ -13,35 +13,46 @@ void UdpBiDirectionalRpc::send(const string& message) {
     LOG(INFO) << "Reached max throughput, dropping";
     return;
   }
-  int64_t delay = 0;
-  if (flaky) {
-    while (true) {
-      int64_t number = int64_t(flakyDelayDist(generator));
-      if (number > 0 && number < 2000) {
-        delay = number;
-        break;
+  for (int a=0;a<(doubleSends?2:1); a++) {
+    int64_t delay = 0;
+    if (flaky) {
+      while (true) {
+        int64_t number = int64_t(flakyDelayDist(generator));
+        if (number > 0 && number < 2000) {
+          delay = number;
+          break;
+        }
       }
+    }
+
+    if (delay) {
+      auto timer = shared_ptr<asio::steady_timer>(netEngine->createTimer(
+          std::chrono::steady_clock::now() + std::chrono::milliseconds(delay)));
+      timer->async_wait([this, localMessage, timer](const asio::error_code& error) {
+        if (error) {
+          return;
+        }
+        _send(localMessage);
+      });
+    } else {
+        _send(localMessage);
     }
   }
-  auto timer = shared_ptr<asio::steady_timer>(netEngine->createTimer(
-      std::chrono::steady_clock::now() + std::chrono::milliseconds(delay)));
-  timer->async_wait([this, localMessage, timer](const asio::error_code& error) {
-    if (error) {
-      return;
+}
+
+void UdpBiDirectionalRpc::_send(const string& localMessage) {
+  netEngine->post([this, localMessage]() {
+    lock_guard<recursive_mutex> guard(this->mutex);
+    VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
+            << this->activeEndpoint;
+    try {
+      int bytesSent = int(this->localSocket->send_to(
+          asio::buffer(localMessage), this->activeEndpoint));
+      VLOG(1) << bytesSent << " bytes sent";
+    } catch (const system_error& se) {
+      LOG(ERROR) << "Got error trying to send: " << se.what();
+      // At this point we should try a new endpoint
     }
-    netEngine->post([this, localMessage, timer]() {
-      lock_guard<recursive_mutex> guard(this->mutex);
-      VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
-              << this->activeEndpoint;
-      try {
-        int bytesSent = int(this->localSocket->send_to(
-            asio::buffer(localMessage), this->activeEndpoint));
-        VLOG(1) << bytesSent << " bytes sent";
-      } catch (const system_error& se) {
-        LOG(ERROR) << "Got error trying to send: " << se.what();
-        // At this point we should try a new endpoint
-      }
-    });
   });
 }
 

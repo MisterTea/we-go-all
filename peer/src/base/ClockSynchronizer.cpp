@@ -30,7 +30,7 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
   int64_t timeOffset = (((timeOffsetRequest + (timeOffsetReply)) / 2));
   int64_t ping = (replyReceiveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
-  pingEstimator.addSample(double(ping));
+  pingEstimator.addSample(min(1000.0*1000.0, double(ping)));
   if (log) {
     LOG_EVERY_N(100, INFO) << "Time offset: " << timeOffset << " "
                            << int64_t(
@@ -39,7 +39,7 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
                            << requestSendTime << " " << replyReceiveTime << " "
                            << replySendTime << " " << ping_2 << endl;
     LOG_EVERY_N(100, INFO) << "Ping: " << ping << " " << pingEstimator.getMean()
-                           << " " << pingEstimator.getVariance() << endl;
+                           << " " << pingEstimator.getVariance() << " " << pingEstimator.getUpperBound();;
   }
   auto oldMean = timeHandler->getOffsetEstimator()->getMean();
   count++;
