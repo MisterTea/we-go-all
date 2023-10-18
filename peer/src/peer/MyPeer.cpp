@@ -221,7 +221,6 @@ void MyPeer::host(const string& gameName) {
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
   json result = client->request("POST", path, request.dump(2), header);
-  getInitialPosition();
 }
 
 void MyPeer::join() {
@@ -232,28 +231,37 @@ void MyPeer::join() {
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
   json result = client->request("POST", path, request.dump(2), header);
-  getInitialPosition();
 }
 
 void MyPeer::getInitialPosition() {
   string path = string("/api/get_game_info/") + gameId;
   json result = client->request("GET", path);
   hosting = (result["hostId"].get<string>() == userId);
+  auto hostId = result["hostId"].get<string>();
   position = -1;
   auto peerData = result["peerData"];
   string publicKeyB64 = b64::Base64::Encode(
       std::string(std::begin(publicKey), std::end(publicKey)));
   int a = 0;
+  vector<string> peerIds;
   for (auto& element : peerData.items()) {
-    auto peerId = element.key();
+    if (element.key() != hostId) {
+	    peerIds.push_back(element.key());
+    }
+  }
+  sort(peerIds.begin(), peerIds.end()); 
+  // Make sure the host is always player 1
+  peerIds.insert(peerIds.begin(), hostId);
+  for (auto& peerId : peerIds) {
+    auto& peerDataValue = peerData[peerId];
     if (peerId == userId) {
       if (position != -1) {
         LOGFATAL << "Got multiple peers with the same user id: " << peerId
                  << endl;
       }
-      if (element.value()["key"] != publicKeyB64) {
+      if (peerDataValue["key"] != publicKeyB64) {
         LOGFATAL << "Got userid match " << peerId
-                 << " but public key doesn't match: " << element.value()["key"]
+                 << " but public key doesn't match: " << peerDataValue["key"]
                  << " != " << publicKeyB64;
       }
       position = a;
@@ -379,6 +387,9 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     lock_guard<recursive_mutex> guard(peerDataMutex);
     myData = peerData[userId];
   }
+
+  // Need to get initial position after everyone has connected.
+  getInitialPosition();
 
   update(asio::error_code());
 }
