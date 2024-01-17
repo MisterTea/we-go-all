@@ -42,11 +42,12 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
     return (lastUnrepliedSendTime + 5) < time(NULL);
   }
   virtual bool hasWork() {
-    lock_guard<recursive_mutex> guard(mutex);
-    if (isConnectionDead()) {
-      return false;
-    }
-    return UdpBiDirectionalRpc::hasWork();
+	  lock_guard<recursive_mutex> guard(mutex);
+	  if (isConnectionDead()) {
+		  return false;
+	  }
+	  return UdpBiDirectionalRpc::hasWork();
+  }
   bool hasEndpoint(const udp::endpoint& newEndpoint) {
     if (bannedEndpoints.find(newEndpoint) != bannedEndpoints.end()) {
       return true;
