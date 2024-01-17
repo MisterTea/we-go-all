@@ -47,6 +47,25 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
       return false;
     }
     return UdpBiDirectionalRpc::hasWork();
+  bool hasEndpoint(const udp::endpoint& newEndpoint) {
+    if (bannedEndpoints.find(newEndpoint) != bannedEndpoints.end()) {
+      return true;
+    }
+    if (activeEndpoint == newEndpoint) {
+      return true;
+    }
+    if (alternativeEndpoints.find(newEndpoint) != alternativeEndpoints.end()) {
+      return true;
+    }
+    if (deadEndpoints.find(newEndpoint) != deadEndpoints.end()) {
+      return true;
+    }
+    return false;
+  }
+  set<udp::endpoint> aliveEndpoints() {
+      auto result = alternativeEndpoints;
+      result.insert(activeEndpoint);
+      return result;
   }
 
  protected:

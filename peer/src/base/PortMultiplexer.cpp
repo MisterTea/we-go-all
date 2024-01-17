@@ -14,6 +14,27 @@ void PortMultiplexer::closeSocket() {
   netEngine->post([this] { localSocket->close(); });
 }
 
+void PortMultiplexer::addRecipient(shared_ptr<EncryptedMultiEndpointHandler> recipient) {
+  lock_guard<recursive_mutex> guard(mut);
+
+  // Ban any duplicate endpoints
+  auto eps = recipient->aliveEndpoints();
+  for (auto ep : eps) {
+    if (endpointsSeen.find(ep) != endpointsSeen.end()) {
+      // We've seen this endpoint more than once, ban it.
+      LOG(WARNING) << "Banning endpoint " << ep << " because two peers have it";
+      for (auto r : recipients) {
+        r->banEndpoint(ep);
+      }
+    } else {
+      // Mark it so we ban next time if we see it again.
+      endpointsSeen.insert(ep);
+    }
+  }
+
+  recipients.push_back(recipient);
+}
+
 void PortMultiplexer::handleReceive(const asio::error_code& error,
                                     std::size_t bytesTransferred) {
   if (error == asio::error::operation_aborted) {
