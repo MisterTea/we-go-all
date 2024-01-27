@@ -18,6 +18,7 @@ class EncryptedMultiEndpointHandler : public MultiEndpointHandler {
 
   virtual ~EncryptedMultiEndpointHandler() {}
 
+  void sendSessionKey();
   virtual void requestWithId(const IdPayload& idPayload);
   virtual void reply(const RpcId& rpcId, const string& payload);
   shared_ptr<CryptoHandler> getCryptoHandler() { return cryptoHandler; }

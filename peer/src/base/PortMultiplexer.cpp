@@ -20,13 +20,18 @@ void PortMultiplexer::addRecipient(shared_ptr<EncryptedMultiEndpointHandler> rec
   // Ban any duplicate endpoints
   auto eps = recipient->aliveEndpoints();
   for (auto ep : eps) {
-    if (endpointsSeen.find(ep) != endpointsSeen.end()) {
+    if (endpointsSeen.find(ep) != endpointsSeen.end() || ep == receiveEndpoint) {
       // We've seen this endpoint more than once, ban it.
-      LOG(WARNING) << "Banning endpoint " << ep << " because two peers have it";
+      if (ep == receiveEndpoint) {
+        LOG(WARNING) << "Banning endpoint " << ep << " because it matches my recieve endpoint (" << receiveEndpoint << ").";
+      } else {
+        LOG(WARNING) << "Banning endpoint " << ep << " because two peers have it";
+      }
       for (auto r : recipients) {
         r->banEndpoint(ep);
       }
     } else {
+      LOG(INFO) << "ENDPOINT LOOKS GOOD: " << ep << " " << receiveEndpoint << endl;
       // Mark it so we ban next time if we see it again.
       endpointsSeen.insert(ep);
     }

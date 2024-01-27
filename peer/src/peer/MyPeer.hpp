@@ -98,6 +98,7 @@ class MyPeer {
   set<udp::endpoint> stunEndpoints;
   int position;
 
+  vector<string> getMyIps();
   void updateEndpointServerHttp();
   void getInitialPosition();
 };

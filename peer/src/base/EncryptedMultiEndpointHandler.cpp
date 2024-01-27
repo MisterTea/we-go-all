@@ -11,7 +11,9 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
   if (cryptoHandler->canDecrypt() || cryptoHandler->canEncrypt()) {
     LOGFATAL << "Created endpoint handler with session key";
   }
+}
 
+void EncryptedMultiEndpointHandler::sendSessionKey() {
   // Send session key as a one-way rpc
   {
     IdPayload idPayload;

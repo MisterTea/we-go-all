@@ -290,7 +290,7 @@ void MyPeer::start() {
                    .count();
 }
 
-void MyPeer::updateEndpointServerHttp() {
+vector<string> MyPeer::getMyIps() {
   auto myIps = LocalIpFetcher::fetch(serverPort, true);
   for (unsigned int a = 0; a < myIps.size(); a++) {
     myIps[a] = myIps[a] + ":" + to_string(serverPort);
@@ -299,7 +299,11 @@ void MyPeer::updateEndpointServerHttp() {
     myIps.push_back(stunIp.address().to_string() + ":" +
                     to_string(stunIp.port()));
   }
+  return myIps;
+}
 
+void MyPeer::updateEndpointServerHttp() {
+  auto myIps = getMyIps();
   string path = string("/api/update_endpoints");
   json request = {{"endpoints", myIps}, {"peerId", userId}};
   LOG(INFO) << "SENDING ENDPOINT PACKET (HTTP): " << request;
@@ -349,6 +353,8 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
 
   // Iterate over peer data and set up peers
   auto peerDataObject = result["peerData"];
+  auto myIpsVector = getMyIps();
+  auto myIps = set<string>(myIpsVector.begin(), myIpsVector.end());
   for (json::iterator it = peerDataObject.begin(); it != peerDataObject.end();
        ++it) {
     VLOG(1) << it.key() << " : " << it.value();
@@ -378,7 +384,20 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
         new EncryptedMultiEndpointHandler(localSocket, netEngine,
                                           peerCryptoHandler, endpoints,
                                           (id == hostId)));
+    // Ban any of my IPs (to avoid accidentally sending packets to myself)
+    auto eps = endpointHandler->aliveEndpoints();
+    for (auto ep : eps) {
+      string epString = ep.address().to_string() + ":" + to_string(ep.port());
+      if (myIps.find(epString) != myIps.end()) {
+        // We've seen this endpoint more than once, ban it.
+        LOG(WARNING) << "Banning endpoint " << ep << " because it matches my recieve endpoint (" << (*myIps.find(epString)) << ").";
+        endpointHandler->banEndpoint(ep);
+      } else {
+        LOG(INFO) << "ENDPOINT LOOKS GOOD: " << ep << endl;
+      }
+    }
     rpcServer->addEndpoint(id, endpointHandler);
+	  endpointHandler->sendSessionKey();
   }
 
   // this_thread::sleep_for(chrono::seconds(1));
