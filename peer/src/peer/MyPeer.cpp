@@ -82,7 +82,7 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
                 stunEndpoints.insert(reflective_ep);
               }
 
-              if (!e && --wait_for == 0) {
+              if (--wait_for == 0) {
                 timer.cancel();
                 stun_client.reset();
                 resolver.cancel();
@@ -91,7 +91,7 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
       });
     }
 
-    timer.expires_from_now(5s);
+    timer.expires_from_now(15s);
     timer.async_wait([&](error_code ec) {
       stun_client.reset();
       resolver.cancel();
@@ -100,11 +100,11 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
     ios.run();
 
     if (wait_for != 0) {
-      std::cerr << "stun_client test failed: make sure at least " << N
+      LOG(INFO) << "stun_client test failed: make sure at least " << N
                 << " stun servers are running on the following addresses."
                 << std::endl;
       for (const auto& stun : stuns) {
-        std::cerr << "    " << stun.url << ":" << stun.port << std::endl;
+        LOG(INFO) << "    " << stun.url << ":" << stun.port << std::endl;
       }
       LOG(FATAL)
           << "Stun test failed.  Did not receive packets from STUN server";
