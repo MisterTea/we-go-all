@@ -48,8 +48,16 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
             "19302",
         },
         {
-            "stun2.l.google.com",
-            "19302",
+            "stun.ekiga.net",
+            "3478",
+        },
+        {
+            "stun.f.haeder.net",
+            "3478",
+        },
+        {
+            "stun.bethesda.net",
+            "3478",
         },
     };
 
