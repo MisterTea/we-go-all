@@ -65,8 +65,7 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
     auto stun_client =
         std::unique_ptr<StunClient>(new StunClient(socket_to_reflect));
 
-    constexpr int N = 2;
-    int wait_for = N;
+    int wait_for = (int)stuns.size();
 
     for (const auto& stun : stuns) {
       udp::resolver::query q(udp::v4(), stun.url, stun.port);
@@ -108,7 +107,7 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
     ios.run();
 
     if (wait_for != 0) {
-      LOG(INFO) << "stun_client test failed: make sure at least " << N
+      LOG(INFO) << "stun_client test failed: make sure at least " << stuns.size()
                 << " stun servers are running on the following addresses."
                 << std::endl;
       for (const auto& stun : stuns) {
