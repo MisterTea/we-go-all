@@ -16,7 +16,10 @@ class WelfordEstimator {
   }
 
   double getMean() { return mean; }
-  double getVariance() { return m2 / count; }
+  double getVariance() {
+    // An empty estimator has no variance; avoid returning NaN from 0 / 0.
+    return count == 0 ? 0 : m2 / count;
+  }
   double getUpperBound() {
     return (getMean()) +
            ((sqrt(getVariance()) * 1));
