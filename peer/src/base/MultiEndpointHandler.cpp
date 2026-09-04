@@ -7,7 +7,8 @@ MultiEndpointHandler::MultiEndpointHandler(
     : UdpBiDirectionalRpc(_netEngine, _localSocket, connectedToHost),
       lastUpdateTime(time(NULL)),
       lastUnrepliedSendTime(0),
-      lastUnrepliedSendOrKillTime(0) {
+      lastUnrepliedSendOrKillTime(0),
+      endpointConfirmed(false) {
   if (endpoints.empty()) {
     LOGFATAL << "Passed an empty endpoints array";
   }
@@ -23,6 +24,7 @@ void MultiEndpointHandler::handleReply(const RpcId& rpcId,
                                        int64_t requestReceiveTime,
                                        int64_t replySendTime) {
   lock_guard<recursive_mutex> lock(mutex);
+  endpointConfirmed = true;
   lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = 0;
   BiDirectionalRpc::handleReply(rpcId, payload, requestReceiveTime,
                                 replySendTime);
@@ -42,10 +44,10 @@ void MultiEndpointHandler::send(const string& message) {
   }
 
   UdpBiDirectionalRpc::send(message);
-  /*
-  if (lastUnrepliedSendTime + 5 < time(NULL)) {
-    // Send on all channels
-    LOG(INFO) << "SENDING ON ALL CHANNELS";
+  // Before the first authenticated reply, punch every candidate path in
+  // parallel.  Waiting five seconds per address is much too slow for a lobby
+  // that deliberately has no relay fallback.
+  if (!endpointConfirmed) {
     for (auto it : alternativeEndpoints) {
       auto tmp = activeEndpoint;
       activeEndpoint = it;
@@ -53,7 +55,6 @@ void MultiEndpointHandler::send(const string& message) {
       activeEndpoint = tmp;
     }
   }
-  */
 
   if (lastUnrepliedSendTime == 0) {
     lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = time(NULL);

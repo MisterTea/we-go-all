@@ -41,13 +41,16 @@ void UdpBiDirectionalRpc::send(const string& message) {
 }
 
 void UdpBiDirectionalRpc::_send(const string& localMessage) {
-  netEngine->post([this, localMessage]() {
+  // Snapshot the destination before posting.  Endpoint selection may change
+  // while this send is waiting on the network thread.
+  auto const destination = activeEndpoint;
+  netEngine->post([this, localMessage, destination]() {
     lock_guard<recursive_mutex> guard(this->mutex);
     VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
-            << this->activeEndpoint;
+            << destination;
     try {
       int bytesSent = int(this->localSocket->send_to(
-          asio::buffer(localMessage), this->activeEndpoint));
+          asio::buffer(localMessage), destination));
       VLOG(1) << bytesSent << " bytes sent";
     } catch (const system_error& se) {
       LOG(ERROR) << "Got error trying to send: " << se.what();

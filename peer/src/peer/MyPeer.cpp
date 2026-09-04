@@ -216,8 +216,11 @@ void MyPeer::shutdown() {
 
 void MyPeer::host(const string& gameName) {
   string path = string("/api/host");
-  json request = {
-      {"hostId", userId}, {"gameId", gameId}, {"gameName", gameName}};
+  json request = {{"hostId", userId},
+                  {"gameId", gameId},
+                  {"gameName", gameName},
+                  {"name", name},
+                  {"peerKey", CryptoHandler::keyToString(publicKey)}};
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
   json result = client->request("POST", path, request.dump(2), header);

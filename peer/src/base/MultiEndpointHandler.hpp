@@ -73,6 +73,7 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
   time_t lastUpdateTime;
   time_t lastUnrepliedSendTime;
   time_t lastUnrepliedSendOrKillTime;
+  bool endpointConfirmed;
   set<udp::endpoint> alternativeEndpoints;
   set<udp::endpoint> deadEndpoints;
   set<udp::endpoint> bannedEndpoints;
