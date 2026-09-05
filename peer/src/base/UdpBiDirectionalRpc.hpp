@@ -23,6 +23,8 @@ class UdpBiDirectionalRpc : public BiDirectionalRpc {
     activeEndpoint = destination;
   }
 
+  virtual void onSendError(const udp::endpoint& destination) {}
+
  protected:
   shared_ptr<NetEngine> netEngine;
   shared_ptr<udp::socket> localSocket;

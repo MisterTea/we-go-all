@@ -5,9 +5,10 @@ MultiEndpointHandler::MultiEndpointHandler(
     shared_ptr<NetEngine> _netEngine, shared_ptr<udp::socket> _localSocket,
     const vector<udp::endpoint>& endpoints, bool connectedToHost)
     : UdpBiDirectionalRpc(_netEngine, _localSocket, connectedToHost),
-      lastUpdateTime(time(NULL)),
-      lastUnrepliedSendTime(0),
-      lastUnrepliedSendOrKillTime(0),
+      lastUpdateTime(chrono::steady_clock::now()),
+      lastUnrepliedSendTime(chrono::steady_clock::now()),
+      lastUnrepliedSendOrKillTime(chrono::steady_clock::now()),
+      hasUnrepliedSend(false),
       endpointConfirmed(false) {
   if (endpoints.empty()) {
     LOGFATAL << "Passed an empty endpoints array";
@@ -25,7 +26,7 @@ void MultiEndpointHandler::handleReply(const RpcId& rpcId,
                                        int64_t replySendTime) {
   lock_guard<recursive_mutex> lock(mutex);
   endpointConfirmed = true;
-  lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = 0;
+  hasUnrepliedSend = false;
   BiDirectionalRpc::handleReply(rpcId, payload, requestReceiveTime,
                                 replySendTime);
 }
@@ -33,13 +34,17 @@ void MultiEndpointHandler::handleReply(const RpcId& rpcId,
 void MultiEndpointHandler::send(const string& message) {
   // LOG(INFO) << "SENDING MESSAGE: " << message;
   lock_guard<recursive_mutex> lock(mutex);
-  if (lastUnrepliedSendTime == 0) {
-    lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = time(NULL);
+  auto now = chrono::steady_clock::now();
+  if (!hasUnrepliedSend) {
+    hasUnrepliedSend = true;
+    lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = now;
   }
 
-  if (time(NULL) != lastUpdateTime) {
-    lastUpdateTime = time(NULL);
-    LOG(INFO) << "UPDATING ENDPOINT HANDLER";
+  auto elapsedSinceUpdate =
+      chrono::duration_cast<chrono::milliseconds>(now - lastUpdateTime).count();
+  if (elapsedSinceUpdate >= 50) {
+    lastUpdateTime = now;
+    VLOG(1) << "UPDATING ENDPOINT HANDLER";
     update();
   }
 
@@ -56,8 +61,9 @@ void MultiEndpointHandler::send(const string& message) {
     }
   }
 
-  if (lastUnrepliedSendTime == 0) {
-    lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = time(NULL);
+  if (!hasUnrepliedSend) {
+    hasUnrepliedSend = true;
+    lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = chrono::steady_clock::now();
   }
 }
 
@@ -102,24 +108,28 @@ void MultiEndpointHandler::addEndpoints(
 
 void MultiEndpointHandler::update() {
   lock_guard<recursive_mutex> lock(mutex);
-  if (lastUnrepliedSendTime == 0) {
+  if (!hasUnrepliedSend) {
     // Nothing to do
-    LOG(INFO) << "Connection seems to be working";
+    VLOG(1) << "Connection seems to be working";
     return;
   }
 
-  if ((lastUnrepliedSendOrKillTime + 5) < time(NULL)) {
+  auto now = chrono::steady_clock::now();
+  int timeoutMs = endpointConfirmed ? 2000 : 400;
+  auto elapsedMs =
+      chrono::duration_cast<chrono::milliseconds>(now - lastUnrepliedSendOrKillTime).count();
+  if (elapsedMs >= timeoutMs) {
     killEndpoint();
   } else {
     VLOG(1) << "Connection hasn't been dead long enough: "
-              << (lastUnrepliedSendOrKillTime + 5) << " < " << time(NULL);
+            << elapsedMs << " < " << timeoutMs << " ms";
   }
 }
 
 void MultiEndpointHandler::killEndpoint() {
   auto previousEndpoint = activeEndpoint;
-  // We haven't got anything back for 5 seconds
   deadEndpoints.insert(activeEndpoint);
+  endpointConfirmed = false;
   if (!alternativeEndpoints.empty()) {
     DRAW_FROM_UNORDERED(it, alternativeEndpoints);
     activeEndpoint = *it;
@@ -137,7 +147,24 @@ void MultiEndpointHandler::killEndpoint() {
             << ":" << previousEndpoint.port() << " -> "
             << activeEndpoint.address().to_string() << ":"
             << activeEndpoint.port();
-  lastUnrepliedSendOrKillTime = time(NULL);
+  lastUnrepliedSendOrKillTime = chrono::steady_clock::now();
+}
+
+void MultiEndpointHandler::onSendError(const udp::endpoint& destination) {
+  lock_guard<recursive_mutex> lock(mutex);
+  if (destination == activeEndpoint) {
+    LOG(INFO) << "Send error to active endpoint " << destination
+              << ", switching endpoint immediately";
+    killEndpoint();
+  } else {
+    auto it = alternativeEndpoints.find(destination);
+    if (it != alternativeEndpoints.end()) {
+      LOG(INFO) << "Send error to alternative endpoint " << destination
+                << ", marking dead";
+      alternativeEndpoints.erase(it);
+      deadEndpoints.insert(destination);
+    }
+  }
 }
 
 void MultiEndpointHandler::banEndpoint(const udp::endpoint& newEndpoint) {

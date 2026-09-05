@@ -73,18 +73,23 @@ class ChronoMap {
   }
 
   unordered_map<K, V> getAll(int64_t timestamp) const {
-    unordered_set<K> keys;
-    {
-      lock_guard<mutex> lk(dataReadyMutex);
-      for (auto& it : data) {
-        keys.insert(it.first);
-      }
-    }
     unordered_map<K, V> retval;
-    for (auto& it : keys) {
-      auto value = get(timestamp, it);
-      if (value != nullopt) {
-        retval[it] = *value;
+    lock_guard<mutex> lk(dataReadyMutex);
+    if (timestamp < 0) {
+      LOGFATAL << "Invalid time stamp";
+    }
+    if (timestamp >= expirationTime) {
+      LOG(INFO) << "Tried to get a key from the future";
+      return retval;
+    }
+    for (const auto& it : data) {
+      auto innerItAhead = it.second.upper_bound(timestamp);
+      if (innerItAhead == it.second.begin()) {
+        continue;
+      } else if (innerItAhead == it.second.end()) {
+        retval[it.first] = it.second.rbegin()->second;
+      } else {
+        retval[it.first] = (--innerItAhead)->second;
       }
     }
     return retval;

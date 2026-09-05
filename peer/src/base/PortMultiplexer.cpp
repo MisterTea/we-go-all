@@ -16,22 +16,6 @@ void PortMultiplexer::closeSocket() {
 
 void PortMultiplexer::addRecipient(shared_ptr<EncryptedMultiEndpointHandler> recipient) {
   lock_guard<recursive_mutex> guard(mut);
-
-  // Ban any duplicate endpoints
-  auto eps = recipient->aliveEndpoints();
-  for (auto ep : eps) {
-    if (endpointsSeen.find(ep) != endpointsSeen.end()) {
-      // We've seen this endpoint more than once, ban it.
-      LOG(WARNING) << "Banning endpoint " << ep << " because two peers have it";
-      for (auto r : recipients) {
-        r->banEndpoint(ep);
-      }
-    } else {
-      // Mark it so we ban next time if we see it again.
-      endpointsSeen.insert(ep);
-    }
-  }
-
   recipients.push_back(recipient);
 }
 
@@ -69,27 +53,30 @@ void PortMultiplexer::handleReceive(const asio::error_code& error,
       for (auto& it : recipients) {
         if (it->hasEndpointAndResurrectIfFound(receiveEndpoint)) {
           recipient = it;
+          break;
         }
       }
-      if (recipient.get() == NULL && packetContents.size() > 0) {
-        // We don't have any endpoint to receive this, so check the header
-        LOG(INFO) << "Do not know who should get packet, will check header";
+      if (recipient != nullptr) {
+        if (!recipient->receive(packetContents)) {
+          // Could not decrypt/validate with this recipient; might belong to another peer
+          recipient = nullptr;
+        }
+      }
+      if (recipient == nullptr && packetContents.size() > 0) {
+        // Try other eligible recipients
         for (auto& it : recipients) {
           if (it->isEndpointBanned(receiveEndpoint)) {
             continue;
           }
-          // Possible match, try it out
-          recipient = it;
-          recipient->addEndpoint(receiveEndpoint);
-          break;
+          if (it->receive(packetContents)) {
+            recipient = it;
+            recipient->addEndpoint(receiveEndpoint);
+            break;
+          }
         }
       }
-      if (recipient.get() == NULL) {
-        LOG(ERROR) << "Could not find receipient";
-      } else {
-        if (!recipient->receive(packetContents)) {
-          recipient->banEndpoint(receiveEndpoint);
-        }
+      if (recipient == nullptr) {
+        VLOG(2) << "No recipient could handle packet from " << receiveEndpoint;
       }
     }
   }

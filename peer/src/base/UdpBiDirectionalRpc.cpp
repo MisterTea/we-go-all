@@ -54,7 +54,7 @@ void UdpBiDirectionalRpc::_send(const string& localMessage) {
       VLOG(1) << bytesSent << " bytes sent";
     } catch (const system_error& se) {
       LOG(ERROR) << "Got error trying to send: " << se.what();
-      // At this point we should try a new endpoint
+      this->onSendError(destination);
     }
   });
 }

@@ -22,8 +22,9 @@ class ClockSynchronizer {
   int64_t createRequest(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
-    if (requestSendTimeMap.find(id) != requestSendTimeMap.end()) {
-      LOG(FATAL) << "Duplicate request";
+    auto it = requestSendTimeMap.find(id);
+    if (it != requestSendTimeMap.end()) {
+      return it->second;
     }
     requestSendTimeMap[id] = now;
     return now;
@@ -31,28 +32,32 @@ class ClockSynchronizer {
 
   int64_t receiveRequest(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
-    if (requestReceiveTimeMap.find(id) != requestReceiveTimeMap.end()) {
-      LOG(FATAL) << "Duplicate request";
-    }
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
+    auto it = requestReceiveTimeMap.find(id);
+    if (it != requestReceiveTimeMap.end()) {
+      return it->second;
+    }
     requestReceiveTimeMap[id] = now;
     return now;
   }
 
   pair<int64_t, int64_t> getReplyDuration(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
-    int64_t sendTime = requestReceiveTimeMap.at(id);
     auto now = timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
+    auto it = requestReceiveTimeMap.find(id);
+    if (it == requestReceiveTimeMap.end()) {
+      return make_pair(now, now);
+    }
+    int64_t sendTime = it->second;
     return make_pair(sendTime, now);
   }
 
   void eraseRequestRecieveTime(const RpcId& id) {
     lock_guard<mutex> guard(clockMutex);
     auto it = requestReceiveTimeMap.find(id);
-    if (it == requestReceiveTimeMap.end()) {
-      LOG(FATAL) << "Tried to remove request time that didn't exist";
+    if (it != requestReceiveTimeMap.end()) {
+      requestReceiveTimeMap.erase(it);
     }
-    requestReceiveTimeMap.erase(it);
   }
 
   void handleReply(const RpcId& id, int64_t requestReceiveTime,

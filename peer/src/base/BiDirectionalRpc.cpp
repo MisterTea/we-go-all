@@ -72,10 +72,20 @@ void BiDirectionalRpc::heartbeat() {
 void BiDirectionalRpc::resendRandomOutgoingMessage() {
   lock_guard<recursive_mutex> guard(mutex);
   if (!outgoingReplies.empty()) {
+    auto itSessionKeyReply = outgoingReplies.find(SESSION_KEY_RPCID);
+    if (itSessionKeyReply != outgoingReplies.end()) {
+      sendReply(itSessionKeyReply->first, itSessionKeyReply->second, true);
+      return;
+    }
     // Re-send a random reply
     DRAW_FROM_UNORDERED(it, outgoingReplies);
     sendReply(it->first, it->second, true);
   } else if (!outgoingRequests.empty()) {
+    auto itSessionKey = outgoingRequests.find(SESSION_KEY_RPCID);
+    if (itSessionKey != outgoingRequests.end()) {
+      sendRequest(itSessionKey->first, itSessionKey->second, true);
+      return;
+    }
     // Re-send a random request
     DRAW_FROM_UNORDERED(it, outgoingRequests);
     sendRequest(it->first, it->second, true);

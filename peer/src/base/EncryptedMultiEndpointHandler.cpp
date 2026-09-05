@@ -135,16 +135,20 @@ void EncryptedMultiEndpointHandler::send(const string& message) {
 bool EncryptedMultiEndpointHandler::validatePacket(const RpcId& rpcId,
                                                    const string& payload) {
   if (rpcId == SESSION_KEY_RPCID) {
-    return true;
+    try {
+      MessageReader reader;
+      reader.load(payload);
+      PublicKey publicKey =
+          CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
+      return publicKey == cryptoHandler->getOtherPublicKey();
+    } catch (...) {
+      return false;
+    }
   }
   if (!cryptoHandler->canDecrypt()) {
-    LOG(WARNING) << "Tried to validate packet but we can't decrypt yet";
     return false;
   }
   bool result = bool(cryptoHandler->decrypt(payload));
-  if (!result) {
-    LOG(WARNING) << "Got a packet intended for someone else (or malformed)";
-  }
   return result;
 }
 }  // namespace wga
