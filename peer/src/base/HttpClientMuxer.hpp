@@ -7,7 +7,11 @@ class HttpClientMuxer {
  public:
   HttpClientMuxer(const string &serverPortPath) : sslWorks(false) {
     client.reset(new HttpClient(serverPortPath));
-    secureClient.reset(new HttpsClient(serverPortPath, false));
+    if (serverPortPath.rfind("127.0.0.1:", 0) != 0 &&
+        serverPortPath.rfind("localhost:", 0) != 0 &&
+        serverPortPath.rfind(":", 0) != 0) {
+      secureClient.reset(new HttpsClient(serverPortPath, false));
+    }
   }
 
   json request(const std::string &method, const std::string &path = {"/"},

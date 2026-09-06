@@ -404,22 +404,27 @@ void MyPeer::updateEndpointServerHttp() {
 }
 
 void MyPeer::checkForEndpoints(const asio::error_code& error) {
-  LOG(INFO) << "CHECKING FOR ENDPOINTS";
-  if (error == asio::error::operation_aborted) {
+  if (error == asio::error::operation_aborted || shuttingDown) {
     return;
   }
-  LOG(INFO) << "CHECKING FOR ENDPOINTS";
   lock_guard<recursive_mutex> guard(peerDataMutex);
-  LOG(INFO) << "CHECKING FOR ENDPOINTS";
+  if (shuttingDown) {
+    return;
+  }
 
   // updateEndpointServerHttp();
 
-  // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
   string path = string("/api/get_game_info/") + gameId;
-  json result = client->request("GET", path);
+  json result = client ? client->request("GET", path) : json();
+  if (shuttingDown) {
+    return;
+  }
   LOG(INFO) << "GOT RESULT: " << result;
   if (result.is_null() || result.empty() || !result.contains("ready")) {
+    if (shuttingDown) {
+      return;
+    }
     updateTimer->expires_at(std::chrono::steady_clock::now() +
                             asio::chrono::milliseconds(50));
     updateTimer->async_wait(
@@ -428,6 +433,9 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
     return;
   }
   if (!result["ready"].get<bool>()) {
+    if (shuttingDown) {
+      return;
+    }
     updateTimer->expires_at(std::chrono::steady_clock::now() +
                             asio::chrono::milliseconds(50));
     updateTimer->async_wait(
