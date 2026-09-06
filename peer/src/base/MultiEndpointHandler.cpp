@@ -8,6 +8,8 @@ MultiEndpointHandler::MultiEndpointHandler(
       lastUpdateTime(chrono::steady_clock::now()),
       lastUnrepliedSendTime(chrono::steady_clock::now()),
       lastUnrepliedSendOrKillTime(chrono::steady_clock::now()),
+      lastPacketReceiveTime(chrono::steady_clock::now()),
+      lastPacketReceiveTimeInitialized(false),
       hasUnrepliedSend(false),
       endpointConfirmed(false) {
   if (endpoints.empty()) {
@@ -27,6 +29,8 @@ void MultiEndpointHandler::handleReply(const RpcId& rpcId,
   lock_guard<recursive_mutex> lock(mutex);
   endpointConfirmed = true;
   hasUnrepliedSend = false;
+  lastPacketReceiveTime = chrono::steady_clock::now();
+  lastPacketReceiveTimeInitialized = true;
   BiDirectionalRpc::handleReply(rpcId, payload, requestReceiveTime,
                                 replySendTime);
 }
@@ -73,6 +77,8 @@ bool MultiEndpointHandler::hasEndpointAndResurrectIfFound(
   if (bannedEndpoints.find(endpoint) != bannedEndpoints.end()) {
     return false;
   }
+  lastPacketReceiveTime = chrono::steady_clock::now();
+  lastPacketReceiveTimeInitialized = true;
   if (endpoint == activeEndpoint) {
     return true;
   }

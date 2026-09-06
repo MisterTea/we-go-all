@@ -42,7 +42,8 @@ class HttpClientMuxer {
             secureClient.reset();
             return result;
           } catch (const std::exception &ex) {
-            LOGFATAL << "Http request error: " << ex.what();
+            LOG(ERROR) << "Http request error: " << ex.what();
+            return json();
           }
         }
       }
@@ -57,7 +58,8 @@ class HttpClientMuxer {
         json result = json::parse(response->content.string());
         return result;
       } catch (const std::exception &ex) {
-        LOGFATAL << "Http request error: " << ex.what();
+        LOG(ERROR) << "Http request error: " << ex.what();
+        return json();
       }
     }
 

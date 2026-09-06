@@ -49,6 +49,41 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
                std::chrono::steady_clock::now() - lastUnrepliedSendTime)
                .count() >= 5;
   }
+  bool isPeerUnreachable(int timeoutSeconds) {
+    lock_guard<recursive_mutex> guard(mutex);
+    auto now = std::chrono::steady_clock::now();
+    if (hasUnrepliedSend) {
+      auto unrepliedSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                               now - lastUnrepliedSendTime)
+                               .count();
+      if (unrepliedSecs >= timeoutSeconds) {
+        return true;
+      }
+    }
+    if (lastPacketReceiveTimeInitialized) {
+      auto noReceiveSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                               now - lastPacketReceiveTime)
+                               .count();
+      if (noReceiveSecs >= timeoutSeconds) {
+        return true;
+      }
+    }
+    return false;
+  }
+  void resetReachabilityTimers() {
+    lock_guard<recursive_mutex> guard(mutex);
+    auto now = std::chrono::steady_clock::now();
+    lastPacketReceiveTime = now;
+    lastPacketReceiveTimeInitialized = true;
+    if (hasUnrepliedSend) {
+      lastUnrepliedSendTime = lastUnrepliedSendOrKillTime = now;
+    }
+  }
+  void recordPacketReceived() {
+    lock_guard<recursive_mutex> guard(mutex);
+    lastPacketReceiveTime = std::chrono::steady_clock::now();
+    lastPacketReceiveTimeInitialized = true;
+  }
   virtual bool hasWork() {
     lock_guard<recursive_mutex> guard(mutex);
     if (isConnectionDead()) {
@@ -84,6 +119,8 @@ class MultiEndpointHandler : public UdpBiDirectionalRpc {
   chrono::steady_clock::time_point lastUpdateTime;
   chrono::steady_clock::time_point lastUnrepliedSendTime;
   chrono::steady_clock::time_point lastUnrepliedSendOrKillTime;
+  chrono::steady_clock::time_point lastPacketReceiveTime;
+  bool lastPacketReceiveTimeInitialized;
   bool hasUnrepliedSend;
   bool endpointConfirmed;
   set<udp::endpoint> alternativeEndpoints;

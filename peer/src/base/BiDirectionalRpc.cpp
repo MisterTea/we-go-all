@@ -17,10 +17,6 @@ BiDirectionalRpc::BiDirectionalRpc(bool connectedToHost)
 BiDirectionalRpc::~BiDirectionalRpc() {}
 
 void BiDirectionalRpc::sendShutdown() {
-  if (shuttingDown) {
-    LOG(INFO) << "SKIPPING SHUTDOWN BECAUSE ALREADY SHUT DOWN";
-    return;
-  }
   LOG(INFO) << "SHUTTING DOWN RPC";
   requestOneWay("SHUTDOWN");
 }
@@ -178,8 +174,8 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
       reply(rpcId, "PONG");
       return;
     }
-    if (it != incomingRequests.end() && it->second == "SHUTDOWN") {
-      LOG(INFO) << "GOT SHUTDOWN REQUEST";
+    if (it != incomingRequests.end() && (it->second == "SHUTDOWN" || it->second == "GAMEOVER")) {
+      LOG(INFO) << "GOT SHUTDOWN/GAMEOVER REQUEST";
       // Shutdown request, handle and send reply
       shutdown();
       reply(rpcId, "SHUTDOWN_REPLY");

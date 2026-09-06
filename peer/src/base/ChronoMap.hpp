@@ -7,17 +7,31 @@ namespace wga {
 template <typename K, typename V>
 class ChronoMap {
  public:
-  ChronoMap() : expirationTime(0) {}
+  ChronoMap() : stopWaitingFlag(false), expirationTime(0) {}
 
   bool waitForExpirationTime(long expirationTimeToWaitFor) {
+    if (stopWaitingFlag.load()) {
+      return false;
+    }
     unique_lock<mutex> lk(dataReadyMutex);
     if (dataReady.wait_for(lk, std::chrono::seconds(1),
                            [this, expirationTimeToWaitFor] {
-                             return expirationTime > expirationTimeToWaitFor;
+                             return (expirationTime > expirationTimeToWaitFor) ||
+                                    stopWaitingFlag.load();
                            })) {
-      return true;
+      return !stopWaitingFlag.load();
     }
     return false;
+  }
+
+  void stopWaiting() {
+    stopWaitingFlag.store(true);
+    lock_guard<mutex> lk(dataReadyMutex);
+    dataReady.notify_all();
+  }
+
+  void resumeWaiting() {
+    stopWaitingFlag.store(false);
   }
 
   void put(int64_t startTime, int64_t endTime, unordered_map<K, V> data) {
@@ -132,6 +146,7 @@ class ChronoMap {
  protected:
   mutable mutex dataReadyMutex;
   mutable condition_variable dataReady;
+  std::atomic<bool> stopWaitingFlag;
   unordered_map<K, map<int64_t, V>> data;
   int64_t expirationTime;
   map<int64_t, tuple<int64_t, int64_t, unordered_map<K, V>>> futureData;

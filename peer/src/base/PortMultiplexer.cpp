@@ -11,7 +11,13 @@ PortMultiplexer::PortMultiplexer(shared_ptr<NetEngine> _netEngine,
 }
 
 void PortMultiplexer::closeSocket() {
-  netEngine->post([this] { localSocket->close(); });
+  auto sock = localSocket;
+  netEngine->post([sock] {
+    if (sock) {
+      asio::error_code ec;
+      sock->close(ec);
+    }
+  });
 }
 
 void PortMultiplexer::addRecipient(shared_ptr<EncryptedMultiEndpointHandler> recipient) {

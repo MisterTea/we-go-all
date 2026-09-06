@@ -122,6 +122,20 @@ bool RpcServer::isPeerShutDown(const string& peerId) {
   return it->second->isShuttingDown();
 }
 
+bool RpcServer::isPeerUnreachable(const string& peerId, int timeoutSeconds) {
+  auto it = endpoints.find(peerId);
+  if (it == endpoints.end()) {
+    return false;
+  }
+  return it->second->isPeerUnreachable(timeoutSeconds);
+}
+
+void RpcServer::resetReachabilityTimers() {
+  for (auto it : endpoints) {
+    it.second->resetReachabilityTimers();
+  }
+}
+
 vector<string> RpcServer::getPeerIds() {
   vector<string> retval;
   for (auto it : endpoints) {

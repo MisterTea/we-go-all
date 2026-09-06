@@ -176,10 +176,48 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   }
 }
 
+void MyPeer::signalGameOver() {
+  if (gameOver.exchange(true)) {
+    return;
+  }
+  LOG(INFO) << "SIGNALING GAME OVER TO ALL PEERS";
+  {
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    if (myData) {
+      myData->playerInputData.stopWaiting();
+    }
+    for (auto& it : peerData) {
+      it.second->playerInputData.stopWaiting();
+    }
+    if (rpcServer) {
+      for (int i = 0; i < 3; ++i) {
+        rpcServer->sendShutdown();
+        microsleep(10 * 1000);
+      }
+    }
+  }
+}
+
+void MyPeer::resetReachabilityTimers() {
+  lock_guard<recursive_mutex> guard(peerDataMutex);
+  if (rpcServer) {
+    rpcServer->resetReachabilityTimers();
+  }
+}
+
+bool MyPeer::isPeerUnreachable(const string& peerId, int timeoutSeconds) {
+  lock_guard<recursive_mutex> guard(peerDataMutex);
+  if (rpcServer) {
+    return rpcServer->isPeerUnreachable(peerId, timeoutSeconds);
+  }
+  return false;
+}
+
 void MyPeer::shutdown() {
   if (!shuttingDown) {
     LOG(INFO) << "SHUTTING DOWN";
     shuttingDown = true;
+    signalGameOver();
 
     // Give outgoing messages a short bounded window to flush (up to 200ms)
     for (int i = 0; i < 20; ++i) {
@@ -234,11 +272,23 @@ void MyPeer::shutdown() {
     rpcServer.reset();
     client.reset();
 
-    netEngine->post([this]() {
-      localSocket.reset();
-      updateTimer.reset();
-      stunEndpoints.clear();
+    auto sock = localSocket;
+    auto timer = updateTimer;
+    netEngine->post([sock, timer]() mutable {
+      if (sock) {
+        asio::error_code ec;
+        sock->close(ec);
+        sock.reset();
+      }
+      if (timer) {
+        asio::error_code ec;
+        timer->cancel(ec);
+        timer.reset();
+      }
     });
+    localSocket.reset();
+    updateTimer.reset();
+    stunEndpoints.clear();
 
     microsleep(20 * 1000);
     netEngine->shutdown();
@@ -264,6 +314,14 @@ void MyPeer::join() {
   json request = {{"peerId", userId},
                   {"name", name},
                   {"peerKey", CryptoHandler::keyToString(publicKey)}};
+  SimpleWeb::CaseInsensitiveMultimap header;
+  header.insert(make_pair("Content-Type", "application/json"));
+  json result = client->request("POST", path, request.dump(2), header);
+}
+
+void MyPeer::markReady() {
+  string path = string("/api/ready");
+  json request = {{"peerId", userId}};
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
   json result = client->request("POST", path, request.dump(2), header);
@@ -361,6 +419,14 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
   string path = string("/api/get_game_info/") + gameId;
   json result = client->request("GET", path);
   LOG(INFO) << "GOT RESULT: " << result;
+  if (result.is_null() || result.empty() || !result.contains("ready")) {
+    updateTimer->expires_at(std::chrono::steady_clock::now() +
+                            asio::chrono::milliseconds(50));
+    updateTimer->async_wait(
+        std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
+    LOG(WARNING) << "get_game_info failed or empty; retrying...";
+    return;
+  }
   if (!result["ready"].get<bool>()) {
     updateTimer->expires_at(std::chrono::steady_clock::now() +
                             asio::chrono::milliseconds(50));
@@ -579,6 +645,9 @@ bool MyPeer::initialized() {
 
 unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
     int64_t timestamp) {
+  if (isGameOver()) {
+    return {};
+  }
   unordered_map<string, map<string, string>> values;
   for (auto& it : peerData) {
     auto peerId = it.first;
@@ -589,6 +658,9 @@ unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
       LOG_EVERY_N(1, INFO) << "WE GOT AN INPUT TOO LATE: " << timestamp << " >= " << it.second->playerInputData.getExpirationTime();
     }
     while (true) {
+      if (isGameOver()) {
+        return {};
+      }
       LOG_EVERY_N(600, INFO)
           << "WAITING FOR EXPIRATION TIME: " << timestamp << " > "
           << it.second->playerInputData.getExpirationTime();
@@ -606,10 +678,17 @@ unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
       }
       LOG(INFO) << "TIMED OUT WAITING FOR EXPIRATION TIME: " << timestamp
                 << " > " << it.second->playerInputData.getExpirationTime();
-      // Check if the peer is dead
+      // Check if the peer is dead or shut down
       if (rpcServer->isPeerShutDown(peerId)) {
-        LOG(INFO) << "Peer is shut down, giving up on input values";
-        break;
+        LOG(INFO) << "Peer is shut down, signaling game over";
+        signalGameOver();
+        return {};
+      }
+      // Check if the peer is unreachable for 30 seconds
+      if (rpcServer->isPeerUnreachable(peerId, 30)) {
+        LOG(WARNING) << "Peer " << peerId << " unreachable for 30 seconds, terminating game";
+        signalGameOver();
+        return {};
       }
     }
   }

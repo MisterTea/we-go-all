@@ -17,6 +17,10 @@ class MyPeer {
 
   void shutdown();
   inline bool isShutdown() { return shuttingDown; }
+  void signalGameOver();
+  bool isGameOver() const { return gameOver.load(); }
+  void resetReachabilityTimers();
+  bool isPeerUnreachable(const string& peerId, int timeoutSeconds);
   int getLivingPeerCount() {
     if (shuttingDown || rpcServer.get() == NULL) {
       return 0;
@@ -29,6 +33,7 @@ class MyPeer {
 
   void host(const string& gameName);
   void join();
+  void markReady();
 
   void start();
   void checkForEndpoints(const asio::error_code& error);
@@ -76,6 +81,7 @@ class MyPeer {
   PublicKey publicKey;
   bool shuttingDown;
   bool updateFinished;
+  std::atomic<bool> gameOver{false};
   shared_ptr<NetEngine> netEngine;
   shared_ptr<HttpClientMuxer> client;
   string gameId;

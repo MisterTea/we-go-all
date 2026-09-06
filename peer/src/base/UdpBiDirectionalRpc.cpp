@@ -28,11 +28,15 @@ void UdpBiDirectionalRpc::send(const string& message) {
     if (delay) {
       auto timer = shared_ptr<asio::steady_timer>(netEngine->createTimer(
           std::chrono::steady_clock::now() + std::chrono::milliseconds(delay)));
-      timer->async_wait([this, localMessage, timer](const asio::error_code& error) {
+      weak_ptr<UdpBiDirectionalRpc> weakSelf = weak_from_this();
+      timer->async_wait([weakSelf, localMessage, timer](const asio::error_code& error) {
         if (error) {
           return;
         }
-        _send(localMessage);
+        auto self = weakSelf.lock();
+        if (self) {
+          self->_send(localMessage);
+        }
       });
     } else {
         _send(localMessage);
@@ -44,17 +48,22 @@ void UdpBiDirectionalRpc::_send(const string& localMessage) {
   // Snapshot the destination before posting.  Endpoint selection may change
   // while this send is waiting on the network thread.
   auto const destination = activeEndpoint;
-  netEngine->post([this, localMessage, destination]() {
-    lock_guard<recursive_mutex> guard(this->mutex);
+  weak_ptr<UdpBiDirectionalRpc> weakSelf = weak_from_this();
+  netEngine->post([weakSelf, localMessage, destination]() {
+    auto self = weakSelf.lock();
+    if (!self) {
+      return;
+    }
+    lock_guard<recursive_mutex> guard(self->mutex);
     VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
             << destination;
     try {
-      int bytesSent = int(this->localSocket->send_to(
+      int bytesSent = int(self->localSocket->send_to(
           asio::buffer(localMessage), destination));
       VLOG(1) << bytesSent << " bytes sent";
     } catch (const system_error& se) {
       LOG(ERROR) << "Got error trying to send: " << se.what();
-      this->onSendError(destination);
+      self->onSendError(destination);
     }
   });
 }
