@@ -23,6 +23,9 @@ void UdpBiDirectionalRpc::send(const string& message) {
           break;
         }
       }
+    } else if (a > 0) {
+      // Stagger duplicate sends by 4ms to avoid shared micro-burst packet loss
+      delay = 4 * a;
     }
 
     if (delay) {
