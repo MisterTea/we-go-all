@@ -303,6 +303,7 @@ add_executable(
   test/FlakyRpcTest.cpp
   test/PeerTest.cpp
   test/StunTest.cpp
+  test/UtilityTest.cpp
 )
 add_dependencies(
   wga-test

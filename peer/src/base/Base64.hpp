@@ -25,6 +25,7 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <cstdint>
 #include <string>
 
 namespace b64 {
@@ -89,6 +90,8 @@ class Base64 {
         64, 64, 64, 64};
 
     size_t in_len = input.size();
+    // Avoid indexing input[-1] and input[-2] when decoding an empty string.
+    if (in_len == 0) return out;
     if (in_len % 4 != 0) return "Input data size is not a multiple of 4";
 
     size_t out_len = in_len / 4 * 3;

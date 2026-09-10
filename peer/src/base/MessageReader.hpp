@@ -17,6 +17,10 @@ class MessageReader {
 
   template <unsigned long i>
   inline void load(const std::array<char, i>& a, int size) {
+    // Reject oversized input before memcpy can write past the caller's array.
+    if (size < 0 || static_cast<unsigned long>(size) > i) {
+      throw std::runtime_error("Invalid message size");
+    }
     unpackHandler.remove_nonparsed_buffer();
     unpackHandler.reserve_buffer(size);
     memcpy(unpackHandler.buffer(), &a[0], size);
