@@ -117,6 +117,27 @@ endif(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
 # Add cmake script directory.
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
+# Catch2 v2.10.1 uses x86 `int $3` on all Apple platforms; patch for Apple Silicon.
+set(CATCH2_APPLE_SILICON_PATCH "${CMAKE_SOURCE_DIR}/cmake/patches/catch2-apple-silicon-trap.patch")
+set(CATCH2_HEADER "${CMAKE_SOURCE_DIR}/external/Catch2/single_include/catch2/catch.hpp")
+if(EXISTS "${CATCH2_APPLE_SILICON_PATCH}" AND EXISTS "${CATCH2_HEADER}")
+  execute_process(
+    COMMAND patch -p1 --forward --reject-file=- --batch
+            -i "${CATCH2_APPLE_SILICON_PATCH}"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/external/Catch2"
+    RESULT_VARIABLE CATCH2_PATCH_RESULT
+    OUTPUT_VARIABLE CATCH2_PATCH_OUTPUT
+    ERROR_VARIABLE CATCH2_PATCH_ERROR)
+  if(NOT CATCH2_PATCH_RESULT EQUAL 0)
+    # Already applied is fine (`--forward` still returns non-zero on some patch versions)
+    if(NOT CATCH2_PATCH_OUTPUT MATCHES "Ignoring previously applied|previously applied|Skipping patch")
+      if(NOT CATCH2_PATCH_ERROR MATCHES "Ignoring previously applied|previously applied|Skipping patch")
+        message(STATUS "Catch2 Apple Silicon patch result=${CATCH2_PATCH_RESULT}: ${CATCH2_PATCH_OUTPUT} ${CATCH2_PATCH_ERROR}")
+      endif()
+    endif()
+  endif()
+endif()
+
 # Required packages
 find_package(Threads REQUIRED)
 find_package(Sodium MODULE REQUIRED)

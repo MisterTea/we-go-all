@@ -34,7 +34,7 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
   int64_t timeOffset = (((timeOffsetRequest + (timeOffsetReply)) / 2));
   int64_t ping = (replyReceiveTime - requestSendTime) -
                  (replySendTime - requestReceiptTime);
-  pingEstimator.addSample(min(1000.0*1000.0, double(ping)));
+  pingEstimator.addSample(min(5.0 * 1000.0 * 1000.0, double(ping)));
   if (log) {
     LOG_EVERY_N(100, INFO) << "Time offset: " << timeOffset << " "
                            << int64_t(

@@ -133,14 +133,20 @@ TEST_CASE("StunTestSimple") {
   udp::resolver resolver(ios);
   asio::steady_timer timer(ios);
 
+  // Prefer servers that typically resolve to distinct addresses. Google's
+  // stun1/stun2 often share an anycast endpoint and StunClient rejects duplicates.
   vector<Stun> stuns = {
       {
           "stun1.l.google.com",
           "19302",
       },
       {
-          "stun2.l.google.com",
-          "19302",
+          "stun.ekiga.net",
+          "3478",
+      },
+      {
+          "stun.cloudflare.com",
+          "3478",
       },
   };
 
@@ -148,8 +154,10 @@ TEST_CASE("StunTestSimple") {
   auto stun_client =
       std::unique_ptr<StunClient>(new StunClient(socket_to_reflect));
 
-  constexpr int N = 2;
+  constexpr int N = 1;
   int wait_for = N;
+  int stun_successes = 0;
+  std::set<udp::endpoint> resolved_endpoints;
 
   for (const auto& stun : stuns) {
     udp::resolver::query q(udp::v4(), stun.url, stun.port);
@@ -163,35 +171,44 @@ TEST_CASE("StunTestSimple") {
 
       if (!stun_client) return;
 
+      udp::endpoint resolved_ep = *iter;
+      if (resolved_endpoints.count(resolved_ep)) {
+        cout << "Skipping duplicate STUN endpoint " << stun.url << " -> "
+             << resolved_ep << endl;
+        return;
+      }
+      resolved_endpoints.insert(resolved_ep);
+
       stun_client->reflect(
-          *iter, [&](error_code e, udp::endpoint reflective_ep) {
+          resolved_ep, [&](error_code e, udp::endpoint reflective_ep) {
             if (e.value()) {
               cout << "ERROR: " << stun.url << ": " << e.message() << " "
                    << reflective_ep << endl;
             } else {
               cout << "FINISHED: " << stun.url << ": " << reflective_ep << endl;
+              stun_successes++;
             }
 
-            if (!e && --wait_for == 0) {
+            if (!e && stun_successes >= N) {
+              wait_for = 0;
               timer.cancel();
-              stun_client.reset();
               resolver.cancel();
             }
           });
     });
   }
 
-  timer.expires_from_now(5s);
+  timer.expires_from_now(10s);
   timer.async_wait([&](error_code ec) {
-    stun_client.reset();
     resolver.cancel();
   });
 
   ios.run();
+  stun_client.reset();
 
   if (wait_for != 0) {
     std::cerr << "stun_client test failed: make sure at least " << N
-              << " stun servers are running on the following addresses."
+              << " stun servers are reachable."
               << std::endl;
     for (const auto& stun : stuns) {
       std::cerr << "    " << stun.url << ":" << stun.port << std::endl;

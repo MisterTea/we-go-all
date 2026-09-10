@@ -115,8 +115,9 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
 
               if (!e && stun_successes >= N) {
                 wait_for = 0;
+                // Cancel outstanding work but keep stun_client alive until
+                // ios.run() finishes so in-flight callbacks don't UAF.
                 timer.cancel();
-                stun_client.reset();
                 resolver.cancel();
               }
             });
@@ -125,11 +126,11 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
 
     timer.expires_from_now(15s);
     timer.async_wait([&](error_code ec) {
-      stun_client.reset();
       resolver.cancel();
     });
 
     ios.run();
+    stun_client.reset();
 
     if (stun_successes == 0) {
       LOG(WARNING) << "STUN test returned no successful responses. "

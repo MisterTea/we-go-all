@@ -11,9 +11,17 @@ EncryptedMultiEndpointHandler::EncryptedMultiEndpointHandler(
   if (cryptoHandler->canDecrypt() || cryptoHandler->canEncrypt()) {
     LOGFATAL << "Created endpoint handler with session key";
   }
+
+  // Kick off the session-key handshake immediately so tests and peers that only
+  // call addEndpoint() still initialize.
+  sendSessionKey();
 }
 
 void EncryptedMultiEndpointHandler::sendSessionKey() {
+  // Already initiated (e.g. from the constructor).
+  if (cryptoHandler->canEncrypt()) {
+    return;
+  }
   // Send session key as a one-way rpc
   {
     IdPayload idPayload;
@@ -144,7 +152,12 @@ bool EncryptedMultiEndpointHandler::validatePacket(const RpcId& rpcId,
           CryptoHandler::stringToKey<PublicKey>(reader.readPrimitive<string>());
       return publicKey == cryptoHandler->getOtherPublicKey();
     } catch (...) {
-      return false;
+      // SESSION_KEY replies are encrypted "OK", not a public-key MessageWriter
+      // payload. Accept them once we can decrypt with the peer session key.
+      if (!cryptoHandler->canDecrypt()) {
+        return false;
+      }
+      return bool(cryptoHandler->decrypt(payload));
     }
   }
   if (!cryptoHandler->canDecrypt()) {

@@ -18,7 +18,7 @@ inline void simulate(shared_ptr<FakeTimeHandler> requesterTimeHandler,
   responderTimeHandler->setTimeShift(DRIFT);
 
   for (int a = 0; a < 1000; a++) {
-    RpcId first(0, 0);
+    RpcId first(0, a);
     sync.createRequest(first);
 
     VLOG(1) << "TIME SHIFTS: " << requesterTimeHandler->getTimeShift() << " "
@@ -118,6 +118,7 @@ inline void simulateTwo(shared_ptr<FakeTimeHandler> firstTimeHandler,
 
   RpcId id(0, 0);
   for (int a = 0; a < 1000; a++) {
+    id = RpcId(0, a);
     firstSync.createRequest(id);
     secondSync.createRequest(id);
 
@@ -229,7 +230,8 @@ inline void simulateN(vector<shared_ptr<FakeTimeHandler>> timeHandlers,
   }
 
   RpcId id(0, 0);
-  for (int a = 0; a < 1000; a++) {
+  for (int trial = 0; trial < 1000; trial++) {
+    id = RpcId(0, trial);
     for (int a = 0; a < NUM_CLOCKS; a++) {
       clockSyncs[a]->createRequest(id);
     }

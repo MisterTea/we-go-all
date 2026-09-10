@@ -97,7 +97,10 @@ class PeerTest {
 
     for (int a = 0; a < 4; a++) {
       path = string("/api/update_endpoints");
-      json request = {{"peerId", names[a]}, {"endpoints", {"127.0.0.1:12345"}}};
+      // Unique per-peer endpoints: SingleGameServer drops addresses already
+      // claimed by another peer.
+      json request = {{"peerId", names[a]},
+                      {"endpoints", {string("127.0.0.1:") + to_string(12345 + a)}}};
       response = client.request("POST", path, request.dump(2));
       REQUIRE(response->status_code == "200 OK");
     }
