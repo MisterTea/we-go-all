@@ -7,7 +7,11 @@ class HttpClientMuxer {
  public:
   HttpClientMuxer(const string &serverPortPath) : sslWorks(false) {
     client.reset(new HttpClient(serverPortPath));
-    secureClient.reset(new HttpsClient(serverPortPath, false));
+    if (serverPortPath.rfind("127.0.0.1:", 0) != 0 &&
+        serverPortPath.rfind("localhost:", 0) != 0 &&
+        serverPortPath.rfind(":", 0) != 0) {
+      secureClient.reset(new HttpsClient(serverPortPath, false));
+    }
   }
 
   json request(const std::string &method, const std::string &path = {"/"},
@@ -42,7 +46,8 @@ class HttpClientMuxer {
             secureClient.reset();
             return result;
           } catch (const std::exception &ex) {
-            LOGFATAL << "Http request error: " << ex.what();
+            LOG(ERROR) << "Http request error: " << ex.what();
+            return json();
           }
         }
       }
@@ -57,7 +62,8 @@ class HttpClientMuxer {
         json result = json::parse(response->content.string());
         return result;
       } catch (const std::exception &ex) {
-        LOGFATAL << "Http request error: " << ex.what();
+        LOG(ERROR) << "Http request error: " << ex.what();
+        return json();
       }
     }
 

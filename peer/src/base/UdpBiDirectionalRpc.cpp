@@ -23,16 +23,23 @@ void UdpBiDirectionalRpc::send(const string& message) {
           break;
         }
       }
+    } else if (a > 0) {
+      // Stagger duplicate sends by 4ms to avoid shared micro-burst packet loss
+      delay = 4 * a;
     }
 
     if (delay) {
       auto timer = shared_ptr<asio::steady_timer>(netEngine->createTimer(
           std::chrono::steady_clock::now() + std::chrono::milliseconds(delay)));
-      timer->async_wait([this, localMessage, timer](const asio::error_code& error) {
+      weak_ptr<UdpBiDirectionalRpc> weakSelf = weak_from_this();
+      timer->async_wait([weakSelf, localMessage, timer](const asio::error_code& error) {
         if (error) {
           return;
         }
-        _send(localMessage);
+        auto self = weakSelf.lock();
+        if (self) {
+          self->_send(localMessage);
+        }
       });
     } else {
         _send(localMessage);
@@ -41,17 +48,25 @@ void UdpBiDirectionalRpc::send(const string& message) {
 }
 
 void UdpBiDirectionalRpc::_send(const string& localMessage) {
-  netEngine->post([this, localMessage]() {
-    lock_guard<recursive_mutex> guard(this->mutex);
+  // Snapshot the destination before posting.  Endpoint selection may change
+  // while this send is waiting on the network thread.
+  auto const destination = activeEndpoint;
+  weak_ptr<UdpBiDirectionalRpc> weakSelf = weak_from_this();
+  netEngine->post([weakSelf, localMessage, destination]() {
+    auto self = weakSelf.lock();
+    if (!self) {
+      return;
+    }
+    lock_guard<recursive_mutex> guard(self->mutex);
     VLOG(1) << "IN SEND LAMBDA: " << localMessage.length() << " TO "
-            << this->activeEndpoint;
+            << destination;
     try {
-      int bytesSent = int(this->localSocket->send_to(
-          asio::buffer(localMessage), this->activeEndpoint));
+      int bytesSent = int(self->localSocket->send_to(
+          asio::buffer(localMessage), destination));
       VLOG(1) << bytesSent << " bytes sent";
     } catch (const system_error& se) {
       LOG(ERROR) << "Got error trying to send: " << se.what();
-      // At this point we should try a new endpoint
+      self->onSendError(destination);
     }
   });
 }

@@ -1,5 +1,10 @@
 #include "LogHandler.hpp"
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#include <unistd.h>
+#endif
+
 INITIALIZE_EASYLOGGINGPP
 
 namespace wga {
@@ -34,9 +39,14 @@ void LogHandler::SetupLogFile(el::Configurations *defaultConf, string filename,
 
 void LogHandler::rolloutHandler(const char *filename, std::size_t size) {
   // SHOULD NOT LOG ANYTHING HERE BECAUSE LOG FILE IS CLOSED!
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+  (void)size;
+  ::unlink(filename);
+#else
   std::stringstream ss;
   // REMOVE OLD LOG
   ss << "rm " << filename;
   system(ss.str().c_str());
+#endif
 }
 }  // namespace et

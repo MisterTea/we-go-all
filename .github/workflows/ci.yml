@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sanitizer-tests:
+    name: Linux ${{ matrix.sanitizer }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: ASan
+            cmake_option: ASAN
+          - sanitizer: TSan
+            cmake_option: TSAN
+          - sanitizer: UBSan
+            cmake_option: UBSAN
+
+    steps:
+      - name: Check out source and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ make libsodium-dev libssl-dev
+
+      - name: Configure ${{ matrix.sanitizer }} build
+        run: >-
+          cmake
+          -S peer
+          -B peer/build-${{ matrix.cmake_option }}
+          -D${{ matrix.cmake_option }}=ON
+          -DCMAKE_BUILD_TYPE=Debug
+          -DVCPKG_MANIFEST_MODE=OFF
+
+      - name: Build tests
+        run: cmake --build peer/build-${{ matrix.cmake_option }} --parallel 4
+
+      - name: Run tests
+        run: ./peer/build-${{ matrix.cmake_option }}/wga-test

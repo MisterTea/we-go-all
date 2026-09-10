@@ -119,7 +119,7 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Required packages
 find_package(Threads REQUIRED)
-find_package(sodium MODULE REQUIRED)
+find_package(Sodium MODULE REQUIRED)
 FIND_PACKAGE(OpenSSL MODULE REQUIRED)
 
 IF(MINGW)

@@ -1,3 +1,5 @@
+#include <limits>
+
 #include <cxxopts/include/cxxopts.hpp>
 
 #include "CryptoHandler.hpp"

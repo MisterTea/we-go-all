@@ -48,6 +48,8 @@ class RpcServer : public PortMultiplexer {
   bool hasWork();
   int getLivingPeerCount();
   bool isPeerShutDown(const string& peerId);
+  bool isPeerUnreachable(const string& peerId, int timeoutSeconds);
+  void resetReachabilityTimers();
 
   vector<string> getPeerIds();
 

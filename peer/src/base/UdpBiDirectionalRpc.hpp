@@ -4,8 +4,11 @@
 #include "BiDirectionalRpc.hpp"
 #include "NetEngine.hpp"
 
+#include <memory>
+
 namespace wga {
-class UdpBiDirectionalRpc : public BiDirectionalRpc {
+class UdpBiDirectionalRpc : public BiDirectionalRpc,
+                            public std::enable_shared_from_this<UdpBiDirectionalRpc> {
  public:
   UdpBiDirectionalRpc(shared_ptr<NetEngine> _netEngine,
                       shared_ptr<udp::socket> _localSocket,
@@ -22,6 +25,8 @@ class UdpBiDirectionalRpc : public BiDirectionalRpc {
   void setEndpoint(const udp::endpoint& destination) {
     activeEndpoint = destination;
   }
+
+  virtual void onSendError(const udp::endpoint& destination) {}
 
  protected:
   shared_ptr<NetEngine> netEngine;

@@ -17,10 +17,6 @@ BiDirectionalRpc::BiDirectionalRpc(bool connectedToHost)
 BiDirectionalRpc::~BiDirectionalRpc() {}
 
 void BiDirectionalRpc::sendShutdown() {
-  if (shuttingDown) {
-    LOG(INFO) << "SKIPPING SHUTDOWN BECAUSE ALREADY SHUT DOWN";
-    return;
-  }
   LOG(INFO) << "SHUTTING DOWN RPC";
   requestOneWay("SHUTDOWN");
 }
@@ -72,10 +68,20 @@ void BiDirectionalRpc::heartbeat() {
 void BiDirectionalRpc::resendRandomOutgoingMessage() {
   lock_guard<recursive_mutex> guard(mutex);
   if (!outgoingReplies.empty()) {
+    auto itSessionKeyReply = outgoingReplies.find(SESSION_KEY_RPCID);
+    if (itSessionKeyReply != outgoingReplies.end()) {
+      sendReply(itSessionKeyReply->first, itSessionKeyReply->second, true);
+      return;
+    }
     // Re-send a random reply
     DRAW_FROM_UNORDERED(it, outgoingReplies);
     sendReply(it->first, it->second, true);
   } else if (!outgoingRequests.empty()) {
+    auto itSessionKey = outgoingRequests.find(SESSION_KEY_RPCID);
+    if (itSessionKey != outgoingRequests.end()) {
+      sendRequest(itSessionKey->first, itSessionKey->second, true);
+      return;
+    }
     // Re-send a random request
     DRAW_FROM_UNORDERED(it, outgoingRequests);
     sendRequest(it->first, it->second, true);
@@ -168,8 +174,8 @@ void BiDirectionalRpc::handleRequest(const RpcId& rpcId,
       reply(rpcId, "PONG");
       return;
     }
-    if (it != incomingRequests.end() && it->second == "SHUTDOWN") {
-      LOG(INFO) << "GOT SHUTDOWN REQUEST";
+    if (it != incomingRequests.end() && (it->second == "SHUTDOWN" || it->second == "GAMEOVER")) {
+      LOG(INFO) << "GOT SHUTDOWN/GAMEOVER REQUEST";
       // Shutdown request, handle and send reply
       shutdown();
       reply(rpcId, "SHUTDOWN_REPLY");

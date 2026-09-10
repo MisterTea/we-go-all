@@ -28,22 +28,20 @@ class NetEngine {
   }
 
   void shutdown() {
+    if (!ioService) {
+      return;
+    }
     LOG(INFO) << "SHUTTING DOWN: " << uint64_t(portMappingHandler.get());
     portMappingHandler.reset();
     LOG(INFO) << "Stopping work";
-    ioService->post([this]() {
-      LOG(INFO) << "Clearing work";
-      work.reset();  // let io_service run out of work
-      LOG(INFO) << "Work cleared";
-    });
+    work.reset();
+    if (ioService) {
+      ioService->stop();
+    }
     LOG(INFO) << "Joining thread";
     if (ioServiceThread && ioServiceThread->joinable()) {
       LOG(INFO) << "Thread is joinable";
       ioServiceThread->join();
-    }
-    while (work.has_value()) {
-      LOG(INFO) << "Waiting for work to finish";
-      microsleep(1000 * 1000);
     }
     LOG(INFO) << "Resetting net engine";
     ioService.reset();

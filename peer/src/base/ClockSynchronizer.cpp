@@ -6,8 +6,12 @@ namespace wga {
 void ClockSynchronizer::handleReply(const RpcId& id, int64_t requestReceiveTime,
                                     int64_t replySendTime) {
   lock_guard<mutex> guard(clockMutex);
-  int64_t requestSendTime = requestSendTimeMap.at(id);
-  requestSendTimeMap.erase(requestSendTimeMap.find(id));
+  auto it = requestSendTimeMap.find(id);
+  if (it == requestSendTimeMap.end()) {
+    return;
+  }
+  int64_t requestSendTime = it->second;
+  requestSendTimeMap.erase(it);
   int64_t replyReceiveTime =
       timeHandler->currentTimeMicros() + timeHandler->getTimeShift();
   updateDrift(requestSendTime, requestReceiveTime, replySendTime,

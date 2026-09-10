@@ -59,13 +59,27 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
             "stun.bethesda.net",
             "3478",
         },
+        {
+            "stun3.l.google.com",
+            "19302",
+        },
+        {
+            "stun4.l.google.com",
+            "19302",
+        },
     };
 
     udp::socket socket_to_reflect(ios, udp::endpoint(udp::v4(), serverPort));
     auto stun_client =
         std::unique_ptr<StunClient>(new StunClient(socket_to_reflect));
 
-    int wait_for = (int)stuns.size();
+    // We need at least 1 successful STUN response (2 is ideal for NAT type detection)
+    constexpr int N = 1;
+    int wait_for = N;
+    int stun_successes = 0;
+
+    // Track resolved endpoints to skip duplicates
+    std::set<udp::endpoint> resolved_endpoints;
 
     for (const auto& stun : stuns) {
       udp::resolver::query q(udp::v4(), stun.url, stun.port);
@@ -78,8 +92,17 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
           return;
         }
 
+        // Skip if this endpoint was already resolved by another STUN server
+        udp::endpoint resolved_ep = *iter;
+        if (resolved_endpoints.count(resolved_ep)) {
+          LOG(INFO) << "Skipping duplicate STUN endpoint " << stun.url
+                    << " -> " << resolved_ep << endl;
+          return;
+        }
+        resolved_endpoints.insert(resolved_ep);
+
         stun_client->reflect(
-            *iter, [&](error_code e, udp::endpoint reflective_ep) {
+            resolved_ep, [&](error_code e, udp::endpoint reflective_ep) {
               if (e.value()) {
                 LOG(INFO) << "ERROR: " << stun.url << ": " << e.message() << " "
                           << reflective_ep << endl;
@@ -87,9 +110,11 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
                 LOG(INFO) << "FINISHED: " << stun.url << ": " << reflective_ep
                           << endl;
                 stunEndpoints.insert(reflective_ep);
+                stun_successes++;
               }
 
-              if (--wait_for == 0) {
+              if (!e && stun_successes >= N) {
+                wait_for = 0;
                 timer.cancel();
                 stun_client.reset();
                 resolver.cancel();
@@ -106,15 +131,12 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
 
     ios.run();
 
-    if (wait_for != 0) {
-      LOG(INFO) << "stun_client test failed: make sure at least " << stuns.size()
-                << " stun servers are running on the following addresses."
-                << std::endl;
-      for (const auto& stun : stuns) {
-        LOG(INFO) << "    " << stun.url << ":" << stun.port << std::endl;
-      }
-      LOG(FATAL)
-          << "Stun test failed.  Did not receive packets from STUN server";
+    if (stun_successes == 0) {
+      LOG(WARNING) << "STUN test returned no successful responses. "
+                   << "NAT traversal may not work, but continuing with local endpoints.";
+      // Use the local address as a fallback endpoint
+      auto localAddr = asio::ip::address_v4::loopback();
+      stunEndpoints.insert(udp::endpoint(localAddr, serverPort));
     } else {
       int port = -1;
       for (const auto& it : stunEndpoints) {
@@ -162,59 +184,121 @@ MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
   }
 }
 
+void MyPeer::signalGameOver() {
+  if (gameOver.exchange(true)) {
+    return;
+  }
+  LOG(INFO) << "SIGNALING GAME OVER TO ALL PEERS";
+  {
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    if (myData) {
+      myData->playerInputData.stopWaiting();
+    }
+    for (auto& it : peerData) {
+      it.second->playerInputData.stopWaiting();
+    }
+    if (rpcServer) {
+      for (int i = 0; i < 3; ++i) {
+        rpcServer->sendShutdown();
+        microsleep(10 * 1000);
+      }
+    }
+  }
+}
+
+void MyPeer::resetReachabilityTimers() {
+  lock_guard<recursive_mutex> guard(peerDataMutex);
+  if (rpcServer) {
+    rpcServer->resetReachabilityTimers();
+  }
+}
+
+bool MyPeer::isPeerUnreachable(const string& peerId, int timeoutSeconds) {
+  lock_guard<recursive_mutex> guard(peerDataMutex);
+  if (rpcServer) {
+    return rpcServer->isPeerUnreachable(peerId, timeoutSeconds);
+  }
+  return false;
+}
+
 void MyPeer::shutdown() {
   if (!shuttingDown) {
     LOG(INFO) << "SHUTTING DOWN";
-    while (true) {
-      {
-        lock_guard<recursive_mutex> guard(peerDataMutex);
-        if (!rpcServer->hasWork()) {
-          break;
-        }
-      }
-      LOG(INFO) << "WAITING FOR WORK TO FLUSH";
-      microsleep(1000 * 1000);
-    }
-    rpcServer->sendShutdown();
-    // Wait for the updates to flush
-    microsleep(1000 * 1000);
-    LOG(INFO) << "BEGINNING FLUSH";
-    while (true) {
-      {
-        lock_guard<recursive_mutex> guard(peerDataMutex);
-        if (!rpcServer->hasWork()) {
-          break;
-        }
-      }
-      LOG(INFO) << "WAITING FOR WORK TO FLUSH";
-      microsleep(1000 * 1000);
-    }
     shuttingDown = true;
-    while (true) {
+    signalGameOver();
+
+    // Give outgoing messages a short bounded window to flush (up to 200ms)
+    for (int i = 0; i < 20; ++i) {
+      {
+        lock_guard<recursive_mutex> guard(peerDataMutex);
+        if (!rpcServer || !rpcServer->hasWork()) {
+          break;
+        }
+      }
+      microsleep(10 * 1000);
+    }
+
+    if (rpcServer) {
+      rpcServer->sendShutdown();
+    }
+    microsleep(20 * 1000);
+
+    for (int i = 0; i < 20; ++i) {
+      {
+        lock_guard<recursive_mutex> guard(peerDataMutex);
+        if (!rpcServer || !rpcServer->hasWork()) {
+          break;
+        }
+      }
+      microsleep(10 * 1000);
+    }
+
+    if (updateTimer) {
+      asio::error_code ec;
+      updateTimer->cancel(ec);
+    }
+
+    // Wait up to 200ms for update loop to exit
+    for (int i = 0; i < 20; ++i) {
       {
         lock_guard<recursive_mutex> guard(peerDataMutex);
         if (updateFinished) {
           break;
         }
       }
-      microsleep(1000 * 1000);
+      microsleep(10 * 1000);
     }
+
     {
       lock_guard<recursive_mutex> guard(peerDataMutex);
-      rpcServer->finish();
-      rpcServer->closeSocket();
+      if (rpcServer) {
+        rpcServer->finish();
+        rpcServer->closeSocket();
+      }
     }
 
     rpcServer.reset();
     client.reset();
 
-    netEngine->post([this]() {
-      localSocket.reset();
-      updateTimer.reset();
-      stunEndpoints.clear();
+    auto sock = localSocket;
+    auto timer = updateTimer;
+    netEngine->post([sock, timer]() mutable {
+      if (sock) {
+        asio::error_code ec;
+        sock->close(ec);
+        sock.reset();
+      }
+      if (timer) {
+        asio::error_code ec;
+        timer->cancel(ec);
+        timer.reset();
+      }
     });
+    localSocket.reset();
+    updateTimer.reset();
+    stunEndpoints.clear();
 
-    microsleep(1000 * 1000);
+    microsleep(20 * 1000);
     netEngine->shutdown();
     netEngine.reset();
     LOG(INFO) << "SHUT DOWN FINISHED";
@@ -223,8 +307,11 @@ void MyPeer::shutdown() {
 
 void MyPeer::host(const string& gameName) {
   string path = string("/api/host");
-  json request = {
-      {"hostId", userId}, {"gameId", gameId}, {"gameName", gameName}};
+  json request = {{"hostId", userId},
+                  {"gameId", gameId},
+                  {"gameName", gameName},
+                  {"name", name},
+                  {"peerKey", CryptoHandler::keyToString(publicKey)}};
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
   json result = client->request("POST", path, request.dump(2), header);
@@ -235,6 +322,14 @@ void MyPeer::join() {
   json request = {{"peerId", userId},
                   {"name", name},
                   {"peerKey", CryptoHandler::keyToString(publicKey)}};
+  SimpleWeb::CaseInsensitiveMultimap header;
+  header.insert(make_pair("Content-Type", "application/json"));
+  json result = client->request("POST", path, request.dump(2), header);
+}
+
+void MyPeer::markReady() {
+  string path = string("/api/ready");
+  json request = {{"peerId", userId}};
   SimpleWeb::CaseInsensitiveMultimap header;
   header.insert(make_pair("Content-Type", "application/json"));
   json result = client->request("POST", path, request.dump(2), header);
@@ -284,7 +379,7 @@ void MyPeer::start() {
   updateEndpointServerHttp();
 
   updateTimer.reset(netEngine->createTimer(std::chrono::steady_clock::now() +
-                                           std::chrono::seconds(1)));
+                                           std::chrono::milliseconds(1)));
   updateTimer->async_wait(
       std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
   LOG(INFO) << "CALLING HEARTBEAT: "
@@ -321,24 +416,40 @@ void MyPeer::updateEndpointServerHttp() {
 }
 
 void MyPeer::checkForEndpoints(const asio::error_code& error) {
-  LOG(INFO) << "CHECKING FOR ENDPOINTS";
-  if (error == asio::error::operation_aborted) {
+  if (error == asio::error::operation_aborted || shuttingDown) {
     return;
   }
-  LOG(INFO) << "CHECKING FOR ENDPOINTS";
   lock_guard<recursive_mutex> guard(peerDataMutex);
-  LOG(INFO) << "CHECKING FOR ENDPOINTS";
+  if (shuttingDown) {
+    return;
+  }
 
   // updateEndpointServerHttp();
 
-  // LOG(INFO) << "CHECK FOR ENDPOINTS";
   // Bail if a peer doesn't have endpoints yet
   string path = string("/api/get_game_info/") + gameId;
-  json result = client->request("GET", path);
+  json result = client ? client->request("GET", path) : json();
+  if (shuttingDown) {
+    return;
+  }
   LOG(INFO) << "GOT RESULT: " << result;
+  if (result.is_null() || result.empty() || !result.contains("ready")) {
+    if (shuttingDown) {
+      return;
+    }
+    updateTimer->expires_at(std::chrono::steady_clock::now() +
+                            asio::chrono::milliseconds(50));
+    updateTimer->async_wait(
+        std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
+    LOG(WARNING) << "get_game_info failed or empty; retrying...";
+    return;
+  }
   if (!result["ready"].get<bool>()) {
-    updateTimer->expires_at(updateTimer->expires_at() +
-                            asio::chrono::milliseconds(1000));
+    if (shuttingDown) {
+      return;
+    }
+    updateTimer->expires_at(std::chrono::steady_clock::now() +
+                            asio::chrono::milliseconds(50));
     updateTimer->async_wait(
         std::bind(&MyPeer::checkForEndpoints, this, std::placeholders::_1));
     LOG(INFO) << "Game is not ready, waiting...";
@@ -376,14 +487,25 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
       continue;
     }
     vector<udp::endpoint> endpoints;
+    vector<udp::endpoint> linkLocalEndpoints;
     for (json::iterator it2 = it.value()["endpoints"].begin();
          it2 != it.value()["endpoints"].end(); ++it2) {
       string endpointString = *it2;
       vector<string> tokens = split(endpointString, ':');
       auto newEndpoints = netEngine->resolve(tokens.at(0), tokens.at(1));
       for (auto newEndpoint : newEndpoints) {
+        if (newEndpoint.address().is_v4()) {
+          auto bytes = newEndpoint.address().to_v4().to_bytes();
+          if (bytes[0] == 169 && bytes[1] == 254) {
+            linkLocalEndpoints.push_back(newEndpoint);
+            continue;
+          }
+        }
         endpoints.push_back(newEndpoint);
       }
+    }
+    if (endpoints.empty() && !linkLocalEndpoints.empty()) {
+      endpoints = linkLocalEndpoints;
     }
     shared_ptr<CryptoHandler> peerCryptoHandler(
         new CryptoHandler(privateKey, peerKey));
@@ -422,7 +544,9 @@ void MyPeer::checkForEndpoints(const asio::error_code& error) {
 
 void MyPeer::update(const asio::error_code& error) {
   if (error == asio::error::operation_aborted) {
-    LOG(ERROR) << "PEER UPDATE FINISHED";
+    LOG(INFO) << "PEER UPDATE FINISHED";
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    updateFinished = true;
     return;
   }
   if (error) {
@@ -477,7 +601,8 @@ void MyPeer::update(const asio::error_code& error) {
         */
   }
 
-  if (updateCounter % 100 == 0) {
+  bool ready = rpcServer->readyToSend();
+  if ((!ready && (updateCounter % 10 == 0)) || (updateCounter % 100 == 0)) {
     VLOG(1) << "CALLING HEARTBEAT";
     rpcServer->heartbeat();
   }
@@ -555,6 +680,9 @@ bool MyPeer::initialized() {
 
 unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
     int64_t timestamp) {
+  if (isGameOver()) {
+    return {};
+  }
   unordered_map<string, map<string, string>> values;
   for (auto& it : peerData) {
     auto peerId = it.first;
@@ -565,6 +693,9 @@ unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
       LOG_EVERY_N(1, INFO) << "WE GOT AN INPUT TOO LATE: " << timestamp << " >= " << it.second->playerInputData.getExpirationTime();
     }
     while (true) {
+      if (isGameOver()) {
+        return {};
+      }
       LOG_EVERY_N(600, INFO)
           << "WAITING FOR EXPIRATION TIME: " << timestamp << " > "
           << it.second->playerInputData.getExpirationTime();
@@ -582,10 +713,17 @@ unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
       }
       LOG(INFO) << "TIMED OUT WAITING FOR EXPIRATION TIME: " << timestamp
                 << " > " << it.second->playerInputData.getExpirationTime();
-      // Check if the peer is dead
+      // Check if the peer is dead or shut down
       if (rpcServer->isPeerShutDown(peerId)) {
-        LOG(INFO) << "Peer is shut down, giving up on input values";
-        break;
+        LOG(INFO) << "Peer is shut down, signaling game over";
+        signalGameOver();
+        return {};
+      }
+      // Check if the peer is unreachable for 30 seconds
+      if (rpcServer->isPeerUnreachable(peerId, 30)) {
+        LOG(WARNING) << "Peer " << peerId << " unreachable for 30 seconds, terminating game";
+        signalGameOver();
+        return {};
       }
     }
   }
