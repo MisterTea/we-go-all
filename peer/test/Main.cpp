@@ -2,9 +2,12 @@
 
 #include "LogHandler.hpp"
 
+#include <limits>
+
 #include <cxxopts/include/cxxopts.hpp>
 
 #undef CHECK
+#define CATCH_CONFIG_NO_POSIX_SIGNALS
 #define CATCH_CONFIG_RUNNER
 #include "Catch2/single_include/catch2/catch.hpp"
 
