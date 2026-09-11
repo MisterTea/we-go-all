@@ -4,6 +4,10 @@
 #include "Headers.hpp"
 #include "PortMappingHandler.hpp"
 
+#if defined(__APPLE__)
+#include <pthread.h>
+#endif
+
 namespace wga {
 class NetEngine {
  public:
@@ -21,6 +25,13 @@ class NetEngine {
 
   void start() {
     ioServiceThread.reset(new std::thread([this]() {
+#if defined(__APPLE__)
+      // A background MAME window must not have its lockstep transport timer
+      // coalesced or deprioritized by macOS. Missing this timer directly
+      // stalls the foreground peer's emulation thread.
+      pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+      pthread_setname_np("mamehub-network");
+#endif
       LOG(ERROR) << "NET ENGINE STARTING";
       ioService->run();
       LOG(ERROR) << "NET ENGINE FINISHED";

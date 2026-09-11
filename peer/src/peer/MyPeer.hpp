@@ -21,6 +21,8 @@ class MyPeer {
   bool isGameOver() const { return gameOver.load(); }
   void resetReachabilityTimers();
   bool isPeerUnreachable(const string& peerId, int timeoutSeconds);
+  // Returns true if a living peer has been unreachable long enough to end the game.
+  bool terminateIfPeerUnreachable(int timeoutSeconds);
   int getLivingPeerCount() {
     if (shuttingDown || rpcServer.get() == NULL) {
       return 0;
@@ -46,8 +48,25 @@ class MyPeer {
   void updateState(int64_t timestamp,
                    const unordered_map<string, string>& data);
 
+  // Once netplay starts, keep the local input timeline ahead of the shared
+  // clock from the network thread.  This remains active even if emulation is
+  // blocked waiting for a remote timeline.
+  void startInputPublisher(int64_t epochMicros, int delayMs);
+  void setInputPublisherDelay(int delayMs);
+
+  // True when every living peer's ChronoMap covers timestamp (expiration > ts).
+  bool hasInputValuesAt(int64_t timestamp);
+
+  // Wait without polling until every living peer covers timestamp.  Returns
+  // false on timeout or game shutdown.
+  bool waitForInputValuesAt(int64_t timestamp, int timeoutMs);
+
+  // Non-blocking: returns empty if !hasInputValuesAt(timestamp).
   unordered_map<string, map<string, string>> getAllInputValues(
       int64_t timestamp);
+
+  // Snapshot of our own latest published input values (for keepalive resend).
+  unordered_map<string, string> getMyLatestInputValues();
 
   // TODO: This causes collisions and should be removed
   unordered_map<string, string> getFullState(int64_t timestamp);
@@ -101,6 +120,9 @@ class MyPeer {
   bool timeShiftInitialized;
   bool hosting;
   int updateCounter;
+  std::atomic<int64_t> inputEpochMicros{0};
+  std::atomic<int> inputPublisherDelayMs{0};
+  std::atomic<bool> inputPublisherEnabled{false};
   set<udp::endpoint> stunEndpoints;
   int position;
 

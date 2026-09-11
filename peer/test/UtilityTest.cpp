@@ -69,6 +69,13 @@ TEST_CASE("PidControllerAndEstimators") {
   REQUIRE(window.getVariance() == Approx(2.0 / 3.0));
   REQUIRE(window.getUpperBound() >= 3);
 
+  SlidingWindowEstimator schedulerPauseWindow;
+  for (int i = 0; i < 255; ++i) {
+    schedulerPauseWindow.addSample(500);
+  }
+  schedulerPauseWindow.addSample(900000);
+  REQUIRE(schedulerPauseWindow.getUpperBound() == Approx(500));
+
   AdamOptimizer optimizer(0, 0.1);
   optimizer.update(1);
   REQUIRE(optimizer.getCurrentValue() < 0);

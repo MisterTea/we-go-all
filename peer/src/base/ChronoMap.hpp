@@ -2,23 +2,32 @@
 #define __CHRONO_MAP_H__
 
 #include "Headers.hpp"
+#include "TimeHandler.hpp"
 
 namespace wga {
 template <typename K, typename V>
 class ChronoMap {
  public:
+  static constexpr int64_t HISTORY_RETENTION_MS = 10000;
+
   ChronoMap() : stopWaitingFlag(false), expirationTime(0) {}
 
-  bool waitForExpirationTime(long expirationTimeToWaitFor) {
+  bool waitForExpirationTime(long expirationTimeToWaitFor,
+                             int timeoutMs = 1000) {
     if (stopWaitingFlag.load()) {
       return false;
     }
     unique_lock<mutex> lk(dataReadyMutex);
-    if (dataReady.wait_for(lk, std::chrono::seconds(1),
+    auto const waitStart = std::chrono::steady_clock::now();
+    bool const ready = dataReady.wait_for(lk, std::chrono::milliseconds(timeoutMs),
                            [this, expirationTimeToWaitFor] {
                              return (expirationTime > expirationTimeToWaitFor) ||
                                     stopWaitingFlag.load();
-                           })) {
+                           });
+    addFrameWaitUs(std::chrono::duration_cast<std::chrono::microseconds>(
+                       std::chrono::steady_clock::now() - waitStart)
+                       .count());
+    if (ready) {
       return !stopWaitingFlag.load();
     }
     return false;
@@ -143,6 +152,11 @@ class ChronoMap {
     return expirationTime == 0;
   }
 
+  size_t keyCount() const {
+    lock_guard<mutex> lk(dataReadyMutex);
+    return data.size();
+  }
+
  protected:
   mutable mutex dataReadyMutex;
   mutable condition_variable dataReady;
@@ -171,6 +185,7 @@ class ChronoMap {
     }
 
     expirationTime = endTime;
+    pruneHistory();
     dataReady.notify_all();
 
     if (futureData.empty()) {
@@ -182,6 +197,26 @@ class ChronoMap {
       futureData.erase(futureData.begin());
       addNextTimeBlock(std::get<0>(newData), std::get<1>(newData),
                        std::get<2>(newData));
+    }
+  }
+
+
+  void pruneHistory() {
+    int64_t const cutoff = expirationTime - HISTORY_RETENTION_MS;
+    if (cutoff <= 0) {
+      return;
+    }
+    for (auto& entry : data) {
+      auto& history = entry.second;
+      auto firstKept = history.lower_bound(cutoff);
+      if (firstKept == history.begin()) {
+        continue;
+      }
+      V baseline = std::prev(firstKept)->second;
+      history.erase(history.begin(), firstKept);
+      if (history.empty() || history.begin()->first > cutoff) {
+        history.emplace(cutoff, std::move(baseline));
+      }
     }
   }
 };

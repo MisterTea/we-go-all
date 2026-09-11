@@ -4,6 +4,7 @@
 #include "EncryptedMultiEndpointHandler.hpp"
 #include "LocalIpFetcher.hpp"
 #include "StunClient.hpp"
+#include "TimeHandler.hpp"
 
 #define INPUT_SEND_WINDOW_SIZE (3)
 
@@ -220,6 +221,33 @@ bool MyPeer::isPeerUnreachable(const string& peerId, int timeoutSeconds) {
     return rpcServer->isPeerUnreachable(peerId, timeoutSeconds);
   }
   return false;
+}
+
+bool MyPeer::terminateIfPeerUnreachable(int timeoutSeconds) {
+  string unreachablePeer;
+  {
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    if (!rpcServer) {
+      return false;
+    }
+    for (auto& it : peerData) {
+      auto const& peerId = it.first;
+      if (peerId == userId || rpcServer->isPeerShutDown(peerId)) {
+        continue;
+      }
+      if (rpcServer->isPeerUnreachable(peerId, timeoutSeconds)) {
+        unreachablePeer = peerId;
+        break;
+      }
+    }
+  }
+  if (unreachablePeer.empty()) {
+    return false;
+  }
+  LOG(WARNING) << "Peer " << unreachablePeer << " unreachable for "
+               << timeoutSeconds << " seconds, terminating game";
+  signalGameOver();
+  return true;
 }
 
 void MyPeer::shutdown() {
@@ -638,12 +666,27 @@ void MyPeer::update(const asio::error_code& error) {
     }
   }
 
+  // Input coverage must not depend on the emulation thread making progress.
+  // Publish the last sampled state through the desired input-delay horizon.
+  if (inputPublisherEnabled.load() && (updateCounter % 4 == 0) && myData) {
+    int64_t const relativeMs =
+        (GlobalClock::currentTimeMicros() - inputEpochMicros.load()) / 1000;
+    int64_t target = relativeMs + inputPublisherDelayMs.load();
+    // Leave the next 16 ms boundary available for a newly sampled transition.
+    target -= target % 16;
+    int64_t const expiration = myData->playerInputData.getExpirationTime();
+    if (target > expiration && expiration > 1) {
+      updateState(target, getMyLatestInputValues());
+    }
+  }
+
   updateCounter++;
   VLOG(1) << "UPDATE END";
 
   if (!shuttingDown) {
-    updateTimer->expires_at(updateTimer->expires_at() +
-                            asio::chrono::milliseconds(1));
+    // A delayed callback must not enqueue one immediate callback for every
+    // missed millisecond; that catch-up storm prolongs a brief scheduling stall.
+    updateTimer->expires_after(asio::chrono::milliseconds(1));
     updateTimer->async_wait(
         std::bind(&MyPeer::update, this, std::placeholders::_1));
   } else {
@@ -681,54 +724,89 @@ bool MyPeer::initialized() {
 
 unordered_map<string, map<string, string>> MyPeer::getAllInputValues(
     int64_t timestamp) {
-  if (isGameOver()) {
+  if (isGameOver() || !hasInputValuesAt(timestamp)) {
     return {};
   }
   unordered_map<string, map<string, string>> values;
+  lock_guard<recursive_mutex> guard(peerDataMutex);
   for (auto& it : peerData) {
     auto peerId = it.first;
     if (rpcServer->isPeerShutDown(peerId)) {
       continue;
     }
-    if (timestamp >= it.second->playerInputData.getExpirationTime()) {
-      LOG_EVERY_N(1, INFO) << "WE GOT AN INPUT TOO LATE: " << timestamp << " >= " << it.second->playerInputData.getExpirationTime();
-    }
-    while (true) {
-      if (isGameOver()) {
-        return {};
-      }
-      LOG_EVERY_N(600, INFO)
-          << "WAITING FOR EXPIRATION TIME: " << timestamp << " > "
-          << it.second->playerInputData.getExpirationTime();
-      if (it.second->playerInputData.waitForExpirationTime(timestamp)) {
-        LOG_EVERY_N(600, INFO)
-            << "GOT EXPIRATION TIME: " << timestamp << " > "
-            << it.second->playerInputData.getExpirationTime();
-        lock_guard<recursive_mutex> guard(peerDataMutex);
-        auto allKeyValuesForPeer = it.second->playerInputData.getAll(timestamp);
-        for (auto it2 : allKeyValuesForPeer) {
-          // [] operator creates a vector if needed
-          values[it2.first].insert(make_pair(it.first, it2.second));
-        }
-        break;
-      }
-      LOG(INFO) << "TIMED OUT WAITING FOR EXPIRATION TIME: " << timestamp
-                << " > " << it.second->playerInputData.getExpirationTime();
-      // Check if the peer is dead or shut down
-      if (rpcServer->isPeerShutDown(peerId)) {
-        LOG(INFO) << "Peer is shut down, signaling game over";
-        signalGameOver();
-        return {};
-      }
-      // Check if the peer is unreachable for 30 seconds
-      if (rpcServer->isPeerUnreachable(peerId, 30)) {
-        LOG(WARNING) << "Peer " << peerId << " unreachable for 30 seconds, terminating game";
-        signalGameOver();
-        return {};
-      }
+    auto allKeyValuesForPeer = it.second->playerInputData.getAll(timestamp);
+    for (auto it2 : allKeyValuesForPeer) {
+      values[it2.first].insert(make_pair(it.first, it2.second));
     }
   }
   return values;
+}
+
+bool MyPeer::hasInputValuesAt(int64_t timestamp) {
+  if (isGameOver()) {
+    return false;
+  }
+  bool anyPeer = false;
+  for (auto& it : peerData) {
+    auto peerId = it.first;
+    if (rpcServer->isPeerShutDown(peerId)) {
+      continue;
+    }
+    anyPeer = true;
+    if (timestamp >= it.second->playerInputData.getExpirationTime()) {
+      return false;
+    }
+  }
+  return anyPeer;
+}
+
+bool MyPeer::waitForInputValuesAt(int64_t timestamp, int timeoutMs) {
+  if (isGameOver()) {
+    return false;
+  }
+  auto const deadline = chrono::steady_clock::now() +
+                        chrono::milliseconds(timeoutMs);
+  for (auto& it : peerData) {
+    auto const& peerId = it.first;
+    if (rpcServer->isPeerShutDown(peerId)) {
+      continue;
+    }
+    while (timestamp >= it.second->playerInputData.getExpirationTime()) {
+      if (isGameOver()) {
+        return false;
+      }
+      auto const remaining = chrono::duration_cast<chrono::milliseconds>(
+          deadline - chrono::steady_clock::now()).count();
+      if (remaining <= 0 ||
+          !it.second->playerInputData.waitForExpirationTime(
+              timestamp, int(remaining))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+void MyPeer::startInputPublisher(int64_t epochMicros, int delayMs) {
+  inputEpochMicros.store(epochMicros);
+  inputPublisherDelayMs.store(delayMs);
+  inputPublisherEnabled.store(true);
+}
+
+void MyPeer::setInputPublisherDelay(int delayMs) {
+  inputPublisherDelayMs.store(delayMs);
+}
+
+unordered_map<string, string> MyPeer::getMyLatestInputValues() {
+  lock_guard<recursive_mutex> guard(peerDataMutex);
+  if (!myData) {
+    return {};
+  }
+  int64_t const expiration = myData->playerInputData.getExpirationTime();
+  if (expiration <= 0) {
+    return {};
+  }
+  return myData->playerInputData.getAll(expiration - 1);
 }
 
 unordered_map<string, string> MyPeer::getStateChanges(
@@ -743,6 +821,15 @@ void MyPeer::updateState(int64_t timestamp,
     lock_guard<recursive_mutex> guard(peerDataMutex);
     int64_t lastExpirationTime = myData->playerInputData.getExpirationTime();
     auto changedData = myData->playerInputData.getChanges(data);
+    if (timestamp <= lastExpirationTime) {
+      if (changedData.empty()) {
+        return;
+      }
+      // The network publisher may have covered the requested boundary just
+      // before this input sample arrived. Preserve contiguity and schedule the
+      // transition at the next frame boundary.
+      timestamp = lastExpirationTime + 16;
+    }
     myData->playerInputData.put(lastExpirationTime, timestamp, changedData);
     lastSendBuffer.push_back(
         make_tuple(lastExpirationTime, timestamp, changedData));

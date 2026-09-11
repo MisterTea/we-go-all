@@ -22,7 +22,8 @@ el::Configurations LogHandler::SetupLogHandler(int *argc, char ***argv) {
   defaultConf.setGlobally(el::ConfigurationType::Enabled, "true");
   defaultConf.setGlobally(el::ConfigurationType::SubsecondPrecision, "3");
   defaultConf.setGlobally(el::ConfigurationType::PerformanceTracking, "false");
-  defaultConf.setGlobally(el::ConfigurationType::LogFlushThreshold, "1");
+  // Flush periodically instead of every line to avoid I/O jitter during netplay.
+  defaultConf.setGlobally(el::ConfigurationType::LogFlushThreshold, "256");
   defaultConf.set(el::Level::Verbose, el::ConfigurationType::Format,
                   "[%levshort%vlevel %datetime %thread %fbase:%line] %msg");
   return defaultConf;

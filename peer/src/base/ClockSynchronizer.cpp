@@ -68,6 +68,11 @@ void ClockSynchronizer::updateDrift(int64_t requestSendTime,
         int64_t(
             (1000000 * timeHandler->getOffsetOptimizer()->getCurrentValue())) +
         baselineOffset;
+    // Once initial synchronization is complete, slew corrections instead of
+    // letting an asymmetric scheduling pause jump the shared clock.
+    int64_t const maxCorrection = 1000;
+    newTimeShift = oldTimeShift + std::clamp(
+        newTimeShift - oldTimeShift, -maxCorrection, maxCorrection);
     timeHandler->setTimeShift(newTimeShift);
     if (log) {
       auto timeShiftDifference = newTimeShift - oldTimeShift;

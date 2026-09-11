@@ -1,5 +1,18 @@
 cmake_minimum_required(VERSION 3.15.0)
 
+# Older vcpkg revisions emit a bare `-isysroot` when modern CMake leaves the
+# macOS SDK implicit. Resolve it before loading the vcpkg toolchain.
+if(CMAKE_HOST_APPLE AND NOT CMAKE_OSX_SYSROOT)
+  execute_process(
+    COMMAND xcrun --sdk macosx --show-sdk-path
+    OUTPUT_VARIABLE MAMEHUB_MACOS_SDK
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE MAMEHUB_XCRUN_RESULT)
+  if(MAMEHUB_XCRUN_RESULT EQUAL 0 AND IS_DIRECTORY "${MAMEHUB_MACOS_SDK}")
+    set(CMAKE_OSX_SYSROOT "${MAMEHUB_MACOS_SDK}" CACHE PATH "macOS SDK" FORCE)
+  endif()
+endif()
+
 # Enable vcpkg
 set(CMAKE_TOOLCHAIN_FILE
   "${CMAKE_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake")

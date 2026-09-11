@@ -78,4 +78,21 @@ TEST_CASE("ChronoMapSimple") {
   REQUIRE(v == "v3");
 }
 
+TEST_CASE("ChronoMapPruneHistory") {
+  ChronoMap<string, string> testMap;
+
+  // Build a changing history longer than HISTORY_RETENTION_MS.
+  for (int64_t t = 0; t < 20000; t += 10) {
+    testMap.put(t, t + 10, {{"k", std::to_string(t)}});
+  }
+
+  // Recent values inside the retention/cap window must still resolve.
+  REQUIRE(testMap.getOrDie(19990, "k") == "19990");
+  REQUIRE(testMap.getOrDie(18000, "k") == "18000");
+
+  // Values far older than the retention window are pruned away.
+  REQUIRE(testMap.get(0, "k") == nullopt);
+  REQUIRE(testMap.keyCount() == 1);
+}
+
 }  // namespace wga

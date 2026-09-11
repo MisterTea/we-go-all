@@ -2,13 +2,18 @@
 #define __TIME_HANDLER_H__
 
 #include "AdamOptimizer.hpp"
+#include "FrameBudget.hpp"
 #include "Headers.hpp"
 #include "SlidingWindowEstimator.hpp"
 
 namespace wga {
 class TimeHandler {
  public:
-  TimeHandler() : noiseShift(0), timeShift(0), offsetOptimizer(0, 0.1) {}
+  TimeHandler()
+      : noiseShift(0),
+        timeShift(0),
+        lastCurrentTime(std::numeric_limits<int64_t>::min()),
+        offsetOptimizer(0, 0.1) {}
 
   virtual ~TimeHandler() {}
 
@@ -23,7 +28,9 @@ class TimeHandler {
 
   int64_t currentTimeMicros() {
     lock_guard<recursive_mutex> guard(timeHandlerMutex);
-    return now() - (timeShift + noiseShift);
+    int64_t const candidate = now() - (timeShift + noiseShift);
+    lastCurrentTime = std::max(lastCurrentTime, candidate);
+    return lastCurrentTime;
   }
 
   int64_t getTimeShift() {
@@ -45,6 +52,7 @@ class TimeHandler {
 
   int64_t noiseShift;
   int64_t timeShift;
+  int64_t lastCurrentTime;
   recursive_mutex timeHandlerMutex;
   SlidingWindowEstimator offsetEstimator;
   AdamOptimizer offsetOptimizer;
