@@ -45,22 +45,14 @@ class ChronoMap {
 
   void put(int64_t startTime, int64_t endTime, unordered_map<K, V> data) {
     lock_guard<mutex> lk(dataReadyMutex);
-    if (startTime < 0) {
-      LOGFATAL << "Tried to put before start time";
-    }
-    if (startTime < expirationTime) {
-      VLOG(1) << "Tried to add a time interval that overlaps";
-      return;
-    }
-    if (startTime >= endTime) {
-      LOGFATAL << "Invalid start/end time: " << startTime << " " << endTime;
-    }
-    if (startTime != expirationTime) {
-      futureData.insert(
-          make_pair(startTime, make_tuple(startTime, endTime, data)));
-    } else {
-      addNextTimeBlock(startTime, endTime, data);
-    }
+    putUnlocked(startTime, endTime, std::move(data));
+  }
+
+  // Same as put(); named for call sites that receive remote intervals.
+  // Out-of-order maps park in futureData until contiguous; never invent gaps.
+  void putFromNetwork(int64_t startTime, int64_t endTime,
+                      unordered_map<K, V> data) {
+    put(startTime, endTime, std::move(data));
   }
 
   optional<V> get(int64_t timestamp, const K& key) const {
@@ -218,6 +210,29 @@ class ChronoMap {
         history.emplace(cutoff, std::move(baseline));
       }
     }
+  }
+
+  void putUnlocked(int64_t startTime, int64_t endTime, unordered_map<K, V> data) {
+    if (startTime < 0) {
+      LOGFATAL << "Tried to put before start time";
+    }
+    if (endTime <= expirationTime) {
+      return;
+    }
+    if (startTime < expirationTime) {
+      VLOG(1) << "Clamping overlapping put " << startTime << "->" << endTime
+              << " to " << expirationTime << "->" << endTime;
+      startTime = expirationTime;
+    }
+    if (startTime >= endTime) {
+      return;
+    }
+    if (startTime != expirationTime) {
+      futureData.insert(
+          make_pair(startTime, make_tuple(startTime, endTime, data)));
+      return;
+    }
+    addNextTimeBlock(startTime, endTime, data);
   }
 };
 }  // namespace wga

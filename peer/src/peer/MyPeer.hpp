@@ -68,6 +68,10 @@ class MyPeer {
   // Snapshot of our own latest published input values (for keepalive resend).
   unordered_map<string, string> getMyLatestInputValues();
 
+  // If our local ChronoMap does not yet cover timestamp, publish latest state
+  // through at least timestamp+1 (and preferably the normal delay horizon).
+  void ensureLocalInputCoverageThrough(int64_t timestamp);
+
   // TODO: This causes collisions and should be removed
   unordered_map<string, string> getFullState(int64_t timestamp);
 
@@ -91,6 +95,14 @@ class MyPeer {
   bool isHosting() { return hosting; }
 
   int getPosition() { return position; }
+
+  // Game seat for any peer id (host is always 0). Returns -1 if unknown.
+  int getPeerPosition(const string& peerId) const {
+    auto it = peerPositions.find(peerId);
+    return it == peerPositions.end() ? -1 : it->second;
+  }
+
+  string getMyUserId() const { return userId; }
 
   string getMyUserName() { return name; }
 
@@ -125,6 +137,7 @@ class MyPeer {
   std::atomic<bool> inputPublisherEnabled{false};
   set<udp::endpoint> stunEndpoints;
   int position;
+  map<string, int> peerPositions;
 
   vector<string> getMyIps();
   void updateEndpointServerHttp();

@@ -6,7 +6,9 @@
 #include "StunClient.hpp"
 #include "TimeHandler.hpp"
 
-#define INPUT_SEND_WINDOW_SIZE (3)
+// Keep enough recent intervals so a briefly stalled peer can still receive the
+// contiguous piece that unlocks ChronoMap futureData after a UDP loss.
+#define INPUT_SEND_WINDOW_SIZE (16)
 
 namespace wga {
 MyPeer::MyPeer(const string& _userId, const PrivateKey& _privateKey,
@@ -381,10 +383,12 @@ void MyPeer::getInitialPosition() {
     }
   }
   sort(peerIds.begin(), peerIds.end()); 
-  // Make sure the host is always player 1
+  // Make sure the host is always player 0
   peerIds.insert(peerIds.begin(), hostId);
+  peerPositions.clear();
   for (auto& peerId : peerIds) {
     auto& peerDataValue = peerData[peerId];
+    peerPositions[peerId] = a;
     if (peerId == userId) {
       if (position != -1) {
         LOGFATAL << "Got multiple peers with the same user id: " << peerId
@@ -581,109 +585,91 @@ void MyPeer::update(const asio::error_code& error) {
   if (error) {
     LOG(FATAL) << "Peer Update error: " << error.message();
   }
-  lock_guard<recursive_mutex> guard(peerDataMutex);
-  if (rpcServer.get() == NULL) {
-    // Connection has finished
-    return;
-  }
-  VLOG(1) << "UPDATE START";
 
-  if (updateCounter % 1000 == 0) {
-    // Per-second update
-    // updateEndpointServerHttp();
-    LOG(INFO) << "UPDATING";
-    string path = string("/api/get_game_info/") + gameId;
-    // TODO: This doesn't work yet because async calls require external
-    // io_service
-    /*
-    client->request(
-        "GET", path,
-        [this](shared_ptr<HttpClient::Response> response,
-               const SimpleWeb::error_code& ec) {
-          LOG(INFO) << "GOT GAME INFO";
-          lock_guard<recursive_mutex> guard(peerDataMutex);
-          auto result = json::parse(response->content.string());
-          // Iterate over peer data and update peers
-          auto peerDataObject = result["peerData"];
-          for (json::iterator it = peerDataObject.begin();
-               it != peerDataObject.end(); ++it) {
-            LOG(INFO) << it.key() << " : " << it.value() << "\n";
-            if (it.key() == userId) {
-              continue;
-            }
-            vector<udp::endpoint> endpoints;
-            for (json::iterator it2 = it.value()["endpoints"].begin();
-                 it2 != it.value()["endpoints"].end(); ++it2) {
-              string endpointString = *it2;
-              vector<string> tokens = split(endpointString, ':');
-              auto newEndpoints =
-                  netEngine->resolve(tokens.at(0), tokens.at(1));
-              for (auto newEndpoint : newEndpoints) {
-                endpoints.push_back(newEndpoint);
-              }
-            }
-
-            auto endpointHandler = rpcServer->getEndpointHandler(it.key());
-            endpointHandler->addEndpoints(endpoints);
-          }
-        });
-        */
-  }
-
-  bool ready = rpcServer->readyToSend();
-  if ((!ready && (updateCounter % 10 == 0)) || (updateCounter % 100 == 0)) {
-    VLOG(1) << "CALLING HEARTBEAT";
-    rpcServer->heartbeat();
-  }
-
-  for (const auto& it : peerData) {
-    auto peerKey = it.first;
-    if (peerKey == userId) {
-      continue;
+  bool shuttingDownLocal = false;
+  {
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    if (rpcServer.get() == NULL) {
+      // Connection has finished
+      return;
     }
-    auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
-    while (endpointHandler->hasIncomingRequest()) {
-      auto idPayload = endpointHandler->getFirstIncomingRequest();
-      MessageReader reader;
-      reader.load(idPayload.payload);
-      for (int a = 0; a < INPUT_SEND_WINDOW_SIZE; a++) {
-        int64_t startTime = reader.readPrimitive<int64_t>();
-        int64_t endTime = reader.readPrimitive<int64_t>();
-        unordered_map<string, string> m =
-            reader.readMap<unordered_map<string, string>>();
-        LOG_EVERY_N(60, INFO)
-            << "GOT INPUTS: " << peerKey << " " << startTime << " " << endTime;
-        {
-          lock_guard<recursive_mutex> guard(peerDataMutex);
-          peerData[peerKey]->playerInputData.put(startTime, endTime, m);
-        }
+    VLOG(1) << "UPDATE START";
+
+    if (updateCounter % 1000 == 0) {
+      LOG(INFO) << "UPDATING";
+    }
+
+    bool ready = rpcServer->readyToSend();
+    if ((!ready && (updateCounter % 10 == 0)) || (updateCounter % 100 == 0)) {
+      VLOG(1) << "CALLING HEARTBEAT";
+      rpcServer->heartbeat();
+    }
+
+    for (const auto& it : peerData) {
+      auto peerKey = it.first;
+      if (peerKey == userId) {
+        continue;
       }
-      endpointHandler->replyOneWay(idPayload.id);
+      auto endpointHandler = rpcServer->getEndpointHandler(peerKey);
+      while (endpointHandler->hasIncomingRequest()) {
+        auto idPayload = endpointHandler->getFirstIncomingRequest();
+        MessageReader reader;
+        reader.load(idPayload.payload);
+        for (int a = 0; a < INPUT_SEND_WINDOW_SIZE; a++) {
+          int64_t startTime = reader.readPrimitive<int64_t>();
+          int64_t endTime = reader.readPrimitive<int64_t>();
+          unordered_map<string, string> m =
+              reader.readMap<unordered_map<string, string>>();
+          LOG_EVERY_N(60, INFO)
+              << "GOT INPUTS: " << peerKey << " " << startTime << " " << endTime;
+          peerData[peerKey]->playerInputData.putFromNetwork(startTime, endTime,
+                                                            m);
+        }
+        endpointHandler->replyOneWay(idPayload.id);
+      }
+      while (endpointHandler->hasIncomingReply()) {
+        auto idPayload = endpointHandler->getFirstIncomingReply();
+        // We don't need to handle replies
+      }
     }
-    while (endpointHandler->hasIncomingReply()) {
-      auto idPayload = endpointHandler->getFirstIncomingReply();
-      // We don't need to handle replies
-    }
+
+    updateCounter++;
+    shuttingDownLocal = shuttingDown;
+    VLOG(1) << "UPDATE END";
   }
 
-  // Input coverage must not depend on the emulation thread making progress.
-  // Publish the last sampled state through the desired input-delay horizon.
-  if (inputPublisherEnabled.load() && (updateCounter % 4 == 0) && myData) {
+  // Publish outside peerDataMutex so broadcast / ChronoMap waits on the emu
+  // thread are not blocked for the whole update tick.
+  if (inputPublisherEnabled.load() && (updateCounter % 8 == 0)) {
     int64_t const relativeMs =
         (GlobalClock::currentTimeMicros() - inputEpochMicros.load()) / 1000;
-    int64_t target = relativeMs + inputPublisherDelayMs.load();
-    // Leave the next 16 ms boundary available for a newly sampled transition.
-    target -= target % 16;
-    int64_t const expiration = myData->playerInputData.getExpirationTime();
+    // Stay ahead of machine-time reads by delay+slack. Cap per-tick catch-up so
+    // a single UDP datagram does not carry an enormous irreplaceable jump.
+    constexpr int64_t kPublisherSlackMs = 128;
+    constexpr int64_t kMaxCatchUpMs = 96;
+    int64_t target =
+        relativeMs + inputPublisherDelayMs.load() + kPublisherSlackMs;
+    target = (target - (target % 16)) + 16;
+    int64_t expiration = 0;
+    {
+      lock_guard<recursive_mutex> guard(peerDataMutex);
+      if (myData) {
+        expiration = myData->playerInputData.getExpirationTime();
+      }
+    }
     if (target > expiration && expiration > 1) {
-      updateState(target, getMyLatestInputValues());
+      int64_t capped = expiration + kMaxCatchUpMs;
+      if (capped > target) {
+        capped = target;
+      }
+      capped = (capped - (capped % 16)) + 16;
+      if (capped > expiration) {
+        updateState(capped, getMyLatestInputValues());
+      }
     }
   }
 
-  updateCounter++;
-  VLOG(1) << "UPDATE END";
-
-  if (!shuttingDown) {
+  if (!shuttingDownLocal) {
     // A delayed callback must not enqueue one immediate callback for every
     // missed millisecond; that catch-up storm prolongs a brief scheduling stall.
     updateTimer->expires_after(asio::chrono::milliseconds(1));
@@ -691,6 +677,7 @@ void MyPeer::update(const asio::error_code& error) {
         std::bind(&MyPeer::update, this, std::placeholders::_1));
   } else {
     LOG(ERROR) << "Shutting down, stopping updates";
+    lock_guard<recursive_mutex> guard(peerDataMutex);
     updateFinished = true;
   }
 }
@@ -746,18 +733,21 @@ bool MyPeer::hasInputValuesAt(int64_t timestamp) {
   if (isGameOver()) {
     return false;
   }
-  bool anyPeer = false;
+  bool anyRemote = false;
   for (auto& it : peerData) {
     auto peerId = it.first;
-    if (rpcServer->isPeerShutDown(peerId)) {
+    // Local coverage is maintained by the publisher / ensureLocal*; reads must
+    // not block on ourselves.
+    if (peerId == userId || rpcServer->isPeerShutDown(peerId)) {
       continue;
     }
-    anyPeer = true;
+    anyRemote = true;
     if (timestamp >= it.second->playerInputData.getExpirationTime()) {
       return false;
     }
   }
-  return anyPeer;
+  // Single-peer / host-only: nothing remote to wait on.
+  return true;
 }
 
 bool MyPeer::waitForInputValuesAt(int64_t timestamp, int timeoutMs) {
@@ -768,7 +758,7 @@ bool MyPeer::waitForInputValuesAt(int64_t timestamp, int timeoutMs) {
                         chrono::milliseconds(timeoutMs);
   for (auto& it : peerData) {
     auto const& peerId = it.first;
-    if (rpcServer->isPeerShutDown(peerId)) {
+    if (peerId == userId || rpcServer->isPeerShutDown(peerId)) {
       continue;
     }
     while (timestamp >= it.second->playerInputData.getExpirationTime()) {
@@ -807,6 +797,31 @@ unordered_map<string, string> MyPeer::getMyLatestInputValues() {
     return {};
   }
   return myData->playerInputData.getAll(expiration - 1);
+}
+
+void MyPeer::ensureLocalInputCoverageThrough(int64_t timestamp) {
+  if (!inputPublisherEnabled.load() || !myData) {
+    return;
+  }
+  int64_t expiration;
+  {
+    lock_guard<recursive_mutex> guard(peerDataMutex);
+    expiration = myData->playerInputData.getExpirationTime();
+  }
+  if (expiration > timestamp) {
+    return;
+  }
+  int64_t const relativeMs =
+      (GlobalClock::currentTimeMicros() - inputEpochMicros.load()) / 1000;
+  constexpr int64_t kPublisherSlackMs = 128;
+  int64_t target =
+      relativeMs + inputPublisherDelayMs.load() + kPublisherSlackMs;
+  target = (target - (target % 16)) + 16;
+  // Must cover the requested read timestamp (hasInputValuesAt skips self).
+  if (target <= timestamp) {
+    target = ((timestamp - (timestamp % 16)) + 16);
+  }
+  updateState(target, getMyLatestInputValues());
 }
 
 unordered_map<string, string> MyPeer::getStateChanges(

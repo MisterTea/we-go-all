@@ -78,6 +78,39 @@ TEST_CASE("ChronoMapSimple") {
   REQUIRE(v == "v3");
 }
 
+TEST_CASE("ChronoMapOverlapExtendsFrontier") {
+  ChronoMap<string, string> testMap;
+  testMap.put(0, 100, {{"k", "a"}});
+  REQUIRE(testMap.getExpirationTime() == 100);
+
+  // Rebroadcast that starts in the past but extends past the frontier must
+  // advance coverage (not be dropped).
+  testMap.put(80, 200, {{"k", "b"}});
+  REQUIRE(testMap.getExpirationTime() == 200);
+  REQUIRE(testMap.getOrDie(99, "k") == "a");
+  REQUIRE(testMap.getOrDie(100, "k") == "b");
+  REQUIRE(testMap.getOrDie(199, "k") == "b");
+
+  // Fully obsolete overlap remains a no-op.
+  testMap.put(50, 150, {{"k", "c"}});
+  REQUIRE(testMap.getExpirationTime() == 200);
+  REQUIRE(testMap.getOrDie(100, "k") == "b");
+}
+
+TEST_CASE("ChronoMapNetworkGapParksUntilContiguous") {
+  ChronoMap<string, string> testMap;
+  testMap.put(0, 100, {{"k", "a"}});
+  // Lost packet: later interval must not invent coverage for the hole.
+  testMap.putFromNetwork(200, 300, {{"k", "b"}});
+  REQUIRE(testMap.getExpirationTime() == 100);
+
+  // Contiguous rebroadcast of the missing piece unlocks the parked interval.
+  testMap.putFromNetwork(100, 200, {{"k", "a"}});
+  REQUIRE(testMap.getExpirationTime() == 300);
+  REQUIRE(testMap.getOrDie(150, "k") == "a");
+  REQUIRE(testMap.getOrDie(250, "k") == "b");
+}
+
 TEST_CASE("ChronoMapPruneHistory") {
   ChronoMap<string, string> testMap;
 
