@@ -32,7 +32,7 @@ thread_local inline int64_t vblankWaitUs = 0;
 thread_local inline int vblankSamples = 0;
 
 inline int64_t threadCpuUs() {
-	timespec ts{};
+	::timespec ts{};
 	if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) != 0)
 		return 0;
 	return int64_t(ts.tv_sec) * 1000000 + ts.tv_nsec / 1000;
